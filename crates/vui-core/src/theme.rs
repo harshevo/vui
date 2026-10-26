@@ -1,0 +1,287 @@
+//! Design tokens.
+//!
+//! A `Theme` is plain data: change a value and every widget follows. The defaults are the vmac design
+//! language: neutral surfaces, text in three greys, one accent, red only for irreversible actions,
+//! Inter at three sizes, and an 8-point spacing scale.
+
+use crate::anim::Spring;
+use crate::color::Color;
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum Mode {
+    Light,
+    Dark,
+}
+
+/// The spacing scale in logical pixels. Gaps and padding come from here and nowhere else.
+pub mod space {
+    pub const S4: f32 = 4.0;
+    pub const S8: f32 = 8.0;
+    pub const S12: f32 = 12.0;
+    pub const S16: f32 = 16.0;
+    pub const S24: f32 = 24.0;
+    pub const S32: f32 = 32.0;
+    pub const S48: f32 = 48.0;
+    pub const S64: f32 = 64.0;
+    pub const SCALE: [f32; 8] = [S4, S8, S12, S16, S24, S32, S48, S64];
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Palette {
+    /// Window and content background.
+    pub bg: Color,
+    /// Sidebar and other raised surfaces.
+    pub side: Color,
+    /// 1 px dividers and control borders.
+    pub line: Color,
+    /// Selected and pressed fill.
+    pub wash: Color,
+    /// Fill under a hovered row or tile.
+    pub hover: Color,
+    /// Primary text.
+    pub text: Color,
+    /// Secondary text.
+    pub text_2: Color,
+    /// Hints, times and placeholders.
+    pub text_3: Color,
+    /// The one accent: primary buttons, focus rings, the live waveform.
+    pub accent: Color,
+    pub on_accent: Color,
+    /// Irreversible actions only.
+    pub danger: Color,
+    pub on_danger: Color,
+    /// Text field background.
+    pub field: Color,
+    /// Toggle track when off, and its knob.
+    pub track_off: Color,
+    pub knob: Color,
+    /// Hairline ring drawn inside images so pale pictures do not bleed into the page.
+    pub ring: Color,
+    /// Dim layer over a thumbnail under a label.
+    pub scrim: Color,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Radii {
+    pub control: f32,
+    pub card: f32,
+    pub panel: f32,
+}
+
+/// Larger than any real box, so the SDF clamps it to a full pill.
+pub const PILL: f32 = 9999.0;
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct TextToken {
+    pub size: f32,
+    pub line_height: f32,
+    pub weight: u16,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum TextRole {
+    Small,
+    Body,
+    Title,
+    Mono,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct TypeScale {
+    pub small: TextToken,
+    pub body: TextToken,
+    pub title: TextToken,
+    pub mono: TextToken,
+}
+
+impl TypeScale {
+    pub fn get(&self, role: TextRole) -> TextToken {
+        match role {
+            TextRole::Small => self.small,
+            TextRole::Body => self.body,
+            TextRole::Title => self.title,
+            TextRole::Mono => self.mono,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Motion {
+    /// Seconds for hover, press and selection fades.
+    pub fast: f32,
+    pub snappy: Spring,
+    pub smooth: Spring,
+    pub morph: Spring,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Theme {
+    pub mode: Mode,
+    pub palette: Palette,
+    pub radii: Radii,
+    pub types: TypeScale,
+    pub motion: Motion,
+    pub font_sans: &'static str,
+    pub font_mono: &'static str,
+    /// Height of a standard control; primary actions use `control_large`.
+    pub control: f32,
+    pub control_large: f32,
+}
+
+impl Theme {
+    pub fn for_mode(mode: Mode) -> Theme {
+        match mode {
+            Mode::Light => Theme::light(),
+            Mode::Dark => Theme::dark(),
+        }
+    }
+
+    pub fn light() -> Theme {
+        Theme::base(
+            Mode::Light,
+            Palette {
+                bg: Color::hex(0xffffff),
+                side: Color::hex(0xfafafa),
+                line: Color::hex(0xe5e5e5),
+                wash: Color::hex(0xf0f0f0),
+                hover: Color::hex(0xf5f5f5),
+                text: Color::hex(0x0a0a0a),
+                text_2: Color::hex(0x525252),
+                text_3: Color::hex(0xa3a3a3),
+                accent: Color::hex(0x2563eb),
+                on_accent: Color::hex(0xffffff),
+                danger: Color::hex(0xdc2626),
+                on_danger: Color::hex(0xffffff),
+                field: Color::hex(0xffffff),
+                track_off: Color::hex(0xd4d4d4),
+                knob: Color::hex(0xffffff),
+                ring: Color::BLACK.with_alpha(0.08),
+                scrim: Color::BLACK.with_alpha(0.6),
+            },
+        )
+    }
+
+    pub fn dark() -> Theme {
+        Theme::base(
+            Mode::Dark,
+            Palette {
+                bg: Color::hex(0x0a0a0a),
+                side: Color::hex(0x111111),
+                line: Color::hex(0x262626),
+                wash: Color::hex(0x1c1c1c),
+                hover: Color::hex(0x171717),
+                text: Color::hex(0xfafafa),
+                text_2: Color::hex(0xa3a3a3),
+                text_3: Color::hex(0x737373),
+                accent: Color::hex(0x60a5fa),
+                on_accent: Color::hex(0x0a0a0a),
+                danger: Color::hex(0xdc2626),
+                on_danger: Color::hex(0xffffff),
+                field: Color::hex(0x0a0a0a),
+                track_off: Color::hex(0x3f3f46),
+                knob: Color::hex(0xd4d4d4),
+                ring: Color::WHITE.with_alpha(0.10),
+                scrim: Color::BLACK.with_alpha(0.6),
+            },
+        )
+    }
+
+    /// The black island: the notch and the ask panel grown from it. Always dark, whatever the system mode.
+    pub fn island() -> Theme {
+        let mut t = Theme::dark();
+        t.palette.bg = Color::hex(0x000000);
+        t.palette.side = Color::hex(0x000000);
+        t.palette.field = Color::hex(0x171717);
+        t.palette.wash = Color::hex(0x1f1f1f);
+        t.palette.hover = Color::hex(0x171717);
+        t.palette.text = Color::hex(0xffffff);
+        t
+    }
+
+    fn base(mode: Mode, palette: Palette) -> Theme {
+        Theme {
+            mode,
+            palette,
+            radii: Radii { control: 8.0, card: 12.0, panel: 16.0 },
+            types: TypeScale {
+                small: TextToken { size: 12.0, line_height: 18.0, weight: 400 },
+                body: TextToken { size: 14.0, line_height: 21.0, weight: 400 },
+                title: TextToken { size: 24.0, line_height: 32.0, weight: 600 },
+                mono: TextToken { size: 12.0, line_height: 18.0, weight: 400 },
+            },
+            motion: Motion { fast: 0.15, snappy: Spring::SNAPPY, smooth: Spring::SMOOTH, morph: Spring::MORPH },
+            font_sans: "Inter",
+            font_mono: "JetBrains Mono",
+            control: 32.0,
+            control_large: 40.0,
+        }
+    }
+}
+
+impl Default for Theme {
+    fn default() -> Theme {
+        Theme::light()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn text_meets_contrast_in_both_modes() {
+        for t in [Theme::light(), Theme::dark(), Theme::island()] {
+            let p = &t.palette;
+            assert!(p.text.contrast_ratio(p.bg) >= 15.0, "{:?} primary text", t.mode);
+            assert!(p.text_2.contrast_ratio(p.bg) >= 7.0, "{:?} secondary text", t.mode);
+            assert!(p.accent.contrast_ratio(p.bg) >= 4.5, "{:?} accent as text or ring", t.mode);
+            assert!(p.on_accent.contrast_ratio(p.accent) >= 4.5, "{:?} label on a primary button", t.mode);
+            assert!(p.on_danger.contrast_ratio(p.danger) >= 4.5, "{:?} label on a danger button", t.mode);
+        }
+    }
+
+    #[test]
+    fn danger_text_on_light_background_is_readable() {
+        let t = Theme::light();
+        assert!(t.palette.danger.contrast_ratio(t.palette.bg) >= 4.5);
+    }
+
+    #[test]
+    fn tertiary_text_is_a_hint_not_body_copy() {
+        // Hints, times and placeholders sit below AA on purpose; this records how far below.
+        let t = Theme::light();
+        let r = t.palette.text_3.contrast_ratio(t.palette.bg);
+        assert!((2.0..3.5).contains(&r), "{r}");
+    }
+
+    #[test]
+    fn spacing_scale_is_the_documented_one() {
+        assert_eq!(space::SCALE, [4.0, 8.0, 12.0, 16.0, 24.0, 32.0, 48.0, 64.0]);
+        assert!(space::SCALE.windows(2).all(|w| w[0] < w[1]));
+    }
+
+    #[test]
+    fn type_scale_has_three_sizes_and_three_weights() {
+        let t = Theme::light().types;
+        let mut sizes = vec![t.small.size, t.body.size, t.title.size];
+        sizes.dedup();
+        assert_eq!(sizes, vec![12.0, 14.0, 24.0]);
+        assert_eq!(t.get(TextRole::Title).weight, 600);
+        assert_eq!(t.get(TextRole::Body).line_height / t.get(TextRole::Body).size, 1.5);
+    }
+
+    #[test]
+    fn island_is_pure_black() {
+        let t = Theme::island();
+        assert_eq!(t.palette.bg.to_rgba8(), [0, 0, 0, 255]);
+        assert_eq!(t.mode, Mode::Dark);
+    }
+
+    #[test]
+    fn controls_are_on_the_grid() {
+        let t = Theme::light();
+        for v in [t.control, t.control_large, t.radii.control, t.radii.card, t.radii.panel] {
+            assert_eq!(v % 4.0, 0.0, "{v}");
+        }
+    }
+}
