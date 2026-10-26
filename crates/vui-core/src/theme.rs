@@ -66,6 +66,8 @@ pub struct Radii {
     pub control: f32,
     pub card: f32,
     pub panel: f32,
+    /// How continuous the corners are, 0 (circular) to 1 (squircle).
+    pub smooth: f32,
 }
 
 /// Larger than any real box, so the SDF clamps it to a full pill.
@@ -202,7 +204,7 @@ impl Theme {
         Theme {
             mode,
             palette,
-            radii: Radii { control: 8.0, card: 12.0, panel: 16.0 },
+            radii: Radii { control: 8.0, card: 12.0, panel: 16.0, smooth: 0.6 },
             types: TypeScale {
                 small: TextToken { size: 12.0, line_height: 18.0, weight: 400 },
                 body: TextToken { size: 14.0, line_height: 21.0, weight: 400 },

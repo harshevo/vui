@@ -8,6 +8,12 @@ members = [
     "examples/gallery",
 ]
 
+[workspace.dependencies]
+wgpu = "30.0.1"
+bytemuck = { version = "1", features = ["derive"] }
+pollster = "1"
+png = "0.18"
+
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
