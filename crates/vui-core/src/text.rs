@@ -41,6 +41,8 @@ pub enum TextWrap {
     /// Break at word boundaries, and inside a word only if it is wider than the line.
     #[default]
     Words,
+    /// Break at word boundaries only: a word wider than the line overflows it.
+    WordsOnly,
     /// One line, however long.
     None,
 }
@@ -364,6 +366,7 @@ impl Fonts {
         buffer.set_size(max_width, None);
         buffer.set_wrap(match style.wrap {
             TextWrap::Words => Wrap::WordOrGlyph,
+            TextWrap::WordsOnly => Wrap::Word,
             TextWrap::None => Wrap::None,
         });
         if let Some(n) = style.max_lines {
@@ -417,6 +420,15 @@ impl Fonts {
 
     pub fn measure(&self, text: &str, style: &TextStyle, max_width: Option<f32>) -> Size {
         self.layout_cached(text, style, max_width).size()
+    }
+
+    /// The narrowest the text can be wrapped without cutting a word: the width of its longest
+    /// unbreakable run. Layout uses it as the least a line of text can shrink to.
+    pub fn min_content_width(&self, text: &str, style: &TextStyle) -> f32 {
+        let mut narrow = style.clone();
+        narrow.wrap = TextWrap::WordsOnly;
+        narrow.max_lines = None;
+        self.layout_cached(text, &narrow, Some(0.0)).size().w
     }
 
     /// Call once per frame: drops layouts nobody has asked for in the last two frames.
@@ -499,6 +511,31 @@ mod tests {
         let l = fonts.layout("a very long single line of text that would otherwise wrap", &body().no_wrap(), Some(60.0));
         assert_eq!(l.line_count(), 1);
         assert!(l.size().w > 60.0);
+    }
+
+    #[test]
+    fn min_content_is_the_longest_unbreakable_word() {
+        let fonts = Fonts::bundled_only();
+        let one_line = |s: &str| fonts.layout(s, &body().no_wrap(), None).size().w;
+        let min = fonts.min_content_width("a wonderful little world", &body());
+        assert!((min - one_line("wonderful")).abs() < 0.5, "{min} vs {}", one_line("wonderful"));
+        assert_eq!(fonts.min_content_width("", &body()), 0.0);
+        // ellipsis limits do not make the text narrower than its words
+        let capped = fonts.min_content_width("a wonderful little world", &body().max_lines(1));
+        assert_eq!(capped, min);
+    }
+
+    #[test]
+    fn words_only_wrapping_never_cuts_a_word() {
+        let fonts = Fonts::bundled_only();
+        let mut style = body();
+        style.wrap = TextWrap::WordsOnly;
+        let long = "abcdefghijklmnopqrstuvwxyz";
+        let l = fonts.layout(long, &style, Some(40.0));
+        assert_eq!(l.line_count(), 1);
+        assert!(l.size().w > 40.0, "the word overflows instead of breaking: {}", l.size().w);
+        // the default still breaks a word that cannot fit
+        assert!(fonts.layout(long, &body(), Some(40.0)).line_count() > 1);
     }
 
     #[test]

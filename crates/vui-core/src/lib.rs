@@ -23,4 +23,4 @@ pub use input::{CursorIcon, Event, ImeEvent, Key, KeyEvent, Modifiers, NamedKey,
 pub use resources::Resources;
 pub use scene::{Border, Command, ImageCmd, ImageMode, Quad, Sampling, Scene, TextCmd};
 pub use text::{FontFamily, Fonts, TextAlign, TextLayout, TextStyle, TextWrap};
-pub use theme::{Mode, Palette, TextRole, Theme, space};
+pub use theme::{Fill, Mode, Palette, TextRole, Theme, Tone, space};

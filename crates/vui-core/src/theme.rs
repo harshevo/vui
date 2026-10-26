@@ -61,6 +61,103 @@ pub struct Palette {
     pub scrim: Color,
 }
 
+/// A palette entry by name. Widgets hold a `Tone`, not a colour, so switching between light and dark
+/// repaints them without rebuilding anything.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum Tone {
+    Bg,
+    Side,
+    Line,
+    Wash,
+    Hover,
+    Text,
+    Text2,
+    Text3,
+    Accent,
+    OnAccent,
+    Danger,
+    OnDanger,
+    Field,
+    TrackOff,
+    Knob,
+    Ring,
+    Scrim,
+}
+
+impl Palette {
+    pub fn get(&self, tone: Tone) -> Color {
+        match tone {
+            Tone::Bg => self.bg,
+            Tone::Side => self.side,
+            Tone::Line => self.line,
+            Tone::Wash => self.wash,
+            Tone::Hover => self.hover,
+            Tone::Text => self.text,
+            Tone::Text2 => self.text_2,
+            Tone::Text3 => self.text_3,
+            Tone::Accent => self.accent,
+            Tone::OnAccent => self.on_accent,
+            Tone::Danger => self.danger,
+            Tone::OnDanger => self.on_danger,
+            Tone::Field => self.field,
+            Tone::TrackOff => self.track_off,
+            Tone::Knob => self.knob,
+            Tone::Ring => self.ring,
+            Tone::Scrim => self.scrim,
+        }
+    }
+}
+
+/// A colour that is either fixed or taken from the theme when it is drawn.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Fill {
+    Solid(Color),
+    /// A palette entry, with its alpha multiplied by the second value.
+    Tone(Tone, f32),
+}
+
+impl Fill {
+    pub const NONE: Fill = Fill::Solid(Color::TRANSPARENT);
+
+    pub fn resolve(self, palette: &Palette) -> Color {
+        match self {
+            Fill::Solid(c) => c,
+            Fill::Tone(t, a) => {
+                let c = palette.get(t);
+                c.with_alpha(c.a * a)
+            }
+        }
+    }
+
+    /// The same fill at `alpha` times its own opacity.
+    pub fn alpha(self, alpha: f32) -> Fill {
+        match self {
+            Fill::Solid(c) => Fill::Solid(c.with_alpha(c.a * alpha)),
+            Fill::Tone(t, a) => Fill::Tone(t, a * alpha),
+        }
+    }
+
+    /// True when nothing would be drawn whatever the theme: a fully transparent solid colour.
+    pub fn is_none(self) -> bool {
+        match self {
+            Fill::Solid(c) => c.a <= 0.0,
+            Fill::Tone(_, a) => a <= 0.0,
+        }
+    }
+}
+
+impl From<Color> for Fill {
+    fn from(c: Color) -> Fill {
+        Fill::Solid(c)
+    }
+}
+
+impl From<Tone> for Fill {
+    fn from(t: Tone) -> Fill {
+        Fill::Tone(t, 1.0)
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Radii {
     pub control: f32,
@@ -270,6 +367,28 @@ mod tests {
         assert_eq!(sizes, vec![12.0, 14.0, 24.0]);
         assert_eq!(t.get(TextRole::Title).weight, 600);
         assert_eq!(t.get(TextRole::Body).line_height / t.get(TextRole::Body).size, 1.5);
+    }
+
+    #[test]
+    fn fills_follow_the_theme_and_scale_alpha() {
+        let (light, dark) = (Theme::light().palette, Theme::dark().palette);
+        let f = Fill::from(Tone::Accent);
+        assert_eq!(f.resolve(&light), light.accent);
+        assert_eq!(f.resolve(&dark), dark.accent);
+        assert_ne!(f.resolve(&light), f.resolve(&dark));
+        let faint = f.alpha(0.5).alpha(0.5);
+        assert!((faint.resolve(&light).a - 0.25).abs() < 1e-6);
+        assert!((Fill::from(Color::WHITE.with_alpha(0.5)).alpha(0.5).resolve(&light).a - 0.25).abs() < 1e-6);
+        assert!(Fill::NONE.is_none() && !f.is_none() && f.alpha(0.0).is_none());
+    }
+
+    #[test]
+    fn every_tone_reads_its_palette_entry() {
+        let p = Theme::light().palette;
+        assert_eq!(p.get(Tone::Bg), p.bg);
+        assert_eq!(p.get(Tone::Text2), p.text_2);
+        assert_eq!(p.get(Tone::Scrim), p.scrim);
+        assert_eq!(p.get(Tone::Ring), p.ring);
     }
 
     #[test]

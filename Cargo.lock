@@ -1310,6 +1310,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "vui-runtime"
+version = "0.1.0"
+dependencies = [
+ "vui-core",
+]
+
+[[package]]
 name = "vui-widgets"
 version = "0.1.0"
 
