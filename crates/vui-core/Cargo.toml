@@ -5,3 +5,5 @@ edition.workspace = true
 publish.workspace = true
 
 [dependencies]
+vui-fonts = { path = "../vui-fonts" }
+cosmic-text.workspace = true

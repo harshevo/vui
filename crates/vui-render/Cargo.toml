@@ -8,5 +8,6 @@ publish.workspace = true
 vui-core = { path = "../vui-core" }
 wgpu.workspace = true
 bytemuck.workspace = true
+glyphon.workspace = true
 pollster.workspace = true
 png.workspace = true

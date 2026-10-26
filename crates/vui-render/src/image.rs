@@ -70,7 +70,9 @@ impl Image {
         }
         let mut max = 0u8;
         let mut bad = 0usize;
-        for (a, b) in self.rgba.chunks_exact(4).zip(other.rgba.chunks_exact(4)) {
+        let (mine, _) = self.rgba.as_chunks::<4>();
+        let (theirs, _) = other.rgba.as_chunks::<4>();
+        for (a, b) in mine.iter().zip(theirs) {
             let d = a.iter().zip(b).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
             max = max.max(d);
             if d > tolerance {

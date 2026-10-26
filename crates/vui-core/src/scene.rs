@@ -4,8 +4,11 @@
 //! means painting is testable without a GPU (assert on the commands) and the same scene can be
 //! rendered headless, to a window, or to a texture for a screenshot.
 
+use std::rc::Rc;
+
 use crate::color::Color;
-use crate::geom::{Corners, Rect, Size};
+use crate::geom::{Corners, Point, Rect, Size};
+use crate::text::TextLayout;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Border {
@@ -58,9 +61,20 @@ impl Quad {
     }
 }
 
+/// Shaped text drawn with its top-left corner at `origin`.
+#[derive(Clone, Debug)]
+pub struct TextCmd {
+    pub layout: Rc<TextLayout>,
+    pub origin: Point,
+    pub color: Color,
+    /// Anything outside this rect (logical pixels) is cut away.
+    pub clip: Option<Rect>,
+}
+
 #[derive(Clone, Debug)]
 pub enum Command {
     Quad(Quad),
+    Text(TextCmd),
 }
 
 #[derive(Clone, Debug)]
@@ -90,6 +104,10 @@ impl Scene {
 
     pub fn quad(&mut self, quad: Quad) {
         self.commands.push(Command::Quad(quad));
+    }
+
+    pub fn text(&mut self, layout: Rc<TextLayout>, origin: Point, color: Color, clip: Option<Rect>) {
+        self.commands.push(Command::Text(TextCmd { layout, origin, color, clip }));
     }
 
     /// Frame size in device pixels, rounded up.

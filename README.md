@@ -20,6 +20,7 @@ its own workspace so it can grow into a general framework.
 | Crate | Job |
 | --- | --- |
 | `vui-core` | geometry, colour, theme tokens, springs, input events, text shaping, the widget runtime and the scene it paints |
+| `vui-fonts` | Inter and JetBrains Mono as bytes (SIL OFL 1.1) |
 | `vui-render` | the wgpu renderer: shapes, text, images, custom passes, headless rendering and read-back |
 | `vui-widgets` | the standard widget library |
 | `vui` | the facade crate: `use vui::prelude::*` |

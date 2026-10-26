@@ -1,18 +1,12 @@
 //! Rendering tests for the rounded-rectangle pipeline: exact pixel assertions on small scenes, plus a
 //! golden image of a sheet of shapes to read by eye.
 
-use std::sync::{Mutex, OnceLock};
-
-use vui_core::{Color, Corners, Quad, Scene, Theme, rect, size};
-use vui_render::{Gpu, Image, Renderer, assert_golden};
-
-fn gpu() -> &'static Mutex<(Renderer, Gpu)> {
-    static GPU: OnceLock<Mutex<(Renderer, Gpu)>> = OnceLock::new();
-    GPU.get_or_init(|| Mutex::new(Renderer::headless().expect("a GPU is needed to run the rendering tests")))
-}
+use vui_core::{Color, Corners, Fonts, Quad, Scene, Theme, rect, size};
+use vui_render::testing::{render_scene, shared_gpu};
+use vui_render::{Image, assert_golden};
 
 fn render(scene: &Scene) -> Image {
-    gpu().lock().unwrap_or_else(|e| e.into_inner()).0.render_to_image(scene).expect("render")
+    render_scene(scene, &Fonts::bundled_only())
 }
 
 const RED: Color = Color::rgb(1.0, 0.0, 0.0);
@@ -23,7 +17,7 @@ fn near(a: [u8; 4], b: [u8; 4], tol: u8) -> bool {
 
 #[test]
 fn the_gpu_is_a_real_one() {
-    let info = gpu().lock().unwrap_or_else(|e| e.into_inner()).1.info();
+    let info = shared_gpu().info();
     eprintln!("rendering on {} ({:?})", info.name, info.backend);
     assert_ne!(info.device_type, wgpu::DeviceType::Cpu, "software rendering would make golden images unreliable");
 }

@@ -1,0 +1,8 @@
+[package]
+name = "vui-fonts"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+description = "Inter and JetBrains Mono, bundled for vui. Both fonts are under the SIL Open Font License 1.1."
+
+[dependencies]

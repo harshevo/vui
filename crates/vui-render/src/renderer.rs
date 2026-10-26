@@ -1,32 +1,49 @@
 //! The renderer: turns a [`Scene`] into pixels.
 
-use vui_core::scene::{Command, Scene};
+use std::ops::Range;
+
+use glyphon::{TextArea, TextBounds};
+use vui_core::scene::{Command, Scene, TextCmd};
+use vui_core::Fonts;
 
 use crate::context::{Gpu, GpuError};
 use crate::image::Image;
 use crate::quad::{QuadInstance, QuadPipeline};
+use crate::text::TextPipeline;
+
+/// A run of commands of one kind. Runs are drawn in order, which keeps painter's-algorithm layering
+/// between shapes and text.
+enum Batch {
+    Quads(Range<u32>),
+    Text { renderer: usize, commands: Range<usize> },
+}
 
 pub struct Renderer {
     device: wgpu::Device,
     queue: wgpu::Queue,
     format: wgpu::TextureFormat,
+    fonts: Fonts,
     quads: QuadPipeline,
+    text: TextPipeline,
     scratch_quads: Vec<QuadInstance>,
+    batches: Vec<Batch>,
 }
 
 impl Renderer {
     /// Builds the pipelines for rendering into textures of `format`. The shaders blend in encoded
-    /// sRGB space, so pass a non-sRGB format (`Rgba8Unorm` or `Bgra8Unorm`).
-    pub fn new(device: wgpu::Device, queue: wgpu::Queue, format: wgpu::TextureFormat) -> Renderer {
+    /// sRGB space, so pass a non-sRGB format (`Rgba8Unorm` or `Bgra8Unorm`). `fonts` must be the
+    /// same `Fonts` that shaped the text in the scenes you render.
+    pub fn new(device: wgpu::Device, queue: wgpu::Queue, format: wgpu::TextureFormat, fonts: Fonts) -> Renderer {
         let quads = QuadPipeline::new(&device, format);
-        Renderer { device, queue, format, quads, scratch_quads: Vec::new() }
+        let text = TextPipeline::new(&device, &queue, format);
+        Renderer { device, queue, format, fonts, quads, text, scratch_quads: Vec::new(), batches: Vec::new() }
     }
 
     /// A renderer on a window-less device, drawing into `Rgba8Unorm` textures. Returns the GPU too,
     /// so tests can create their own textures.
-    pub fn headless() -> Result<(Renderer, Gpu), GpuError> {
+    pub fn headless(fonts: Fonts) -> Result<(Renderer, Gpu), GpuError> {
         let gpu = Gpu::headless()?;
-        let renderer = Renderer::new(gpu.device.clone(), gpu.queue.clone(), wgpu::TextureFormat::Rgba8Unorm);
+        let renderer = Renderer::new(gpu.device.clone(), gpu.queue.clone(), wgpu::TextureFormat::Rgba8Unorm, fonts);
         Ok((renderer, gpu))
     }
 
@@ -42,15 +59,27 @@ impl Renderer {
         &self.queue
     }
 
+    pub fn fonts(&self) -> &Fonts {
+        &self.fonts
+    }
+
     /// Draws `scene` into `view`, which must be `size_px` pixels and of the renderer's format.
     pub fn render(&mut self, scene: &Scene, view: &wgpu::TextureView, size_px: (u32, u32)) {
-        self.scratch_quads.clear();
-        for command in &scene.commands {
-            match command {
-                Command::Quad(q) => self.scratch_quads.push(QuadInstance::from_quad(q, scene.scale)),
+        self.plan(scene);
+        self.quads.upload(&self.device, &self.queue, &self.scratch_quads, [size_px.0 as f32, size_px.1 as f32]);
+        self.text.begin_frame(&self.queue, size_px);
+        for batch in &self.batches {
+            if let Batch::Text { renderer, commands } = batch {
+                let areas: Vec<TextArea<'_>> = scene.commands[commands.clone()]
+                    .iter()
+                    .filter_map(|c| match c {
+                        Command::Text(t) => Some(text_area(t, scene.scale, size_px)),
+                        _ => None,
+                    })
+                    .collect();
+                self.text.prepare(*renderer, &self.device, &self.queue, &self.fonts, areas);
             }
         }
-        self.quads.upload(&self.device, &self.queue, &self.scratch_quads, [size_px.0 as f32, size_px.1 as f32]);
 
         let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("vui frame") });
         {
@@ -74,9 +103,43 @@ impl Renderer {
                 occlusion_query_set: None,
                 multiview_mask: None,
             });
-            self.quads.draw(&mut pass, 0..self.scratch_quads.len() as u32);
+            for batch in &self.batches {
+                match batch {
+                    Batch::Quads(range) => self.quads.draw(&mut pass, range.clone()),
+                    Batch::Text { renderer, .. } => self.text.draw(*renderer, &mut pass),
+                }
+            }
         }
         self.queue.submit([encoder.finish()]);
+        self.text.end_frame();
+    }
+
+    /// Splits the scene into batches and converts the quads to instances.
+    fn plan(&mut self, scene: &Scene) {
+        self.scratch_quads.clear();
+        self.batches.clear();
+        let mut text_runs = 0;
+        let mut i = 0;
+        while i < scene.commands.len() {
+            match &scene.commands[i] {
+                Command::Quad(_) => {
+                    let start = self.scratch_quads.len() as u32;
+                    while let Some(Command::Quad(q)) = scene.commands.get(i) {
+                        self.scratch_quads.push(QuadInstance::from_quad(q, scene.scale));
+                        i += 1;
+                    }
+                    self.batches.push(Batch::Quads(start..self.scratch_quads.len() as u32));
+                }
+                Command::Text(_) => {
+                    let start = i;
+                    while matches!(scene.commands.get(i), Some(Command::Text(_))) {
+                        i += 1;
+                    }
+                    self.batches.push(Batch::Text { renderer: text_runs, commands: start..i });
+                    text_runs += 1;
+                }
+            }
+        }
     }
 
     /// Renders `scene` into a fresh texture and reads it back as a straight-alpha RGBA image.
@@ -132,8 +195,9 @@ impl Renderer {
         let swap_rb = matches!(self.format, wgpu::TextureFormat::Bgra8Unorm | wgpu::TextureFormat::Bgra8UnormSrgb);
         let mut rgba = Vec::with_capacity((unpadded * height) as usize);
         for row in 0..height as usize {
-            let line = &mapped[row * padded as usize..row * padded as usize + unpadded as usize];
-            for px in line.chunks_exact(4) {
+            let start = row * padded as usize;
+            let (pixels, _) = mapped[start..start + unpadded as usize].as_chunks::<4>();
+            for px in pixels {
                 let (r, g, b, a) = if swap_rb { (px[2], px[1], px[0], px[3]) } else { (px[0], px[1], px[2], px[3]) };
                 // The frame holds premultiplied colour; images are straight alpha.
                 if a == 255 || a == 0 {
@@ -147,5 +211,27 @@ impl Renderer {
         drop(mapped);
         buffer.unmap();
         Ok(Image { width, height, rgba })
+    }
+}
+
+fn text_area(t: &TextCmd, scale: f32, size_px: (u32, u32)) -> TextArea<'_> {
+    let bounds = match t.clip {
+        Some(c) => TextBounds {
+            left: ((c.x * scale).floor() as i32).max(0),
+            top: ((c.y * scale).floor() as i32).max(0),
+            right: (((c.x + c.w) * scale).ceil() as i32).min(size_px.0 as i32),
+            bottom: (((c.y + c.h) * scale).ceil() as i32).min(size_px.1 as i32),
+        },
+        None => TextBounds { left: 0, top: 0, right: size_px.0 as i32, bottom: size_px.1 as i32 },
+    };
+    let [r, g, b, a] = t.color.to_rgba8();
+    TextArea {
+        buffer: t.layout.buffer(),
+        left: t.origin.x * scale,
+        top: t.origin.y * scale,
+        scale,
+        bounds,
+        default_color: glyphon::Color::rgba(r, g, b, a),
+        custom_glyphs: &[],
     }
 }
