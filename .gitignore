@@ -1,0 +1,4 @@
+/target
+.DS_Store
+# actual outputs of golden tests; the blessed goldens under tests/golden are tracked
+**/tests/actual/
