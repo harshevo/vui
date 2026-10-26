@@ -35,6 +35,8 @@ pub trait Host {
     fn redraw(&mut self);
     fn needs_paint(&self) -> bool;
     fn quit_requested(&self) -> bool;
+    /// Whether clicks should go through the window, if the app has said.
+    fn passes_clicks(&self) -> Option<bool>;
     /// The colour around the content: what the window shows behind the view. None for a see-through
     /// window.
     fn canvas(&self) -> Option<Color>;
@@ -216,6 +218,10 @@ impl<M: 'static> Host for Window<M> {
 
     fn quit_requested(&self) -> bool {
         self.quit || self.ui.quit_requested()
+    }
+
+    fn passes_clicks(&self) -> Option<bool> {
+        self.ui.passes_clicks()
     }
 
     fn canvas(&self) -> Option<Color> {

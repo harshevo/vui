@@ -102,6 +102,7 @@ pub struct Ui<M: 'static> {
     /// Light or dark, as the system has it. Hosted apps are told when it changes.
     system: Mode,
     quit: bool,
+    pass_clicks: Option<bool>,
     /// Clear to nothing instead of the theme's background: for overlays the desktop shows through.
     transparent: bool,
 }
@@ -140,6 +141,7 @@ impl<M: 'static> Ui<M> {
             driver: None,
             system: Mode::Light,
             quit: false,
+            pass_clicks: None,
             transparent: false,
         }
     }
@@ -180,6 +182,7 @@ impl<M: 'static> Ui<M> {
             }
             self.show(&*driver);
             self.quit |= cx.quit;
+            self.pass_clicks = cx.pass_clicks.or(self.pass_clicks);
             if let Some(key) = cx.focus {
                 self.focus_key(key);
             }
@@ -239,6 +242,12 @@ impl<M: 'static> Ui<M> {
 
     pub fn transparent(&self) -> bool {
         self.transparent
+    }
+
+    /// Whether the app asked for clicks to pass through the window (`Cx::pass_clicks`); None until it
+    /// says, when the window keeps its own setting.
+    pub fn passes_clicks(&self) -> Option<bool> {
+        self.pass_clicks
     }
 
     /// The app asked to close (`Cx::quit`).

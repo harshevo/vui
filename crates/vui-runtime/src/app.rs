@@ -55,6 +55,7 @@ pub trait App: 'static {
 pub struct Cx {
     pub(crate) focus: Option<Key>,
     pub(crate) quit: bool,
+    pub(crate) pass_clicks: Option<bool>,
 }
 
 impl Cx {
@@ -66,6 +67,12 @@ impl Cx {
     /// Asks the window system to close the app. The backend reads [`Ui::quit_requested`](crate::Ui::quit_requested).
     pub fn quit(&mut self) {
         self.quit = true;
+    }
+
+    /// Lets clicks through the window to whatever is under it (true), or has the window take them, such
+    /// as while an overlay shows something to click. The backend reads [`Ui::passes_clicks`](crate::Ui::passes_clicks).
+    pub fn pass_clicks(&mut self, through: bool) {
+        self.pass_clicks = Some(through);
     }
 }
 

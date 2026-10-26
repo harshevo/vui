@@ -403,6 +403,11 @@ impl VuiView {
 
     fn after_input(&self, effects: Vec<Effect>) {
         self.apply(effects);
+        if let (Some(through), Some(window)) = (self.with_host(|h| h.passes_clicks()).flatten(), self.window())
+            && window.ignoresMouseEvents() != through
+        {
+            window.setIgnoresMouseEvents(through);
+        }
         if self.with_host(|h| h.needs_paint()).unwrap_or(false) {
             self.request_frame();
         }

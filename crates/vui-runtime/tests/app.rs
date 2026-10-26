@@ -217,3 +217,29 @@ fn the_window_drags_from_the_canvas_but_not_from_controls() {
     t.view(row().height(100.0).child(div().width(60.0).height(30.0)));
     assert!(!t.ui.drags_window(pt(10.0, 10.0)), "nothing asked for it");
 }
+
+/// Takes clicks while it shows something to click.
+struct Gate;
+
+impl App for Gate {
+    type Msg = bool;
+
+    fn update(&mut self, through: bool, cx: &mut Cx) {
+        cx.pass_clicks(through);
+    }
+
+    fn view(&self) -> impl IntoElement<bool> {
+        div()
+    }
+}
+
+#[test]
+fn update_can_ask_for_clicks_to_pass_through_or_not() {
+    let mut t = TestUi { ui: vui_runtime::Ui::with_app(vui_core::Resources::bundled_only(), vui_core::size(100.0, 100.0), 1.0, Gate) };
+    assert_eq!(t.ui.passes_clicks(), None, "the window's own setting until the app says");
+    t.ui.send(false);
+    assert_eq!(t.ui.passes_clicks(), Some(false));
+    t.ui.send(true);
+    t.settle();
+    assert_eq!(t.ui.passes_clicks(), Some(true));
+}
