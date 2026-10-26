@@ -50,7 +50,7 @@ impl App for Counter {
         ))
     }
 
-    fn theme(&self) -> Theme {
+    fn theme(&self, _system: Mode) -> Theme {
         if self.dark { Theme::dark() } else { Theme::light() }
     }
 }
@@ -166,4 +166,54 @@ fn asking_for_the_wrong_app_type_is_none() {
     let t = counter();
     assert!(t.ui.app::<Other>().is_none());
     assert!(t.ui.app::<Counter>().is_some());
+}
+
+struct Follower;
+
+impl App for Follower {
+    type Msg = Msg;
+
+    fn update(&mut self, _msg: Msg, _cx: &mut Cx) {}
+
+    fn view(&self) -> impl IntoElement<Msg> {
+        column().child(label("hi"))
+    }
+}
+
+#[test]
+fn by_default_an_app_follows_the_system_mode() {
+    let mut t = TestUi::with_app(100.0, 100.0, Follower);
+    assert_eq!(t.ui.theme().mode, Mode::Light);
+    t.ui.set_system_mode(Mode::Dark);
+    assert_eq!(t.ui.theme().mode, Mode::Dark);
+    assert_eq!(t.ui.theme().palette.bg, Theme::dark().palette.bg);
+    assert!(t.ui.needs_paint());
+}
+
+#[test]
+fn an_app_with_its_own_theme_ignores_the_system() {
+    let mut t = counter();
+    t.ui.set_system_mode(Mode::Dark);
+    assert_eq!(t.ui.theme().mode, Mode::Light);
+}
+
+#[test]
+fn the_window_drags_from_the_canvas_but_not_from_controls() {
+    let mut t = TestUi::<Msg>::new(300.0, 100.0);
+    t.view(
+        row().window_drag(true).height(100.0).children((
+            div().key("button").width(60.0).height(30.0).on_click(Msg::Add),
+            div().key("field").width(60.0).height(30.0).focusable(true),
+            div().key("plain").width(60.0).height(30.0),
+        )),
+    );
+    let (button, field, plain) = (t.center("button"), t.center("field"), t.center("plain"));
+    assert!(!t.ui.drags_window(button));
+    assert!(!t.ui.drags_window(field));
+    assert!(t.ui.drags_window(plain));
+    assert!(t.ui.drags_window(pt(250.0, 80.0)), "empty canvas");
+
+    let mut t = TestUi::<Msg>::new(300.0, 100.0);
+    t.view(row().height(100.0).child(div().width(60.0).height(30.0)));
+    assert!(!t.ui.drags_window(pt(10.0, 10.0)), "nothing asked for it");
 }

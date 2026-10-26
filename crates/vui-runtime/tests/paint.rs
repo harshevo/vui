@@ -112,7 +112,7 @@ fn text_sits_inside_the_padding() {
 #[test]
 fn opacity_multiplies_into_everything_inside() {
     let mut t = ui(200.0, 100.0);
-    t.view(column().opacity(0.5).bg(Tone::Wash).child(label("x")).child(div().height(10.0).bg(Tone::Side).opacity(0.5)));
+    t.view(column().opacity(0.5).bg(Tone::Bg).child(label("x")).child(div().height(10.0).bg(Tone::Side).opacity(0.5)));
     let scene = t.scene();
     let q = quads(&scene);
     assert_eq!(q[0].fill.a, 0.5);
@@ -126,7 +126,7 @@ fn opacity_multiplies_into_everything_inside() {
 #[test]
 fn a_disabled_element_is_dimmed() {
     let mut t = ui(200.0, 100.0);
-    t.view(column().child(div().height(20.0).bg(Tone::Wash).disabled(true).child(label("x"))));
+    t.view(column().child(div().height(20.0).bg(Tone::Side).disabled(true).child(label("x"))));
     let scene = t.scene();
     assert!((quads(&scene)[0].fill.a - 0.45).abs() < 1e-6);
     match &scene.commands[1] {

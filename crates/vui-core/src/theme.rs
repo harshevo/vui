@@ -1,8 +1,9 @@
 //! Design tokens.
 //!
 //! A `Theme` is plain data: change a value and every widget follows. The defaults are the vmac design
-//! language: neutral surfaces, text in three greys, one accent, red only for irreversible actions,
-//! Inter at three sizes, and an 8-point spacing scale.
+//! language: quiet neutral surfaces (a white sheet on a pale canvas, or a dark sheet on a darker one),
+//! text in three greys, one soft indigo accent, red only for irreversible actions, soft fills instead of
+//! outlines, pill-shaped buttons, Inter at three sizes, and an 8-point spacing scale.
 
 use crate::anim::Spring;
 use crate::color::Color;
@@ -28,9 +29,9 @@ pub mod space {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Palette {
-    /// Window and content background.
+    /// The content sheet, and anything that sits on it.
     pub bg: Color,
-    /// Sidebar and other raised surfaces.
+    /// The canvas around the sheet: the window background and the sidebar.
     pub side: Color,
     /// 1 px dividers and control borders.
     pub line: Color,
@@ -240,19 +241,19 @@ impl Theme {
             Mode::Light,
             Palette {
                 bg: Color::hex(0xffffff),
-                side: Color::hex(0xfafafa),
-                line: Color::hex(0xe5e5e5),
-                wash: Color::hex(0xf0f0f0),
-                hover: Color::hex(0xf5f5f5),
-                text: Color::hex(0x0a0a0a),
-                text_2: Color::hex(0x525252),
-                text_3: Color::hex(0xa3a3a3),
-                accent: Color::hex(0x2563eb),
+                side: Color::hex(0xf5f5f6),
+                line: Color::hex(0xe6e6e9),
+                wash: Color::hex(0x18181b).with_alpha(0.06),
+                hover: Color::hex(0x18181b).with_alpha(0.04),
+                text: Color::hex(0x18181b),
+                text_2: Color::hex(0x56565e),
+                text_3: Color::hex(0xa1a1aa),
+                accent: Color::hex(0x4f5bd5),
                 on_accent: Color::hex(0xffffff),
                 danger: Color::hex(0xdc2626),
                 on_danger: Color::hex(0xffffff),
-                field: Color::hex(0xffffff),
-                track_off: Color::hex(0xd4d4d4),
+                field: Color::hex(0x18181b).with_alpha(0.04),
+                track_off: Color::hex(0xd4d4d8),
                 knob: Color::hex(0xffffff),
                 ring: Color::BLACK.with_alpha(0.08),
                 scrim: Color::BLACK.with_alpha(0.6),
@@ -264,21 +265,21 @@ impl Theme {
         Theme::base(
             Mode::Dark,
             Palette {
-                bg: Color::hex(0x0a0a0a),
-                side: Color::hex(0x111111),
-                line: Color::hex(0x262626),
-                wash: Color::hex(0x1c1c1c),
-                hover: Color::hex(0x171717),
-                text: Color::hex(0xfafafa),
-                text_2: Color::hex(0xa3a3a3),
-                text_3: Color::hex(0x737373),
-                accent: Color::hex(0x60a5fa),
-                on_accent: Color::hex(0x0a0a0a),
+                bg: Color::hex(0x161618),
+                side: Color::hex(0x0e0e10),
+                line: Color::hex(0x2a2a2e),
+                wash: Color::WHITE.with_alpha(0.08),
+                hover: Color::WHITE.with_alpha(0.05),
+                text: Color::hex(0xededf0),
+                text_2: Color::hex(0xa8a8af),
+                text_3: Color::hex(0x6e6e76),
+                accent: Color::hex(0x8c96fa),
+                on_accent: Color::hex(0x0e0e10),
                 danger: Color::hex(0xdc2626),
                 on_danger: Color::hex(0xffffff),
-                field: Color::hex(0x0a0a0a),
+                field: Color::WHITE.with_alpha(0.05),
                 track_off: Color::hex(0x3f3f46),
-                knob: Color::hex(0xd4d4d4),
+                knob: Color::hex(0xe4e4e7),
                 ring: Color::WHITE.with_alpha(0.10),
                 scrim: Color::BLACK.with_alpha(0.6),
             },
@@ -301,14 +302,14 @@ impl Theme {
         Theme {
             mode,
             palette,
-            radii: Radii { control: 8.0, card: 12.0, panel: 16.0, smooth: 0.6 },
+            radii: Radii { control: 12.0, card: 16.0, panel: 20.0, smooth: 0.6 },
             types: TypeScale {
                 small: TextToken { size: 12.0, line_height: 18.0, weight: 400 },
                 body: TextToken { size: 14.0, line_height: 21.0, weight: 400 },
                 title: TextToken { size: 24.0, line_height: 32.0, weight: 600 },
                 mono: TextToken { size: 12.0, line_height: 18.0, weight: 400 },
             },
-            motion: Motion { fast: 0.15, snappy: Spring::SNAPPY, smooth: Spring::SMOOTH, morph: Spring::MORPH },
+            motion: Motion { fast: 0.12, snappy: Spring::SNAPPY, smooth: Spring::SMOOTH, morph: Spring::MORPH },
             font_sans: "Inter",
             font_mono: "JetBrains Mono",
             control: 32.0,

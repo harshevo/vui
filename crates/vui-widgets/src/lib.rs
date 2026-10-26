@@ -30,7 +30,7 @@ pub use icon::{ICON_SIZE, IconEl, IconWidget, SPINNER_PERIOD, icon, paint_icon, 
 pub use item::{Item, ItemWidget, item};
 pub use progress::{Progress, ProgressWidget, Spinner, SpinnerWidget, progress, progress_indeterminate, spinner};
 pub use segmented::segmented;
-pub use sidebar::{ListRow, NavItem, SIDEBAR_WIDTH, list, list_row, nav_heading, nav_item, nav_section, sidebar};
+pub use sidebar::{ListRow, NavItem, SELECTED, SIDEBAR_WIDTH, list, list_row, nav_heading, nav_item, nav_section, sidebar};
 pub use slider::{Slider, SliderWidget, slider};
 pub use text_field::{FieldState, TextField, TextFieldWidget, password_field, search_field, text_area, text_field};
 pub use tile::{ImageTile, TileWidget, image_tile};

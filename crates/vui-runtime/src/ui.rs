@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use vui_core::{
-    CursorIcon, Event, ImeEvent, KeyEvent, Modifiers, NamedKey, Point, PointerButton, Rect, Resources, Size,
+    CursorIcon, Event, ImeEvent, KeyEvent, Mode, Modifiers, NamedKey, Point, PointerButton, Rect, Resources, Size,
     Theme, Vec2, vec2,
 };
 
@@ -99,6 +99,8 @@ pub struct Ui<M: 'static> {
     pub(crate) core: Core<M>,
     /// The app this UI runs, if it hosts one: it answers messages and supplies the view.
     driver: Option<Box<dyn Driver<M>>>,
+    /// Light or dark, as the system has it. Hosted apps are told when it changes.
+    system: Mode,
     quit: bool,
 }
 
@@ -134,6 +136,7 @@ impl<M: 'static> Ui<M> {
                 wake_at: None,
             },
             driver: None,
+            system: Mode::Light,
             quit: false,
         }
     }
@@ -141,7 +144,7 @@ impl<M: 'static> Ui<M> {
     /// A UI that runs `app`: events become messages, the app's `update` answers them, and the window
     /// shows its `view` and `theme`, all inside `handle`. `take_messages` stays empty.
     pub fn with_app<A: App<Msg = M>>(res: Resources, size: Size, scale: f32, app: A) -> Ui<M> {
-        let mut ui = Ui::new(res, app.theme(), size, scale);
+        let mut ui = Ui::new(res, app.theme(Mode::Light), size, scale);
         let driver: Box<dyn Driver<M>> = Box::new(app);
         ui.show(&*driver);
         ui.driver = Some(driver);
@@ -151,7 +154,7 @@ impl<M: 'static> Ui<M> {
     /// Puts the app's current view and theme on screen.
     fn show(&mut self, driver: &dyn Driver<M>) {
         self.set_view(driver.view());
-        let theme = driver.theme();
+        let theme = driver.theme(self.system);
         if theme != *self.core.env.theme {
             self.set_theme(theme);
         }
@@ -195,6 +198,24 @@ impl<M: 'static> Ui<M> {
         self.driver = Some(driver);
         self.sync();
         out
+    }
+
+    /// Tells the UI whether the system is in light or dark mode. A hosted app gets asked for its theme
+    /// again.
+    pub fn set_system_mode(&mut self, mode: Mode) {
+        if mode == self.system {
+            return;
+        }
+        self.system = mode;
+        if let Some(driver) = self.driver.take() {
+            self.show(&*driver);
+            self.driver = Some(driver);
+            self.sync();
+        }
+    }
+
+    pub fn system_mode(&self) -> Mode {
+        self.system
     }
 
     /// The app asked to close (`Cx::quit`).
@@ -462,6 +483,25 @@ impl<M: 'static> Ui<M> {
         run.reveal(&path, rect);
         self.sync();
         true
+    }
+
+    /// True when a press at `p` should move the window: it lands in an element marked
+    /// [`window_drag`](crate::Builder::window_drag) and on nothing inside it that takes clicks or focus.
+    pub fn drags_window(&mut self, p: Point) -> bool {
+        self.sync();
+        let Some(root) = self.root.as_ref() else { return false };
+        let Some(path) = hit(root, p) else { return false };
+        let mut node = root;
+        let mut drag = node.input.window_drag;
+        for &i in &path {
+            node = &node.children[i];
+            if node.input.clickable() || node.input.drop.is_some() || node.focus_mode() != Focus::Never || node.eff.overflow == Overflow::Scroll {
+                drag = false;
+            } else if node.input.window_drag {
+                drag = true;
+            }
+        }
+        drag
     }
 
     /// The key of the focused element, if it has one.

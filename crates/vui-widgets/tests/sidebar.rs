@@ -91,6 +91,12 @@ fn fills(scene: &Scene, rect: vui_core::Rect, tone: Tone) -> Vec<&Quad> {
     quads(scene).into_iter().filter(|q| rect.contains(q.rect.center()) && near(q.fill, color(tone))).collect()
 }
 
+/// The tint behind the item for the open page.
+fn marked(scene: &Scene, rect: vui_core::Rect) -> usize {
+    let tint = vui_widgets::SELECTED.resolve(&Theme::light().palette);
+    quads(scene).into_iter().filter(|q| rect.contains(q.rect.center()) && near(q.fill, tint)).count()
+}
+
 fn focus_name(t: &mut TestUi<Msg>) -> Option<String> {
     let tree = t.ui.access_tree();
     tree.node(tree.focus).and_then(|n| n.name.clone())
@@ -117,14 +123,14 @@ fn nav_items_are_32_high_and_line_up_with_the_sidebar_padding() {
 }
 
 #[test]
-fn the_open_page_is_marked_with_a_wash_and_heavier_text() {
+fn the_open_page_is_marked_with_a_tint_and_heavier_text() {
     let mut t = shell();
     t.settle();
     let ask = t.rect("Ask");
     let history = t.rect("History");
     let scene = t.scene();
-    assert_eq!(fills(&scene, ask, Tone::Wash).len(), 1);
-    assert_eq!(fills(&scene, history, Tone::Wash).len(), 0);
+    assert_eq!(marked(&scene, ask), 1);
+    assert_eq!(marked(&scene, history), 0);
     // Heavier and darker text on the open page.
     let text_colour = |name: &str| {
         scene.commands.iter().find_map(|c| match c {
@@ -141,7 +147,7 @@ fn the_open_page_is_marked_with_a_wash_and_heavier_text() {
 }
 
 #[test]
-fn clicking_an_item_opens_its_page_and_the_wash_moves() {
+fn clicking_an_item_opens_its_page_and_the_tint_moves() {
     let mut t = shell();
     t.click_key("Memory");
     assert_eq!(log(&t), [Msg::Go(Page::Memory)]);
@@ -149,8 +155,8 @@ fn clicking_an_item_opens_its_page_and_the_wash_moves() {
     let memory = t.rect("Memory");
     let ask = t.rect("Ask");
     let scene = t.scene();
-    assert_eq!(fills(&scene, memory, Tone::Wash).len(), 1);
-    assert_eq!(fills(&scene, ask, Tone::Wash).len(), 0);
+    assert_eq!(marked(&scene, memory), 1);
+    assert_eq!(marked(&scene, ask), 0);
 }
 
 #[test]

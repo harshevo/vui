@@ -178,6 +178,7 @@ pub(crate) struct Input<M> {
     pub cursor: Option<CursorIcon>,
     pub disabled: bool,
     pub pointer_events: bool,
+    pub window_drag: bool,
 }
 
 impl<M> Default for Input<M> {
@@ -196,6 +197,7 @@ impl<M> Default for Input<M> {
             cursor: None,
             disabled: false,
             pointer_events: true,
+            window_drag: false,
         }
     }
 }
@@ -215,6 +217,7 @@ pub struct Base<M> {
     pub(crate) a11y: A11y,
     pub(crate) key: Option<Key>,
     pub(crate) transition: Option<Spring>,
+    pub(crate) appear: bool,
 }
 
 impl<M> Default for Base<M> {
@@ -226,6 +229,7 @@ impl<M> Default for Base<M> {
             a11y: A11y::default(),
             key: None,
             transition: None,
+            appear: false,
         }
     }
 }
@@ -398,7 +402,8 @@ pub trait Builder<M: 'static>: Styled {
         self
     }
 
-    /// Animates changes to the element's size, fill and opacity with `spring`.
+    /// Animates changes to the element's size, insets, fill and opacity with `spring`. Insets make an
+    /// absolute element slide: a selection marker whose `top` follows the selected row.
     fn transition(mut self, spring: Spring) -> Self {
         self.base_mut().transition = Some(spring);
         self
@@ -407,6 +412,14 @@ pub trait Builder<M: 'static>: Styled {
     /// Animates changes with the theme's usual spring.
     fn animated(self) -> Self {
         self.transition(Spring::SNAPPY)
+    }
+
+    /// Fades the element in and lifts it into place when it first shows up, with the `transition`
+    /// spring or a smooth one. Key it by what it shows, a page or a row, so that new content appears
+    /// afresh instead of updating the old element in place.
+    fn appear(mut self) -> Self {
+        self.base_mut().appear = true;
+        self
     }
 
     /// Sent when the element is clicked: pressed and released while over it.
@@ -516,6 +529,13 @@ pub trait Builder<M: 'static>: Styled {
     /// `false` makes the element see through to what is behind it; its children still get input.
     fn pointer_events(mut self, on: bool) -> Self {
         self.base_mut().input.pointer_events = on;
+        self
+    }
+
+    /// Dragging the element moves the window, as a title bar does, unless the press lands on something
+    /// inside it that takes clicks or focus. For the empty canvas around a window's content.
+    fn window_drag(mut self, on: bool) -> Self {
+        self.base_mut().input.window_drag = on;
         self
     }
 

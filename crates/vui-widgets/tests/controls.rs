@@ -241,9 +241,10 @@ fn variants_are_drawn_in_the_palette() {
     assert_eq!(filled(&scene, primary, Tone::Accent).len(), 1);
     let danger = t.rect("danger");
     assert_eq!(filled(&scene, danger, Tone::Danger).len(), 1);
-    // A secondary button is an outline; a ghost button has no box at rest.
+    // A secondary button is a soft grey pill; a ghost button has no box at rest.
     let save = t.rect("save");
-    assert!(quads(&scene).iter().any(|q| (q.rect.center().x - save.center().x).abs() < 1.0 && q.rect.h == save.h && q.border.is_some_and(|b| near(b.color, color(Tone::Line)))));
+    assert_eq!(filled(&scene, save, Tone::Wash).len(), 1);
+    assert!(filled(&scene, save, Tone::Wash)[0].radii.tl >= save.h / 2.0, "a pill");
     let ghost = t.rect("ghost");
     assert!(!quads(&scene).iter().any(|q| ghost.contains(q.rect.center())));
     // Text on the primary button is the "on" colour.
@@ -258,11 +259,14 @@ fn a_ghost_button_shows_its_box_under_the_pointer_and_darker_when_pressed() {
     t.move_to(ghost.center());
     t.settle();
     let scene = t.scene();
-    assert_eq!(filled(&scene, ghost, Tone::Hover).len(), 1);
+    let hover = filled(&scene, ghost, Tone::Hover);
+    assert_eq!(hover.len(), 1);
+    let hover_alpha = hover[0].fill.a;
     t.press(ghost.center());
     t.settle();
     let scene = t.scene();
-    assert!(!filled(&scene, ghost, Tone::Wash).is_empty());
+    let pressed = quads(&scene).into_iter().find(|q| ghost.contains(q.rect.center())).expect("a box while pressed");
+    assert!(pressed.fill.a > hover_alpha, "the press darkens it: {} over {}", pressed.fill.a, hover_alpha);
 }
 
 #[test]

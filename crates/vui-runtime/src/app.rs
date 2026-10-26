@@ -3,7 +3,7 @@
 
 use std::any::Any;
 
-use vui_core::Theme;
+use vui_core::{Mode, Theme};
 
 use crate::element::{Element, IntoElement};
 use crate::key::Key;
@@ -43,10 +43,10 @@ pub trait App: 'static {
     /// What the window shows for the current state.
     fn view(&self) -> impl IntoElement<Self::Msg>;
 
-    /// The look of the window. Asked again after every update, so switching between light and dark is
-    /// a matter of changing state.
-    fn theme(&self) -> Theme {
-        Theme::light()
+    /// The look of the window, given whether the system is in light or dark mode. Asked again after
+    /// every update and whenever the system mode changes; the default follows the system.
+    fn theme(&self, system: Mode) -> Theme {
+        Theme::for_mode(system)
     }
 }
 
@@ -73,7 +73,7 @@ impl Cx {
 pub(crate) trait Driver<M> {
     fn update(&mut self, msg: M, cx: &mut Cx);
     fn view(&self) -> Element<M>;
-    fn theme(&self) -> Theme;
+    fn theme(&self, system: Mode) -> Theme;
     fn as_any(&self) -> &dyn Any;
     fn as_any_mut(&mut self) -> &mut dyn Any;
 }
@@ -87,8 +87,8 @@ impl<A: App> Driver<A::Msg> for A {
         App::view(self).into_element()
     }
 
-    fn theme(&self) -> Theme {
-        App::theme(self)
+    fn theme(&self, system: Mode) -> Theme {
+        App::theme(self, system)
     }
 
     fn as_any(&self) -> &dyn Any {

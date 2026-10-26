@@ -43,6 +43,9 @@ pub fn nav_section<M: 'static>(heading: impl Into<String>) -> Div<M> {
 
 // ---- navigation items ------------------------------------------------------------------------
 
+/// Behind the item for the open page.
+pub const SELECTED: Fill = Fill::Tone(Tone::Accent, 0.12);
+
 /// A line in the sidebar: an icon and a name, and a count if it has one.
 pub struct NavItem<M: 'static> {
     base: Base<M>,
@@ -52,15 +55,15 @@ pub struct NavItem<M: 'static> {
 builder!(NavItem<M> => ItemWidget<M>);
 
 impl<M: 'static> NavItem<M> {
-    /// Marks the item for the page that is open: darker text on a grey wash.
+    /// Marks the item for the page that is open: darker text and an accent icon on a faint accent tint.
     pub fn selected(mut self, selected: bool) -> Self {
         let spec = &mut self.widget.spec;
         spec.selected = Some(selected);
         spec.weight = if selected { 500 } else { 400 };
         spec.label_color = if selected { Tone::Text } else { Tone::Text2 }.into();
-        spec.icon_color = if selected { Tone::Text } else { Tone::Text2 }.into();
-        // Under the pointer the open page keeps its wash instead of lightening to the hover tint.
-        self.bg(if selected { Fill::from(Tone::Wash) } else { Fill::NONE }).hover_bg(if selected { Tone::Wash } else { Tone::Hover })
+        spec.icon_color = if selected { Tone::Accent } else { Tone::Text2 }.into();
+        // Under the pointer the open page keeps its tint instead of taking the hover wash.
+        self.bg(if selected { SELECTED } else { Fill::NONE }).hover_bg(if selected { Fill::NONE } else { Tone::Hover.into() })
     }
 
     /// Small grey text at the end of the line: an unread count.

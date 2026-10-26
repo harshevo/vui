@@ -238,7 +238,8 @@ fn an_avatar_and_a_neutral_badge_stay_visible_on_a_row_of_the_same_grey() {
         column().bg(Tone::Wash).children((avatar("Ada Lovelace").key("ada"), badge("Beta").key("b"))),
     );
     let scene = t.scene();
-    let wash = color(Tone::Wash);
+    // The row is the wash over the window background.
+    let wash = color(Tone::Wash).over(color(Tone::Bg));
     let text = color(Tone::Text);
     for key in ["ada", "b"] {
         let at = t.rect(key).center();
@@ -304,7 +305,7 @@ fn a_card_has_a_border_and_rounded_corners() {
     let mut t = still(card().child(section_title("Recent")).key("c"));
     let scene = t.scene();
     let q = quads(&scene).into_iter().find(|q| q.border.is_some()).expect("the card");
-    assert_eq!(q.radii.tl, 12.0);
+    assert_eq!(q.radii.tl, t.ui.theme().radii.card);
     assert_eq!(q.border.unwrap().width, 1.0);
     assert!(near(q.fill, color(Tone::Bg)));
     let heading = t.ui.access_tree().with_role(Role::Heading).len();

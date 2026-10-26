@@ -55,6 +55,10 @@ pub(crate) struct Anim {
     pub opacity: SpringValue,
     width: Option<SpringValue>,
     height: Option<SpringValue>,
+    /// Top, right, bottom and left insets of an absolute element that is sliding to a new place.
+    inset: [Option<SpringValue>; 4],
+    /// How far below its place an appearing element still is.
+    rise: Option<SpringValue>,
     fill: Option<FillAnim>,
 }
 
@@ -68,10 +72,25 @@ impl Anim {
             opacity: SpringValue::new(opacity, FAST),
             width: None,
             height: None,
+            inset: [None, None, None, None],
+            rise: None,
             fill: None,
         }
     }
+
+    /// Starts the entrance of an element that has just been built: from transparent and `RISE` below
+    /// its place to where it belongs.
+    fn appear(&mut self, opacity: f32, spring: Spring) {
+        self.opacity = SpringValue::new(0.0, spring);
+        self.opacity.set_target(opacity);
+        let mut rise = SpringValue::new(RISE, spring);
+        rise.set_target(0.0);
+        self.rise = Some(rise);
+    }
 }
+
+/// Points an appearing element starts below its place.
+pub(crate) const RISE: f32 = 8.0;
 
 /// A scroll container's position and scrollbars.
 pub(crate) struct Scroll {
@@ -241,7 +260,11 @@ fn mix(a: Color, b: Color, t: f32) -> Color {
     Color::rgba(m(0) / alpha, m(1) / alpha, m(2) / alpha, alpha)
 }
 
-/// Starts, steers or ends the animation of one size, given the old and new lengths.
+fn sides(s: &crate::style::Sides<Len>) -> [Len; 4] {
+    [s.top, s.right, s.bottom, s.left]
+}
+
+/// Starts, steers or ends the animation of one length, given the old and new values.
 fn retarget(current: Option<SpringValue>, old: Len, new: Len, spring: Option<Spring>) -> Option<SpringValue> {
     let (Some(spring), Len::Px(to)) = (spring, new) else {
         return None;
@@ -264,9 +287,13 @@ fn retarget(current: Option<SpringValue>, old: Len, new: Len, spring: Option<Spr
 impl<M: 'static> Node<M> {
     pub fn build(el: Element<M>, ids: &mut Ids) -> Node<M> {
         let Element { base, widget, children } = el;
-        let Base { style, decor, input, a11y, key, transition } = base;
+        let Base { style, decor, input, a11y, key, transition, appear } = base;
         let opacity = decor.opacity;
         let state = widget.create_state();
+        let mut anim = Anim::new(opacity);
+        if appear {
+            anim.appear(opacity, transition.unwrap_or(Spring::SMOOTH));
+        }
         Node {
             id: ids.next(),
             key,
@@ -284,7 +311,7 @@ impl<M: 'static> Node<M> {
             rect: Rect::ZERO,
             clip: None,
             scroll: Scroll::new(),
-            anim: Anim::new(opacity),
+            anim,
             memory: None,
         }
     }
@@ -293,7 +320,7 @@ impl<M: 'static> Node<M> {
     /// has to be redone.
     pub fn update(&mut self, el: Element<M>, ids: &mut Ids, env: &Env) -> Dirty {
         let Element { base, widget, children } = el;
-        let Base { style, decor, input, a11y, key: _, transition } = base;
+        let Base { style, decor, input, a11y, key: _, transition, appear: _ } = base;
 
         let mut dirty = widget.update(&*self.widget, &mut *self.state);
         self.widget = widget;
@@ -302,6 +329,10 @@ impl<M: 'static> Node<M> {
         if style != self.target {
             self.anim.width = retarget(self.anim.width.take(), self.target.width, style.width, transition);
             self.anim.height = retarget(self.anim.height.take(), self.target.height, style.height, transition);
+            let (old, new) = (sides(&self.target.inset), sides(&style.inset));
+            for (i, slot) in self.anim.inset.iter_mut().enumerate() {
+                *slot = retarget(slot.take(), old[i], new[i], transition);
+            }
             self.target = style;
         }
         let before = self.eff;
@@ -335,6 +366,12 @@ impl<M: 'static> Node<M> {
         }
         if let Some(a) = &self.anim.height {
             self.eff.height = Len::Px(a.value());
+        }
+        let inset = &mut self.eff.inset;
+        for (slot, a) in [&mut inset.top, &mut inset.right, &mut inset.bottom, &mut inset.left].into_iter().zip(&self.anim.inset) {
+            if let Some(a) = a {
+                *slot = Len::Px(a.value());
+            }
         }
     }
 
@@ -414,7 +451,8 @@ impl<M: 'static> Node<M> {
             self.collapse();
             return;
         }
-        let at = pt(origin.x + self.layout.origin.x, origin.y + self.layout.origin.y);
+        let rise = self.anim.rise.as_ref().map_or(0.0, SpringValue::value);
+        let at = pt(origin.x + self.layout.origin.x, origin.y + self.layout.origin.y + rise);
         self.rect = Rect::from_origin_size(at, self.layout.size);
         self.clip = clip;
         if self.eff.overflow == Overflow::Scroll {
@@ -455,6 +493,8 @@ impl<M: 'static> Node<M> {
         springs.iter().any(|s| !s.is_settled())
             || a.width.is_some()
             || a.height.is_some()
+            || a.inset.iter().any(Option::is_some)
+            || a.rise.is_some()
             || a.fill.is_some()
             || self.widget.animating(&*self.state)
             || self.children.iter().any(Node::animating)
@@ -477,8 +517,19 @@ impl<M: 'static> Node<M> {
             }
         }
 
+        if let Some(rise) = self.anim.rise.as_mut() {
+            if advance(rise, dt, ts) {
+                ts.arrange = true;
+            }
+            if rise.is_settled() {
+                self.anim.rise = None;
+                ts.arrange = true;
+            }
+        }
+
         let mut sized = false;
-        for slot in [&mut self.anim.width, &mut self.anim.height] {
+        let [top, right, bottom, left] = &mut self.anim.inset;
+        for slot in [&mut self.anim.width, &mut self.anim.height, top, right, bottom, left] {
             if let Some(a) = slot.as_mut() {
                 sized |= advance(a, dt, ts);
                 if a.is_settled() {

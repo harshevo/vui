@@ -5,7 +5,8 @@ its own workspace so it can grow into a general framework.
 
 **Design goals**
 
-- One look: neutral surfaces, one accent, Inter type, an 8-point spacing scale, continuous corners.
+- One look: a white sheet on a pale canvas (dark on darker at night), one soft indigo accent, pill buttons
+  and soft fills, Inter type, an 8-point spacing scale, continuous corners, and springs for every motion.
 - Everything is drawn by a small set of shaders: signed-distance shapes, glyph atlas text and images
   with correct colour handling. No webview, no platform widgets in the way.
 - Retained widget tree with a flexbox layout engine written for vui, springs for motion, and an
@@ -25,16 +26,18 @@ its own workspace so it can grow into a general framework.
 | `vui-runtime` | elements and reconciliation, layout, hit-testing, input routing, focus, scrolling, animation and the accessibility tree; headless, so all of it is tested without a window |
 | `vui-icons` | line icons on a 24 point grid, rasterised by vui at any size and weight, and a spinner |
 | `vui-widgets` | buttons, switches, checkboxes, radios, segmented control, sliders, progress, text fields and areas with a full editor behind them, lists and a sidebar, badges, avatars, picture tiles and form layout |
+| `vui-macos` | the macOS backend: an AppKit window with a Metal surface, input, text input through the input method, the pasteboard, cursors and display-link frames that stop when nothing moves |
 | `vui` | the facade crate: `use vui::prelude::*` |
 | `examples/gallery` | every widget in light and dark as an app that runs headless; its pages and the states of its controls are golden images |
 
-**Status**: early. The renderer, the widget runtime and the standard widgets work and are tested. Overlays (menus, select, tooltips, dialogs, toasts) and the macOS window backend come next.
+**Status**: early. The renderer, the widget runtime, the standard widgets and the macOS window work and are tested. It grows with vmac, its first app: overlays (menus, select, tooltips, dialogs, toasts) and the accessibility bridge come when the app needs them.
 
 **Gallery**
 
-The gallery is an ordinary vui app: a sidebar and eight pages (foundations, buttons, controls, inputs, lists, images, icons, settings). Until the window backend exists it runs without a window, and renders each page, light and dark, to a PNG:
+The gallery is an ordinary vui app: a sidebar and eight pages (foundations, buttons, controls, inputs, lists, images, icons, settings). It opens in a window, or renders each page, light and dark, to a PNG without one:
 
 ```sh
+cargo run -p gallery --release -- --window                  # a live window
 cargo run -p gallery --release -- target/gallery            # every page
 cargo run -p gallery --release -- target/gallery buttons    # one page
 ```

@@ -214,7 +214,7 @@ impl App for Gallery {
         ))
     }
 
-    fn theme(&self) -> Theme {
+    fn theme(&self, _system: vui::core::Mode) -> Theme {
         if self.dark { Theme::dark() } else { Theme::light() }
     }
 }

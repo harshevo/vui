@@ -6,3 +6,4 @@ publish.workspace = true
 
 [dependencies]
 vui = { path = "../../crates/vui" }
+vui-macos = { path = "../../crates/vui-macos" }

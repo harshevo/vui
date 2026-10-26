@@ -24,10 +24,11 @@ fn hover_fades_in_and_out() {
     t.move_to(pt(10.0, 10.0));
     t.advance(1.0 / 60.0);
     let mid = first_fill(&mut t);
-    assert!(mid.r < p.side.r && mid.r > p.hover.r, "part way between the two greys: {mid:?}");
+    let hovered = p.hover.over(p.side);
+    assert!(mid.r < p.side.r && mid.r > hovered.r, "part way between the two greys: {mid:?}");
 
     t.settle();
-    assert_eq!(first_fill(&mut t), p.hover);
+    assert_eq!(first_fill(&mut t), p.hover.over(p.side), "the hover wash lies over the fill");
 
     t.leave();
     t.settle();
@@ -39,15 +40,16 @@ fn the_fade_neither_overshoots_nor_stalls() {
     let mut t = ui(200.0, 100.0);
     t.view(hoverable());
     let p = t.ui.theme().palette.clone();
+    let hovered = p.hover.over(p.side);
     t.move_to(pt(10.0, 10.0));
     let mut last = first_fill(&mut t).r;
     for _ in 0..40 {
         t.advance(1.0 / 60.0);
         let r = first_fill(&mut t).r;
-        assert!(r <= last + 1e-6 && r >= p.hover.r - 1e-6, "monotonic and inside the range: {last} -> {r}");
+        assert!(r <= last + 1e-6 && r >= hovered.r - 1e-6, "monotonic and inside the range: {last} -> {r}");
         last = r;
     }
-    assert!((last - p.hover.r).abs() < 1e-4, "arrived within 40 frames: {last}");
+    assert!((last - hovered.r).abs() < 1e-4, "arrived within 40 frames: {last}");
 }
 
 #[test]
@@ -138,13 +140,13 @@ fn a_retargeted_transition_keeps_its_momentum() {
 fn a_changed_fill_blends_when_the_element_is_animated() {
     let mut t = ui(200.0, 100.0);
     let view = |tone: Tone| column().child(div().key("a").height(40.0).bg(tone).animated());
-    t.view(view(Tone::Wash));
+    t.view(view(Tone::Side));
     let p = t.ui.theme().palette.clone();
     t.view(view(Tone::Accent));
-    assert_eq!(first_fill(&mut t), p.wash, "the change has not started to show");
+    assert_eq!(first_fill(&mut t), p.side, "the change has not started to show");
     t.advance(0.05);
     let mid = first_fill(&mut t);
-    assert!(mid.r < p.wash.r && mid.r > p.accent.r, "part way from grey to blue: {mid:?}");
+    assert!(mid.r < p.side.r && mid.r > p.accent.r, "part way from grey to blue: {mid:?}");
     t.settle();
     assert_eq!(first_fill(&mut t), p.accent);
 }
@@ -250,4 +252,72 @@ fn a_widget_that_starts_an_animation_in_update_gets_the_frames_for_it() {
     assert!(t.ui.needs_frame());
     t.settle();
     assert!(!t.ui.needs_frame());
+}
+
+fn marker(top: f32) -> impl vui_runtime::IntoElement<Msg> {
+    column().height(200.0).child(div().key("marker").absolute().top(top).left(0.0).width(100.0).height(32.0).animated())
+}
+
+#[test]
+fn an_animated_inset_slides_the_element_to_its_new_place() {
+    let mut t = ui(200.0, 200.0);
+    t.view(marker(0.0));
+    assert_eq!(t.rect("marker").y, 0.0);
+    t.view(marker(68.0));
+    assert!(t.ui.needs_frame());
+    t.advance(1.0 / 60.0);
+    let y = t.rect("marker").y;
+    assert!(y > 0.0 && y < 68.0, "on its way: {y}");
+    t.settle();
+    assert_eq!(t.rect("marker").y, 68.0);
+    assert_eq!(t.rect("marker").h, 32.0, "only the place moved");
+    assert!(!t.ui.needs_frame());
+}
+
+#[test]
+fn without_a_transition_an_inset_jumps() {
+    let mut t = ui(200.0, 200.0);
+    let at = |top: f32| column().height(200.0).child(div().key("marker").absolute().top(top).width(10.0).height(10.0));
+    t.view(at(0.0));
+    t.view(at(50.0));
+    assert_eq!(t.rect("marker").y, 50.0);
+    assert!(!t.ui.needs_frame());
+}
+
+fn page(key: &'static str) -> impl vui_runtime::IntoElement<Msg> {
+    column().padding(10.0).child(div().key(key).height(40.0).bg(Tone::Accent).appear())
+}
+
+#[test]
+fn an_appearing_element_fades_in_and_rises_into_place() {
+    let mut t = ui(200.0, 100.0);
+    t.view(page("first"));
+    let p = t.ui.theme().palette.clone();
+    let rest = 10.0;
+    let start = t.rect("first").y;
+    assert!(start > rest, "starts below its place: {start}");
+    assert!(quads(&t.scene()).is_empty(), "and transparent");
+    t.advance(0.05);
+    let (y, a) = (t.rect("first").y, first_fill(&mut t).a);
+    assert!(y < start && y > rest - 1.0, "rising: {y}");
+    assert!(a > 0.05 && a < 1.0, "fading in: {a}");
+    t.settle();
+    assert_eq!(t.rect("first").y, rest);
+    assert_eq!(first_fill(&mut t), p.accent);
+
+    // The same element updated in place does not appear again; a new key does.
+    t.view(page("first"));
+    assert_eq!(t.rect("first").y, rest);
+    t.view(page("second"));
+    assert!(t.rect("second").y > rest);
+}
+
+#[test]
+fn appearing_children_move_with_their_parent() {
+    let mut t = ui(200.0, 100.0);
+    t.view(column().child(column().key("page").appear().child(div().key("inner").height(20.0))));
+    assert_eq!(t.rect("inner").y, t.rect("page").y);
+    assert!(t.rect("inner").y > 0.0);
+    t.settle();
+    assert_eq!(t.rect("inner").y, 0.0);
 }

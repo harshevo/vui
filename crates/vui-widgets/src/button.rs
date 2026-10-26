@@ -1,4 +1,4 @@
-//! Buttons: a label, an icon or both, in four weights and three sizes.
+//! Buttons: pills with a label, an icon or both, in four weights and three sizes.
 
 use vui_core::{Fill, TextRole, Tone};
 use vui_icons::Icon;
@@ -11,7 +11,7 @@ use crate::item::{Height, ItemWidget, Spec};
 pub enum ButtonVariant {
     /// The accent: the one thing to do here.
     Primary,
-    /// An outline. The default.
+    /// A soft grey fill. The default.
     Secondary,
     /// No box until the pointer is over it: toolbars and rows.
     Ghost,
@@ -43,7 +43,7 @@ impl<M: 'static> Button<M> {
         let mut spec = Spec::new(label, Role::Button);
         spec.weight = 500;
         let button = Button { base: Base::new(), widget: ItemWidget::new(spec) };
-        button.rounded(Radius::Control).variant(ButtonVariant::Secondary).size(ButtonSize::Medium).cursor(vui_core::CursorIcon::Pointer)
+        button.rounded(Radius::Pill).variant(ButtonVariant::Secondary).size(ButtonSize::Medium).cursor(vui_core::CursorIcon::Pointer)
     }
 
     /// How much the button stands out.
@@ -63,7 +63,7 @@ impl<M: 'static> Button<M> {
         match variant {
             ButtonVariant::Primary => self.bg(Tone::Accent).hover_bg(Fill::Tone(Tone::Text, 0.10)).press_bg(Fill::Tone(Tone::Text, 0.20)).border(0.0, Fill::NONE),
             ButtonVariant::Danger => self.bg(Tone::Danger).hover_bg(Fill::Tone(Tone::Text, 0.10)).press_bg(Fill::Tone(Tone::Text, 0.20)).border(0.0, Fill::NONE),
-            ButtonVariant::Secondary => self.bg(Fill::NONE).hover_bg(Tone::Hover).press_bg(Tone::Wash).border(1.0, Tone::Line),
+            ButtonVariant::Secondary => self.bg(Tone::Wash).hover_bg(Tone::Hover).press_bg(Tone::Wash).border(0.0, Fill::NONE),
             ButtonVariant::Ghost => self.bg(Fill::NONE).hover_bg(Tone::Hover).press_bg(Tone::Wash).border(0.0, Fill::NONE),
         }
     }
