@@ -7,7 +7,8 @@
 use std::rc::Rc;
 
 use crate::color::Color;
-use crate::geom::{Corners, Point, Rect, Size};
+use crate::geom::{Corners, Point, Rect, Size, rect};
+use crate::image::ImageId;
 use crate::text::TextLayout;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -61,6 +62,106 @@ impl Quad {
     }
 }
 
+/// How an image is sampled.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub enum Sampling {
+    /// Trilinear with anisotropic filtering: the right choice for photos and thumbnails.
+    #[default]
+    Smooth,
+    /// Crisp texel edges with a one-pixel blend: keeps screenshot text sharp when zoomed in.
+    Sharp,
+    /// Nearest texel: pixel art.
+    Nearest,
+}
+
+/// What the image's pixels mean.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub enum ImageMode {
+    /// Draw the picture.
+    #[default]
+    Color,
+    /// Use only the alpha channel as a stencil and paint it in `tint`: how icons are drawn.
+    Mask,
+}
+
+/// A picture with rounded corners, an optional hairline ring and a source crop.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ImageCmd {
+    pub id: ImageId,
+    pub rect: Rect,
+    pub radii: Corners,
+    pub smooth: f32,
+    /// The part of the image to show, in normalised 0..1 coordinates.
+    pub uv: Rect,
+    pub opacity: f32,
+    /// The colour for `ImageMode::Mask`.
+    pub tint: Color,
+    pub mode: ImageMode,
+    pub sampling: Sampling,
+    /// A hairline drawn over the image's edge, inside the rect.
+    pub ring: Option<Border>,
+    pub clip: Option<Rect>,
+}
+
+impl ImageCmd {
+    pub fn new(id: ImageId, rect_: Rect) -> ImageCmd {
+        ImageCmd {
+            id,
+            rect: rect_,
+            radii: Corners::ZERO,
+            smooth: 0.0,
+            uv: rect(0.0, 0.0, 1.0, 1.0),
+            opacity: 1.0,
+            tint: Color::BLACK,
+            mode: ImageMode::Color,
+            sampling: Sampling::Smooth,
+            ring: None,
+            clip: None,
+        }
+    }
+
+    pub fn radii(mut self, radii: impl Into<Corners>) -> ImageCmd {
+        self.radii = radii.into();
+        self
+    }
+
+    pub fn smooth(mut self, smooth: f32) -> ImageCmd {
+        self.smooth = smooth.clamp(0.0, 1.0);
+        self
+    }
+
+    pub fn uv(mut self, uv: Rect) -> ImageCmd {
+        self.uv = uv;
+        self
+    }
+
+    pub fn opacity(mut self, opacity: f32) -> ImageCmd {
+        self.opacity = opacity.clamp(0.0, 1.0);
+        self
+    }
+
+    pub fn mask(mut self, tint: Color) -> ImageCmd {
+        self.mode = ImageMode::Mask;
+        self.tint = tint;
+        self
+    }
+
+    pub fn sampling(mut self, sampling: Sampling) -> ImageCmd {
+        self.sampling = sampling;
+        self
+    }
+
+    pub fn ring(mut self, width: f32, color: Color) -> ImageCmd {
+        self.ring = Some(Border { width, color });
+        self
+    }
+
+    pub fn clip(mut self, clip: Option<Rect>) -> ImageCmd {
+        self.clip = clip;
+        self
+    }
+}
+
 /// Shaped text drawn with its top-left corner at `origin`.
 #[derive(Clone, Debug)]
 pub struct TextCmd {
@@ -74,6 +175,7 @@ pub struct TextCmd {
 #[derive(Clone, Debug)]
 pub enum Command {
     Quad(Quad),
+    Image(ImageCmd),
     Text(TextCmd),
 }
 
@@ -104,6 +206,10 @@ impl Scene {
 
     pub fn quad(&mut self, quad: Quad) {
         self.commands.push(Command::Quad(quad));
+    }
+
+    pub fn image(&mut self, image: ImageCmd) {
+        self.commands.push(Command::Image(image));
     }
 
     pub fn text(&mut self, layout: Rc<TextLayout>, origin: Point, color: Color, clip: Option<Rect>) {

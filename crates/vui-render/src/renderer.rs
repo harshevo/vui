@@ -4,10 +4,11 @@ use std::ops::Range;
 
 use glyphon::{TextArea, TextBounds};
 use vui_core::scene::{Command, Scene, TextCmd};
-use vui_core::Fonts;
+use vui_core::{Fonts, ImageId, Resources};
 
 use crate::context::{Gpu, GpuError};
 use crate::image::Image;
+use crate::image_pipeline::{ImageInstance, ImagePipeline, ImageStats};
 use crate::quad::{QuadInstance, QuadPipeline};
 use crate::text::TextPipeline;
 
@@ -15,6 +16,7 @@ use crate::text::TextPipeline;
 /// between shapes and text.
 enum Batch {
     Quads(Range<u32>),
+    Image { instance: u32, id: ImageId },
     Text { renderer: usize, commands: Range<usize> },
 }
 
@@ -22,28 +24,42 @@ pub struct Renderer {
     device: wgpu::Device,
     queue: wgpu::Queue,
     format: wgpu::TextureFormat,
-    fonts: Fonts,
+    resources: Resources,
     quads: QuadPipeline,
+    images: ImagePipeline,
     text: TextPipeline,
     scratch_quads: Vec<QuadInstance>,
+    scratch_images: Vec<ImageInstance>,
     batches: Vec<Batch>,
 }
 
 impl Renderer {
     /// Builds the pipelines for rendering into textures of `format`. The shaders blend in encoded
-    /// sRGB space, so pass a non-sRGB format (`Rgba8Unorm` or `Bgra8Unorm`). `fonts` must be the
-    /// same `Fonts` that shaped the text in the scenes you render.
-    pub fn new(device: wgpu::Device, queue: wgpu::Queue, format: wgpu::TextureFormat, fonts: Fonts) -> Renderer {
+    /// sRGB space, so pass a non-sRGB format (`Rgba8Unorm` or `Bgra8Unorm`). `resources` must be the
+    /// same `Resources` that shaped the text and registered the images in the scenes you render.
+    pub fn new(device: wgpu::Device, queue: wgpu::Queue, format: wgpu::TextureFormat, resources: Resources) -> Renderer {
         let quads = QuadPipeline::new(&device, format);
+        let images = ImagePipeline::new(&device, format);
         let text = TextPipeline::new(&device, &queue, format);
-        Renderer { device, queue, format, fonts, quads, text, scratch_quads: Vec::new(), batches: Vec::new() }
+        Renderer {
+            device,
+            queue,
+            format,
+            resources,
+            quads,
+            images,
+            text,
+            scratch_quads: Vec::new(),
+            scratch_images: Vec::new(),
+            batches: Vec::new(),
+        }
     }
 
     /// A renderer on a window-less device, drawing into `Rgba8Unorm` textures. Returns the GPU too,
     /// so tests can create their own textures.
-    pub fn headless(fonts: Fonts) -> Result<(Renderer, Gpu), GpuError> {
+    pub fn headless(resources: Resources) -> Result<(Renderer, Gpu), GpuError> {
         let gpu = Gpu::headless()?;
-        let renderer = Renderer::new(gpu.device.clone(), gpu.queue.clone(), wgpu::TextureFormat::Rgba8Unorm, fonts);
+        let renderer = Renderer::new(gpu.device.clone(), gpu.queue.clone(), wgpu::TextureFormat::Rgba8Unorm, resources);
         Ok((renderer, gpu))
     }
 
@@ -60,13 +76,25 @@ impl Renderer {
     }
 
     pub fn fonts(&self) -> &Fonts {
-        &self.fonts
+        &self.resources.fonts
+    }
+
+    /// How much texture memory pictures may keep resident, in bytes. The least recently drawn
+    /// pictures are evicted first, and are re-uploaded if they are drawn again.
+    pub fn set_image_budget(&mut self, bytes: usize) {
+        self.images.budget = bytes;
+    }
+
+    pub fn image_stats(&self) -> ImageStats {
+        self.images.stats()
     }
 
     /// Draws `scene` into `view`, which must be `size_px` pixels and of the renderer's format.
     pub fn render(&mut self, scene: &Scene, view: &wgpu::TextureView, size_px: (u32, u32)) {
         self.plan(scene);
-        self.quads.upload(&self.device, &self.queue, &self.scratch_quads, [size_px.0 as f32, size_px.1 as f32]);
+        let viewport = [size_px.0 as f32, size_px.1 as f32];
+        self.quads.upload(&self.device, &self.queue, &self.scratch_quads, viewport);
+        self.images.upload(&self.device, &self.queue, &self.scratch_images, viewport);
         self.text.begin_frame(&self.queue, size_px);
         for batch in &self.batches {
             if let Batch::Text { renderer, commands } = batch {
@@ -77,7 +105,7 @@ impl Renderer {
                         _ => None,
                     })
                     .collect();
-                self.text.prepare(*renderer, &self.device, &self.queue, &self.fonts, areas);
+                self.text.prepare(*renderer, &self.device, &self.queue, &self.resources.fonts, areas);
             }
         }
 
@@ -106,17 +134,20 @@ impl Renderer {
             for batch in &self.batches {
                 match batch {
                     Batch::Quads(range) => self.quads.draw(&mut pass, range.clone()),
+                    Batch::Image { instance, id } => self.images.draw(&mut pass, *id, *instance),
                     Batch::Text { renderer, .. } => self.text.draw(*renderer, &mut pass),
                 }
             }
         }
         self.queue.submit([encoder.finish()]);
         self.text.end_frame();
+        self.images.end_frame();
     }
 
     /// Splits the scene into batches and converts the quads to instances.
     fn plan(&mut self, scene: &Scene) {
         self.scratch_quads.clear();
+        self.scratch_images.clear();
         self.batches.clear();
         let mut text_runs = 0;
         let mut i = 0;
@@ -129,6 +160,14 @@ impl Renderer {
                         i += 1;
                     }
                     self.batches.push(Batch::Quads(start..self.scratch_quads.len() as u32));
+                }
+                Command::Image(cmd) => {
+                    i += 1;
+                    if let Some(tex) = self.images.ensure(&self.device, &self.queue, &self.resources.images, cmd.id) {
+                        let instance = self.scratch_images.len() as u32;
+                        self.scratch_images.push(ImageInstance::new(cmd, tex, scene.scale));
+                        self.batches.push(Batch::Image { instance, id: cmd.id });
+                    }
                 }
                 Command::Text(_) => {
                     let start = i;

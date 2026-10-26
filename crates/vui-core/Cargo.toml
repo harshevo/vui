@@ -7,3 +7,6 @@ publish.workspace = true
 [dependencies]
 vui-fonts = { path = "../vui-fonts" }
 cosmic-text.workspace = true
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp", "tiff"] }
+fast_image_resize = "6.1"
+thumbhash = "0.1"

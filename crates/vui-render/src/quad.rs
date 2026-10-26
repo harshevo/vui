@@ -61,7 +61,7 @@ impl QuadPipeline {
     pub(crate) fn new(device: &wgpu::Device, format: wgpu::TextureFormat) -> QuadPipeline {
         let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("vui quad shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/quad.wgsl").into()),
+            source: wgpu::ShaderSource::Wgsl(format!("{}\n{}", include_str!("shaders/sdf.wgsl"), include_str!("shaders/quad.wgsl")).into()),
         });
         let entry = |binding, ty| wgpu::BindGroupLayoutEntry {
             binding,
