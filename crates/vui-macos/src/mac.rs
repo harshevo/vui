@@ -6,17 +6,21 @@
 //! Korean input, dictation and the emoji picker all type into vui's text fields.
 
 use std::cell::{Cell, RefCell};
+use std::path::PathBuf;
 use std::ptr::NonNull;
 use std::rc::Rc;
+use std::sync::mpsc;
+
+use dispatch2::DispatchQueue;
 
 use objc2::rc::{Retained, Weak};
 use objc2::runtime::{AnyObject, NSObject, NSObjectProtocol, ProtocolObject, Sel};
 use objc2::{AllocAnyThread, DefinedClass, MainThreadMarker, MainThreadOnly, Message, define_class, msg_send, sel};
 use objc2_app_kit::{
     NSAppearanceCustomization, NSAppearanceNameAqua, NSAppearanceNameDarkAqua, NSApplication, NSApplicationActivationPolicy,
-    NSApplicationDelegate, NSBackingStoreType, NSColor, NSCursor, NSEvent, NSEventModifierFlags, NSMenu, NSMenuItem, NSPasteboard,
-    NSPasteboardTypeString, NSResponder, NSTextInputClient, NSTrackingArea, NSTrackingAreaOptions, NSView, NSWindow,
-    NSWindowDelegate, NSWindowOcclusionState, NSWindowStyleMask, NSWindowTitleVisibility,
+    NSBackingStoreType, NSColor, NSCursor, NSEvent, NSEventModifierFlags, NSMainMenuWindowLevel, NSMenu, NSMenuItem, NSPanel,
+    NSPasteboard, NSPasteboardTypeString, NSResponder, NSScreen, NSTextInputClient, NSTrackingArea, NSTrackingAreaOptions, NSView,
+    NSWindow, NSWindowCollectionBehavior, NSWindowDelegate, NSWindowOcclusionState, NSWindowStyleMask, NSWindowTitleVisibility,
 };
 use objc2_foundation::{
     NSArray, NSAttributedString, NSAttributedStringKey, NSNotFound, NSNotification, NSPoint, NSRange, NSRect, NSRunLoop, NSRunLoopCommonModes, NSSize,
@@ -25,15 +29,15 @@ use objc2_foundation::{
 use objc2_quartz_core::{CACurrentMediaTime, CADisplayLink};
 use raw_window_handle::{AppKitDisplayHandle, AppKitWindowHandle, RawDisplayHandle, RawWindowHandle};
 use vui_core::{
-    Color, CursorIcon, Event, ImeEvent, Key, KeyEvent, Mode, Modifiers, PointerButton, Rect, Resources, pt, size,
+    Color, CursorIcon, Event, ImeEvent, Key, KeyEvent, Mode, Modifiers, PointerButton, Rect, Resources, Size, pt, size,
 };
-use vui_render::{Gpu, Renderer};
+use vui_render::{CustomPass, Gpu, Renderer};
 use vui_runtime::{App, Clipboard, Effect, Ui};
 
 use crate::convert::{frame_step, scroll_delta, scroll_phase, utf16_len, utf16_range_to_bytes};
-use crate::host::{Host, Window};
+use crate::host::{Host, Snapshot, Window};
 use crate::keys::{modifiers, named_key, shortcut_char, typed_text};
-use crate::{Error, WindowOptions};
+use crate::{Error, OverlayOptions, Proxy, Screen, WindowOptions};
 
 // ---- the view ------------------------------------------------------------------------------------
 
@@ -96,7 +100,7 @@ define_class!(
             let mode = self.system_mode();
             let effects = self.with_host(|h| h.set_system_mode(mode)).unwrap_or_default();
             // What shows behind the view while a live resize catches up.
-            if let (Some(window), Some(canvas)) = (self.window(), self.with_host(|h| h.canvas())) {
+            if let (Some(window), Some(Some(canvas))) = (self.window(), self.with_host(|h| h.canvas())) {
                 window.setBackgroundColor(Some(&ns_color(canvas)));
             }
             self.after_input(effects);
@@ -388,6 +392,11 @@ impl VuiView {
         self.after_input(effects);
     }
 
+    fn deliver(&self) {
+        let effects = self.with_host(|h| h.deliver()).unwrap_or_default();
+        self.after_input(effects);
+    }
+
     fn shortcut(&self, c: char, mods: Modifiers) {
         self.send(Event::Key(KeyEvent::press(Key::Character(c), mods)));
     }
@@ -512,8 +521,6 @@ impl VuiView {
         self.ivars().last_frame.set(None);
     }
 
-
-
     /// Asks for a frame in `seconds`, for a widget that wants waking while nothing moves.
     fn wake_in(&self, seconds: f32) {
         if let Some(old) = self.ivars().timer.take() {
@@ -607,6 +614,7 @@ impl Clipboard for Pasteboard {
 
 pub struct WindowIvars {
     view: Weak<VuiView>,
+    quit_on_close: bool,
 }
 
 define_class!(
@@ -640,41 +648,19 @@ define_class!(
                 view.request_frame();
             }
         }
-    }
-);
 
-impl WindowDelegate {
-    fn new(mtm: MainThreadMarker, view: &VuiView) -> Retained<WindowDelegate> {
-        let this = Self::alloc(mtm).set_ivars(WindowIvars { view: Weak::from_retained(&view.retain()) });
-        unsafe { msg_send![super(this), init] }
-    }
-}
-
-pub struct AppIvars {
-    quit_on_close: bool,
-}
-
-define_class!(
-    // SAFETY: NSObject has no subclassing requirements and the delegate does not implement Drop.
-    #[unsafe(super(NSObject))]
-    #[thread_kind = MainThreadOnly]
-    #[name = "VuiAppDelegate"]
-    #[ivars = AppIvars]
-    struct AppDelegate;
-
-    unsafe impl NSObjectProtocol for AppDelegate {}
-
-    unsafe impl NSApplicationDelegate for AppDelegate {
-        #[unsafe(method(applicationShouldTerminateAfterLastWindowClosed:))]
-        fn should_terminate(&self, _app: &NSApplication) -> bool {
-            self.ivars().quit_on_close
+        #[unsafe(method(windowWillClose:))]
+        fn will_close(&self, _notification: &NSNotification) {
+            if self.ivars().quit_on_close {
+                NSApplication::sharedApplication(self.mtm()).terminate(None);
+            }
         }
     }
 );
 
-impl AppDelegate {
-    fn new(mtm: MainThreadMarker, quit_on_close: bool) -> Retained<AppDelegate> {
-        let this = Self::alloc(mtm).set_ivars(AppIvars { quit_on_close });
+impl WindowDelegate {
+    fn new(mtm: MainThreadMarker, view: &VuiView, quit_on_close: bool) -> Retained<WindowDelegate> {
+        let this = Self::alloc(mtm).set_ivars(WindowIvars { view: Weak::from_retained(&view.retain()), quit_on_close });
         unsafe { msg_send![super(this), init] }
     }
 }
@@ -738,73 +724,246 @@ fn main_menu(mtm: MainThreadMarker, name: &str) -> Retained<NSMenu> {
     bar
 }
 
-// ---- running -------------------------------------------------------------------------------------
+// ---- the application -----------------------------------------------------------------------------
 
-pub fn run<A: App>(options: WindowOptions, make: impl FnOnce(&Resources) -> A) -> Result<(), Error> {
-    let mtm = MainThreadMarker::new().ok_or(Error::NotMainThread)?;
-    let app = NSApplication::sharedApplication(mtm);
-    app.setActivationPolicy(NSApplicationActivationPolicy::Regular);
-    let delegate = AppDelegate::new(mtm, options.quit_on_close);
-    app.setDelegate(Some(ProtocolObject::from_ref(&*delegate)));
-    app.setMainMenu(Some(&main_menu(mtm, &options.title)));
+thread_local! {
+    /// The views of the windows opened so far, numbered as their `Proxy`s know them.
+    static VIEWS: RefCell<Vec<Weak<VuiView>>> = const { RefCell::new(Vec::new()) };
+}
 
-    let res = Resources::new();
-    let app_state = make(&res);
+/// From any thread: has the main thread hand window `id` the messages queued for it.
+pub(crate) fn wake(id: usize) {
+    DispatchQueue::main().exec_async(move || {
+        if let Some(view) = VIEWS.with(|views| views.borrow().get(id).and_then(Weak::load)) {
+            view.deliver();
+        }
+    });
+}
 
-    let content = NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(options.size.w as f64, options.size.h as f64));
-    let style = NSWindowStyleMask::Titled
-        | NSWindowStyleMask::Closable
-        | NSWindowStyleMask::Miniaturizable
-        | NSWindowStyleMask::Resizable
-        | NSWindowStyleMask::FullSizeContentView;
-    let window = unsafe {
-        NSWindow::initWithContentRect_styleMask_backing_defer(NSWindow::alloc(mtm), content, style, NSBackingStoreType::Buffered, false)
+type MakePass = Box<dyn Fn(&wgpu::Device, wgpu::TextureFormat) -> Box<dyn CustomPass>>;
+
+/// The running app: its windows and overlays, which share one GPU device and one set of fonts and
+/// pictures. Build it, open what the app shows, then `run`.
+pub struct Application {
+    mtm: MainThreadMarker,
+    res: Resources,
+    /// Until the first window picks a device to suit its surface.
+    instance: Option<wgpu::Instance>,
+    gpu: Option<Gpu>,
+    passes: Vec<(&'static str, MakePass)>,
+    /// Kept alive for as long as the app runs.
+    windows: Vec<(Retained<NSWindow>, Retained<VuiView>, Retained<WindowDelegate>)>,
+    snapshot: Option<PathBuf>,
+    snapshot_quit: bool,
+    snapshots: Rc<Cell<usize>>,
+}
+
+impl Application {
+    /// Sets the process up as an app called `name`, with the standard menus.
+    pub fn new(name: &str) -> Result<Application, Error> {
+        let mtm = MainThreadMarker::new().ok_or(Error::NotMainThread)?;
+        let app = NSApplication::sharedApplication(mtm);
+        app.setActivationPolicy(NSApplicationActivationPolicy::Regular);
+        app.setMainMenu(Some(&main_menu(mtm, name)));
+        Ok(Application {
+            mtm,
+            res: Resources::new(),
+            instance: Some(wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle())),
+            gpu: None,
+            passes: Vec::new(),
+            windows: Vec::new(),
+            snapshot: std::env::var_os("VUI_SNAPSHOT").map(PathBuf::from),
+            snapshot_quit: std::env::var_os("VUI_SNAPSHOT_QUIT").is_some(),
+            snapshots: Rc::new(Cell::new(0)),
+        })
+    }
+
+    /// The fonts and pictures every window draws with, for registering images.
+    pub fn resources(&self) -> &Resources {
+        &self.res
+    }
+
+    /// Gives windows opened from now on a custom shader pass, which `PaintCx::custom` commands named
+    /// `name` draw with.
+    pub fn pass(&mut self, name: &'static str, make: impl Fn(&wgpu::Device, wgpu::TextureFormat) -> Box<dyn CustomPass> + 'static) {
+        self.passes.push((name, Box::new(make)));
+    }
+
+    /// The screen overlays go on, measured now: displays come and go.
+    pub fn screen(&self) -> Screen {
+        describe(&overlay_screen(self.mtm))
+    }
+
+    /// Opens a window running `app`, centred on the screen and in front.
+    pub fn window<A: App>(&mut self, options: WindowOptions, app: A) -> Result<Proxy<A::Msg>, Error> {
+        let mtm = self.mtm;
+        let content = NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(options.size.w as f64, options.size.h as f64));
+        let style = NSWindowStyleMask::Titled
+            | NSWindowStyleMask::Closable
+            | NSWindowStyleMask::Miniaturizable
+            | NSWindowStyleMask::Resizable
+            | NSWindowStyleMask::FullSizeContentView;
+        let window = unsafe {
+            NSWindow::initWithContentRect_styleMask_backing_defer(NSWindow::alloc(mtm), content, style, NSBackingStoreType::Buffered, false)
+        };
+        unsafe { window.setReleasedWhenClosed(false) };
+        window.setTitle(&NSString::from_str(&options.title));
+        window.setTitlebarAppearsTransparent(true);
+        window.setTitleVisibility(NSWindowTitleVisibility::Hidden);
+        window.setContentMinSize(NSSize::new(options.min_size.w as f64, options.min_size.h as f64));
+        window.setAcceptsMouseMovedEvents(true);
+        window.center();
+
+        let proxy = self.attach(window, content, options.size, options.quit_on_close, false, app)?;
+        let (window, view, _) = self.windows.last().expect("just attached");
+        window.makeKeyAndOrderFront(None);
+        window.makeFirstResponder(Some(&**view));
+        view.start_display_link();
+        view.request_frame();
+        Ok(proxy)
+    }
+
+    /// Opens an overlay running `app`: see [`OverlayOptions`].
+    pub fn overlay<A: App>(&mut self, options: OverlayOptions, app: A) -> Result<Proxy<A::Msg>, Error> {
+        let mtm = self.mtm;
+        let screen = overlay_screen(mtm).frame();
+        let (w, h) = (options.size.w as f64, options.size.h as f64);
+        let origin = NSPoint::new(screen.origin.x + ((screen.size.width - w) / 2.0).round(), screen.origin.y + screen.size.height - h);
+        let frame = NSRect::new(origin, NSSize::new(w, h));
+        let style = NSWindowStyleMask::Borderless | NSWindowStyleMask::NonactivatingPanel;
+        let panel = NSPanel::initWithContentRect_styleMask_backing_defer(NSPanel::alloc(mtm), frame, style, NSBackingStoreType::Buffered, false);
+        unsafe { panel.setReleasedWhenClosed(false) };
+        panel.setFloatingPanel(true);
+        panel.setBecomesKeyOnlyIfNeeded(true);
+        panel.setHidesOnDeactivate(false);
+        panel.setOpaque(false);
+        panel.setHasShadow(false);
+        panel.setMovable(false);
+        panel.setIgnoresMouseEvents(options.click_through);
+        // Above the menu bar, so it can cover the notch.
+        panel.setLevel(NSMainMenuWindowLevel + 3);
+        panel.setCollectionBehavior(
+            NSWindowCollectionBehavior::CanJoinAllSpaces
+                | NSWindowCollectionBehavior::Stationary
+                | NSWindowCollectionBehavior::FullScreenAuxiliary
+                | NSWindowCollectionBehavior::IgnoresCycle,
+        );
+        panel.setBackgroundColor(Some(&NSColor::clearColor()));
+
+        let content = NSRect::new(NSPoint::new(0.0, 0.0), frame.size);
+        let proxy = self.attach(panel.into_super(), content, options.size, false, true, app)?;
+        let (window, view, _) = self.windows.last().expect("just attached");
+        window.orderFrontRegardless();
+        view.start_display_link();
+        view.request_frame();
+        Ok(proxy)
+    }
+
+    /// Puts a view running `app` in `window`, with a surface and a renderer.
+    fn attach<A: App>(
+        &mut self,
+        window: Retained<NSWindow>,
+        content: NSRect,
+        size: Size,
+        quit_on_close: bool,
+        transparent: bool,
+        app: A,
+    ) -> Result<Proxy<A::Msg>, Error> {
+        let mtm = self.mtm;
+        let view = VuiView::new(mtm, content);
+        window.setContentView(Some(&view));
+        let delegate = WindowDelegate::new(mtm, &view, quit_on_close);
+        window.setDelegate(Some(ProtocolObject::from_ref(&*delegate)));
+
+        let scale = window.backingScaleFactor() as f32;
+        let mut ui = Ui::with_app(self.res.clone(), size, scale, app);
+        ui.set_clipboard(Rc::new(Pasteboard));
+        ui.set_transparent(transparent);
+        ui.set_system_mode(view.system_mode());
+        if !transparent {
+            window.setBackgroundColor(Some(&ns_color(ui.theme().palette.side)));
+        }
+
+        // The surface on the view, and, for the first window, a device that can present to it.
+        let instance = match (&self.gpu, &self.instance) {
+            (Some(gpu), _) => &gpu.instance,
+            (None, Some(instance)) => instance,
+            (None, None) => unreachable!("the instance moves into the GPU"),
+        };
+        let handle = AppKitWindowHandle::new(NonNull::from(&*view).cast());
+        let target = wgpu::SurfaceTargetUnsafe::RawHandle {
+            raw_display_handle: Some(RawDisplayHandle::AppKit(AppKitDisplayHandle::new())),
+            raw_window_handle: RawWindowHandle::AppKit(handle),
+        };
+        // SAFETY: the view outlives the surface: the app keeps every view until it exits, and the
+        // surface is dropped with the host, which the view owns.
+        let surface = unsafe { instance.create_surface_unsafe(target) }.map_err(|e| Error::Surface(e.to_string()))?;
+        if self.gpu.is_none() {
+            let instance = self.instance.take().expect("no device yet");
+            self.gpu = Some(Gpu::for_surface(instance, &surface).map_err(|e| Error::Gpu(e.to_string()))?);
+        }
+        let gpu = self.gpu.as_ref().expect("made above");
+        let format = Window::<A::Msg>::pick_format(&surface, &gpu.adapter);
+        let mut renderer = Renderer::new(gpu.device.clone(), gpu.queue.clone(), format, self.res.clone());
+        for (name, make) in &self.passes {
+            renderer.add_pass(name, make(&gpu.device, format));
+        }
+
+        let n = self.windows.len();
+        let path = self.snapshot.as_ref().map(|p| if n == 0 { p.clone() } else { numbered(p, n) });
+        if path.is_some() {
+            self.snapshots.set(self.snapshots.get() + 1);
+        }
+        let snapshot = Snapshot { path, pending: self.snapshots.clone(), quit: self.snapshot_quit };
+        let (tx, inbox) = mpsc::channel();
+        let host = Window::new(ui, surface, &gpu.adapter, renderer, inbox, snapshot);
+        view.ivars().host.replace(Some(Box::new(host)));
+        view.resized();
+
+        let id = VIEWS.with(|views| {
+            let mut views = views.borrow_mut();
+            views.push(Weak::from_retained(&view));
+            views.len() - 1
+        });
+        self.windows.push((window, view, delegate));
+        Ok(Proxy { tx, window: id })
+    }
+
+    /// Brings the app forward and runs until it quits.
+    pub fn run(self) {
+        let app = NSApplication::sharedApplication(self.mtm);
+        app.activate();
+        app.run();
+    }
+}
+
+/// `frame.png` → `frame-2.png`.
+fn numbered(path: &std::path::Path, n: usize) -> PathBuf {
+    let stem = path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
+    let name = match path.extension() {
+        Some(ext) => format!("{stem}-{n}.{}", ext.to_string_lossy()),
+        None => format!("{stem}-{n}"),
     };
-    unsafe { window.setReleasedWhenClosed(false) };
-    window.setTitle(&NSString::from_str(&options.title));
-    window.setTitlebarAppearsTransparent(true);
-    window.setTitleVisibility(NSWindowTitleVisibility::Hidden);
-    window.setContentMinSize(NSSize::new(options.min_size.w as f64, options.min_size.h as f64));
-    window.setAcceptsMouseMovedEvents(true);
+    path.with_file_name(name)
+}
 
-    let view = VuiView::new(mtm, content);
-    window.setContentView(Some(&view));
-    let window_delegate = WindowDelegate::new(mtm, &view);
-    window.setDelegate(Some(ProtocolObject::from_ref(&*window_delegate)));
-    window.center();
+/// The built-in display if it has a notch, else the one with the menu bar.
+fn overlay_screen(mtm: MainThreadMarker) -> Retained<NSScreen> {
+    let screens = NSScreen::screens(mtm);
+    let notched = screens.iter().find(|s| s.safeAreaInsets().top > 0.0);
+    notched.or_else(|| screens.firstObject()).or_else(|| NSScreen::mainScreen(mtm)).expect("a Mac has a screen")
+}
 
-    // The UI, then the surface on the view and a device that can present to it.
-    let scale = window.backingScaleFactor() as f32;
-    let mut ui = Ui::with_app(res.clone(), options.size, scale, app_state);
-    ui.set_clipboard(Rc::new(Pasteboard));
-    ui.set_system_mode(view.system_mode());
-    window.setBackgroundColor(Some(&ns_color(ui.theme().palette.side)));
-
-    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
-    let handle = AppKitWindowHandle::new(NonNull::from(&*view).cast());
-    let target = wgpu::SurfaceTargetUnsafe::RawHandle {
-        raw_display_handle: Some(RawDisplayHandle::AppKit(AppKitDisplayHandle::new())),
-        raw_window_handle: RawWindowHandle::AppKit(handle),
-    };
-    // SAFETY: the view outlives the surface: both live until the app exits, and the surface is dropped
-    // with the host, which the view owns.
-    let surface = unsafe { instance.create_surface_unsafe(target) }.map_err(|e| Error::Surface(e.to_string()))?;
-    let gpu = Gpu::for_surface(instance, &surface).map_err(|e| Error::Gpu(e.to_string()))?;
-    let format = Window::<A::Msg>::pick_format(&surface, &gpu.adapter);
-    let renderer = Renderer::new(gpu.device.clone(), gpu.queue.clone(), format, res);
-    let host = Window::new(ui, surface, &gpu.adapter, renderer);
-    view.ivars().host.replace(Some(Box::new(host)));
-    view.resized();
-
-    window.makeKeyAndOrderFront(None);
-    window.makeFirstResponder(Some(&view));
-    view.start_display_link();
-    view.request_frame();
-    app.activate();
-    app.run();
-    // Keep the delegates alive for as long as the app runs.
-    drop((delegate, window_delegate, window, gpu.instance));
-    Ok(())
+fn describe(screen: &NSScreen) -> Screen {
+    let frame = screen.frame();
+    let top = screen.safeAreaInsets().top;
+    let notch = (top > 0.0).then(|| {
+        let (left, right) = (screen.auxiliaryTopLeftArea(), screen.auxiliaryTopRightArea());
+        size((frame.size.width - left.size.width - right.size.width) as f32, top as f32)
+    });
+    let visible = screen.visibleFrame();
+    let menu_bar = (frame.origin.y + frame.size.height) - (visible.origin.y + visible.size.height);
+    Screen { size: size(frame.size.width as f32, frame.size.height as f32), notch, menu_bar: menu_bar.max(0.0) as f32 }
 }
 
 fn ns_color(c: Color) -> Retained<NSColor> {

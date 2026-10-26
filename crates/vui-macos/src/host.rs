@@ -1,7 +1,10 @@
 //! What a window runs: the UI, the surface it presents to and the renderer, behind one object-safe
 //! trait so the AppKit view does not need to know the app's message type.
 
+use std::cell::Cell;
 use std::path::PathBuf;
+use std::rc::Rc;
+use std::sync::mpsc::Receiver;
 
 use vui_core::{Color, Event, Mode, Point, Size, size};
 use vui_render::Renderer;
@@ -32,8 +35,25 @@ pub trait Host {
     fn redraw(&mut self);
     fn needs_paint(&self) -> bool;
     fn quit_requested(&self) -> bool;
-    /// The colour around the content: what the window shows behind the view.
-    fn canvas(&self) -> Color;
+    /// The colour around the content: what the window shows behind the view. None for a see-through
+    /// window.
+    fn canvas(&self) -> Option<Color>;
+    /// Hands the app the messages its `Proxy` has queued.
+    fn deliver(&mut self) -> Vec<Effect>;
+}
+
+/// Writing a window's first settled frame to a file, for checking windows from scripts.
+pub struct Snapshot {
+    pub path: Option<PathBuf>,
+    /// Snapshots not yet written, across all windows: the app quits when the last one is, if asked to.
+    pub pending: Rc<Cell<usize>>,
+    pub quit: bool,
+}
+
+impl Snapshot {
+    pub fn none() -> Snapshot {
+        Snapshot { path: None, pending: Rc::new(Cell::new(0)), quit: false }
+    }
 }
 
 /// A UI on a wgpu surface.
@@ -42,10 +62,9 @@ pub struct Window<M: 'static> {
     surface: wgpu::Surface<'static>,
     config: wgpu::SurfaceConfiguration,
     renderer: Renderer,
-    /// Write the first settled frame to this PNG: `VUI_SNAPSHOT`, for checking a window from scripts.
-    snapshot: Option<PathBuf>,
-    /// Quit once the snapshot is written: `VUI_SNAPSHOT_QUIT`.
-    snapshot_quit: bool,
+    snapshot: Snapshot,
+    /// Messages sent from outside the UI, through the window's `Proxy`.
+    inbox: Receiver<M>,
     quit: bool,
     /// The last frame could not be shown (the window was hidden or the surface was being rebuilt), so
     /// what is on screen is out of date.
@@ -53,8 +72,23 @@ pub struct Window<M: 'static> {
 }
 
 impl<M: 'static> Window<M> {
-    pub fn new(ui: Ui<M>, surface: wgpu::Surface<'static>, adapter: &wgpu::Adapter, renderer: Renderer) -> Window<M> {
+    pub fn new(
+        ui: Ui<M>,
+        surface: wgpu::Surface<'static>,
+        adapter: &wgpu::Adapter,
+        renderer: Renderer,
+        inbox: Receiver<M>,
+        snapshot: Snapshot,
+    ) -> Window<M> {
         let caps = surface.get_capabilities(adapter);
+        // The shaders write premultiplied colour, which is what Core Animation composites; Metal calls
+        // a see-through layer post-multiplied.
+        let wanted: &[wgpu::CompositeAlphaMode] = if ui.transparent() {
+            &[wgpu::CompositeAlphaMode::PostMultiplied, wgpu::CompositeAlphaMode::PreMultiplied]
+        } else {
+            &[wgpu::CompositeAlphaMode::Opaque]
+        };
+        let alpha_mode = wanted.iter().copied().find(|m| caps.alpha_modes.contains(m)).unwrap_or(caps.alpha_modes[0]);
         let (w, h) = pixel_size(ui.size(), ui.scale());
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -64,11 +98,7 @@ impl<M: 'static> Window<M> {
             height: h,
             present_mode: wgpu::PresentMode::Fifo,
             desired_maximum_frame_latency: 2,
-            alpha_mode: if caps.alpha_modes.contains(&wgpu::CompositeAlphaMode::Opaque) {
-                wgpu::CompositeAlphaMode::Opaque
-            } else {
-                caps.alpha_modes[0]
-            },
+            alpha_mode,
             view_formats: vec![],
         };
         surface.configure(renderer.device(), &config);
@@ -77,8 +107,8 @@ impl<M: 'static> Window<M> {
             surface,
             config,
             renderer,
-            snapshot: std::env::var_os("VUI_SNAPSHOT").map(PathBuf::from),
-            snapshot_quit: std::env::var_os("VUI_SNAPSHOT_QUIT").is_some(),
+            snapshot,
+            inbox,
             quit: false,
             stale: true,
         }
@@ -118,7 +148,7 @@ impl<M: 'static> Window<M> {
 
     /// Writes the snapshot, offscreen, so it works whether or not the window is in view.
     fn take_snapshot(&mut self) {
-        let Some(path) = self.snapshot.take() else { return };
+        let Some(path) = self.snapshot.path.take() else { return };
         let scene = self.ui.paint();
         match self.renderer.render_to_image(&scene).map(|image| image.save_png(&path)) {
             Ok(Ok(())) => {}
@@ -127,7 +157,9 @@ impl<M: 'static> Window<M> {
         }
         // The window still needs this frame.
         self.stale = true;
-        self.quit |= self.snapshot_quit;
+        let pending = &self.snapshot.pending;
+        pending.set(pending.get().saturating_sub(1));
+        self.quit |= self.snapshot.quit && pending.get() == 0;
     }
 }
 
@@ -164,12 +196,13 @@ impl<M: 'static> Host for Window<M> {
 
     fn frame(&mut self, dt: f32) -> (FrameResult, Vec<Effect>) {
         self.ui.tick(dt);
-        if self.snapshot.is_some() && !self.ui.needs_frame() {
+        if self.snapshot.path.is_some() && !self.ui.needs_frame() {
             self.take_snapshot();
         }
         // A pending snapshot keeps time moving even out of sight, so the UI can settle and be written.
-        let hidden = self.needs_paint() && !self.present() && self.snapshot.is_none();
-        let result = FrameResult { animating: self.ui.needs_frame() || self.snapshot.is_some(), hidden, wake: self.ui.next_wake() };
+        let snapshot = self.snapshot.path.is_some();
+        let hidden = self.needs_paint() && !self.present() && !snapshot;
+        let result = FrameResult { animating: self.ui.needs_frame() || snapshot, hidden, wake: self.ui.next_wake() };
         (result, self.ui.take_effects())
     }
 
@@ -185,7 +218,14 @@ impl<M: 'static> Host for Window<M> {
         self.quit || self.ui.quit_requested()
     }
 
-    fn canvas(&self) -> Color {
-        self.ui.theme().palette.side
+    fn canvas(&self) -> Option<Color> {
+        (!self.ui.transparent()).then(|| self.ui.theme().palette.side)
+    }
+
+    fn deliver(&mut self) -> Vec<Effect> {
+        while let Ok(msg) = self.inbox.try_recv() {
+            self.ui.send(msg);
+        }
+        self.ui.take_effects()
     }
 }

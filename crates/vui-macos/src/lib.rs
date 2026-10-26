@@ -14,9 +14,15 @@
 //! The window has a transparent title bar over a full-size content view, so the app draws all of it;
 //! mark the empty canvas with `Builder::window_drag` to let people move the window by it, and leave
 //! room at the top left for the window buttons. Set `VUI_SNAPSHOT=frame.png` to have the first settled
-//! frame written to a file, and `VUI_SNAPSHOT_QUIT=1` to quit after.
+//! frame written to a file, and `VUI_SNAPSHOT_QUIT=1` to quit after. With several windows, the second
+//! writes `frame-1.png`, the third `frame-2.png`, and the app quits once all are written.
+//!
+//! An [`Application`] opens several windows, and overlays: borderless, see-through panels that float
+//! over everything (a notch HUD). Each comes with a [`Proxy`] that sends its app messages from any
+//! thread.
 
 use std::fmt;
+use std::sync::mpsc::Sender;
 
 use vui_core::{Resources, Size, size};
 use vui_runtime::App;
@@ -28,7 +34,7 @@ mod keys;
 mod mac;
 
 #[cfg(target_os = "macos")]
-pub use mac::Pasteboard;
+pub use mac::{Application, Pasteboard};
 
 /// The window an app opens in.
 #[derive(Clone, Debug, PartialEq)]
@@ -62,6 +68,67 @@ impl WindowOptions {
     }
 }
 
+/// A borderless, see-through window that floats above everything, the menu bar included, on every
+/// Space and over full-screen apps, and never takes focus. It sits at the top centre of the screen that
+/// [`Application::screen`] describes, its top edge at the top of the screen.
+#[derive(Clone, Debug, PartialEq)]
+pub struct OverlayOptions {
+    /// Size in points. Whatever the app does not paint stays see-through.
+    pub size: Size,
+    /// Clicks pass through to whatever is underneath.
+    pub click_through: bool,
+}
+
+impl OverlayOptions {
+    pub fn new(size: Size) -> OverlayOptions {
+        OverlayOptions { size, click_through: true }
+    }
+
+    pub fn click_through(mut self, through: bool) -> OverlayOptions {
+        self.click_through = through;
+        self
+    }
+}
+
+/// The screen overlays go on: the built-in display if it has a camera notch, else the one with the menu
+/// bar.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Screen {
+    /// Size in points.
+    pub size: Size,
+    /// The camera housing's size in points, centred at the top, if the screen has one.
+    pub notch: Option<Size>,
+    /// Height of the menu bar in points (zero while it hides itself).
+    pub menu_bar: f32,
+}
+
+/// Sends a window's app messages from anywhere: other threads, audio callbacks, hotkey handlers. Each
+/// arrives on the main thread and goes through the app's `update`, as if a widget had sent it.
+pub struct Proxy<M> {
+    tx: Sender<M>,
+    window: usize,
+}
+
+impl<M> Clone for Proxy<M> {
+    fn clone(&self) -> Proxy<M> {
+        Proxy { tx: self.tx.clone(), window: self.window }
+    }
+}
+
+impl<M: Send + 'static> Proxy<M> {
+    /// Queues `msg` for the app. False once the window is gone.
+    pub fn send(&self, msg: M) -> bool {
+        if self.tx.send(msg).is_err() {
+            return false;
+        }
+        #[cfg(target_os = "macos")]
+        mac::wake(self.window);
+        #[cfg(not(target_os = "macos"))]
+        let _ = self.window;
+        true
+    }
+}
+
 #[derive(Debug)]
 pub enum Error {
     /// `run` must be called on the main thread.
@@ -90,7 +157,11 @@ impl std::error::Error for Error {}
 pub fn run<A: App>(options: WindowOptions, make: impl FnOnce(&Resources) -> A) -> Result<(), Error> {
     #[cfg(target_os = "macos")]
     {
-        mac::run(options, make)
+        let mut app = Application::new(&options.title)?;
+        let state = make(app.resources());
+        app.window(options, state)?;
+        app.run();
+        Ok(())
     }
     #[cfg(not(target_os = "macos"))]
     {

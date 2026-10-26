@@ -26,7 +26,7 @@ its own workspace so it can grow into a general framework.
 | `vui-runtime` | elements and reconciliation, layout, hit-testing, input routing, focus, scrolling, animation and the accessibility tree; headless, so all of it is tested without a window |
 | `vui-icons` | line icons on a 24 point grid, rasterised by vui at any size and weight, and a spinner |
 | `vui-widgets` | buttons, switches, checkboxes, radios, segmented control, sliders, progress, text fields and areas with a full editor behind them, lists and a sidebar, badges, avatars, picture tiles and form layout |
-| `vui-macos` | the macOS backend: an AppKit window with a Metal surface, input, text input through the input method, the pasteboard, cursors and display-link frames that stop when nothing moves |
+| `vui-macos` | the macOS backend: an `Application` with any number of AppKit windows and see-through overlays (non-activating panels above the menu bar, for HUDs), a thread-safe `Proxy` per window for sending its app messages, Metal surfaces, input, text input through the input method, the pasteboard, cursors and display-link frames that stop when nothing moves |
 | `vui` | the facade crate: `use vui::prelude::*` |
 | `examples/gallery` | every widget in light and dark as an app that runs headless; its pages and the states of its controls are golden images |
 

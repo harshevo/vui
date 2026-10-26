@@ -11,7 +11,7 @@
 use std::any::{Any, TypeId};
 use std::rc::Rc;
 
-use vui_core::{Color, Corners, CursorIcon, Event, Fill, Fonts, Images, ImageCmd, Modifiers, Palette, Point, Quad, Rect, Resources, Scene, Size, TextLayout, Theme};
+use vui_core::{Color, Command, Corners, CustomCmd, CursorIcon, Event, Fill, Fonts, Images, ImageCmd, Modifiers, Palette, Point, Quad, Rect, Resources, Scene, Size, TextLayout, Theme};
 
 use crate::access::{AccessAction, AccessInfo};
 use crate::effects::{Clipboard, Effect};
@@ -328,6 +328,13 @@ impl PaintCx<'_> {
         cmd.clip = self.clip;
         cmd.opacity *= self.alpha;
         self.scene.image(cmd);
+    }
+
+    /// Adds drawing for a custom shader pass, cut to the clip and faded by the element's opacity.
+    pub fn custom(&mut self, mut cmd: CustomCmd) {
+        cmd.clip = self.clip;
+        cmd.opacity *= self.alpha;
+        self.scene.push(Command::Custom(cmd));
     }
 
     /// Adds shaped text with its top-left corner at `origin`.

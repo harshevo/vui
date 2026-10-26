@@ -172,11 +172,31 @@ pub struct TextCmd {
     pub clip: Option<Rect>,
 }
 
+/// Drawing done by a custom shader pass that the app gave the renderer: which pass, the box it draws
+/// in, and the numbers its shader reads. The pass decides what they mean.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CustomCmd {
+    /// The name the pass was registered under. Commands for a pass the renderer does not have are skipped.
+    pub pass: &'static str,
+    pub rect: Rect,
+    pub clip: Option<Rect>,
+    /// Opacity of the element that drew it and everything above it.
+    pub opacity: f32,
+    pub data: Vec<f32>,
+}
+
+impl CustomCmd {
+    pub fn new(pass: &'static str, rect: Rect, data: Vec<f32>) -> CustomCmd {
+        CustomCmd { pass, rect, clip: None, opacity: 1.0, data }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum Command {
     Quad(Quad),
     Image(ImageCmd),
     Text(TextCmd),
+    Custom(CustomCmd),
 }
 
 #[derive(Clone, Debug)]

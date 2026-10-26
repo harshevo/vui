@@ -4,9 +4,10 @@ use std::ops::Range;
 
 use glyphon::{TextArea, TextBounds};
 use vui_core::scene::{Command, Scene, TextCmd};
-use vui_core::{Fonts, ImageId, Resources};
+use vui_core::{CustomCmd, Fonts, ImageId, Resources};
 
 use crate::context::{Gpu, GpuError};
+use crate::custom::CustomPass;
 use crate::image::Image;
 use crate::image_pipeline::{ImageInstance, ImagePipeline, ImageStats};
 use crate::quad::{QuadInstance, QuadPipeline};
@@ -18,6 +19,15 @@ enum Batch {
     Quads(Range<u32>),
     Image { instance: u32, id: ImageId },
     Text { renderer: usize, commands: Range<usize> },
+    /// The `index`-th command of this frame for custom pass `pass`.
+    Custom { pass: usize, index: usize },
+}
+
+struct Pass {
+    name: &'static str,
+    pass: Box<dyn CustomPass>,
+    /// This frame's commands for the pass, as indices into the scene.
+    commands: Vec<usize>,
 }
 
 pub struct Renderer {
@@ -31,6 +41,7 @@ pub struct Renderer {
     scratch_quads: Vec<QuadInstance>,
     scratch_images: Vec<ImageInstance>,
     batches: Vec<Batch>,
+    passes: Vec<Pass>,
 }
 
 impl Renderer {
@@ -52,6 +63,7 @@ impl Renderer {
             scratch_quads: Vec::new(),
             scratch_images: Vec::new(),
             batches: Vec::new(),
+            passes: Vec::new(),
         }
     }
 
@@ -61,6 +73,15 @@ impl Renderer {
         let gpu = Gpu::headless()?;
         let renderer = Renderer::new(gpu.device.clone(), gpu.queue.clone(), wgpu::TextureFormat::Rgba8Unorm, resources);
         Ok((renderer, gpu))
+    }
+
+    /// Adds a custom shader pass that draws the scene's `CustomCmd`s named `name`. A pass added under a
+    /// name that is already taken replaces the old one.
+    pub fn add_pass(&mut self, name: &'static str, pass: Box<dyn CustomPass>) {
+        match self.passes.iter_mut().find(|p| p.name == name) {
+            Some(p) => p.pass = pass,
+            None => self.passes.push(Pass { name, pass, commands: Vec::new() }),
+        }
     }
 
     pub fn format(&self) -> wgpu::TextureFormat {
@@ -108,6 +129,19 @@ impl Renderer {
                 self.text.prepare(*renderer, &self.device, &self.queue, &self.resources.fonts, areas);
             }
         }
+        for p in &mut self.passes {
+            let commands: Vec<&CustomCmd> = p
+                .commands
+                .iter()
+                .filter_map(|&i| match &scene.commands[i] {
+                    Command::Custom(c) => Some(c),
+                    _ => None,
+                })
+                .collect();
+            if !commands.is_empty() {
+                p.pass.prepare(&self.device, &self.queue, viewport, scene.scale, &commands);
+            }
+        }
 
         let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("vui frame") });
         {
@@ -136,6 +170,7 @@ impl Renderer {
                     Batch::Quads(range) => self.quads.draw(&mut pass, range.clone()),
                     Batch::Image { instance, id } => self.images.draw(&mut pass, *id, *instance),
                     Batch::Text { renderer, .. } => self.text.draw(*renderer, &mut pass),
+                    Batch::Custom { pass: p, index } => self.passes[*p].pass.draw(&mut pass, *index),
                 }
             }
         }
@@ -149,6 +184,9 @@ impl Renderer {
         self.scratch_quads.clear();
         self.scratch_images.clear();
         self.batches.clear();
+        for p in &mut self.passes {
+            p.commands.clear();
+        }
         let mut text_runs = 0;
         let mut i = 0;
         while i < scene.commands.len() {
@@ -176,6 +214,14 @@ impl Renderer {
                     }
                     self.batches.push(Batch::Text { renderer: text_runs, commands: start..i });
                     text_runs += 1;
+                }
+                Command::Custom(cmd) => {
+                    if let Some(p) = self.passes.iter().position(|p| p.name == cmd.pass) {
+                        let index = self.passes[p].commands.len();
+                        self.passes[p].commands.push(i);
+                        self.batches.push(Batch::Custom { pass: p, index });
+                    }
+                    i += 1;
                 }
             }
         }

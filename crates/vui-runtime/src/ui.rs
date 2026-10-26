@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use vui_core::{
-    CursorIcon, Event, ImeEvent, KeyEvent, Mode, Modifiers, NamedKey, Point, PointerButton, Rect, Resources, Size,
+    Color, CursorIcon, Event, ImeEvent, KeyEvent, Mode, Modifiers, NamedKey, Point, PointerButton, Rect, Resources, Size,
     Theme, Vec2, vec2,
 };
 
@@ -102,6 +102,8 @@ pub struct Ui<M: 'static> {
     /// Light or dark, as the system has it. Hosted apps are told when it changes.
     system: Mode,
     quit: bool,
+    /// Clear to nothing instead of the theme's background: for overlays the desktop shows through.
+    transparent: bool,
 }
 
 /// How many times in a row the hosted app may answer messages that its own answers produced.
@@ -138,6 +140,7 @@ impl<M: 'static> Ui<M> {
             driver: None,
             system: Mode::Light,
             quit: false,
+            transparent: false,
         }
     }
 
@@ -216,6 +219,26 @@ impl<M: 'static> Ui<M> {
 
     pub fn system_mode(&self) -> Mode {
         self.system
+    }
+
+    /// Hands the hosted app a message from outside the widgets: a hotkey, a timer, another thread.
+    pub fn send(&mut self, msg: M) {
+        self.sync();
+        self.core.out.messages.push(msg);
+        self.pump();
+        self.sync();
+    }
+
+    /// Leaves everything the views do not paint see-through, for windows that float over the desktop.
+    pub fn set_transparent(&mut self, transparent: bool) {
+        if transparent != self.transparent {
+            self.transparent = transparent;
+            self.core.paint_dirty = true;
+        }
+    }
+
+    pub fn transparent(&self) -> bool {
+        self.transparent
     }
 
     /// The app asked to close (`Cx::quit`).
@@ -427,7 +450,8 @@ impl<M: 'static> Ui<M> {
     pub fn paint(&mut self) -> Scene {
         self.sync();
         let core = &mut self.core;
-        let mut scene = Scene::new(core.size, core.env.scale).with_clear(core.env.theme.palette.bg);
+        let clear = if self.transparent { Color::TRANSPARENT } else { core.env.theme.palette.bg };
+        let mut scene = Scene::new(core.size, core.env.scale).with_clear(clear);
         if let Some(root) = self.root.as_ref() {
             let pe = PaintEnv { env: &core.env, focus: core.focus, window_focused: core.window_focused, time: core.time };
             paint(root, &mut scene, &pe, 1.0);
