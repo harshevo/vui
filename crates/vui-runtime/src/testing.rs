@@ -5,6 +5,7 @@ use vui_core::{
     Size, Theme, pt, size, vec2,
 };
 
+use crate::app::App;
 use crate::effects::Effect;
 use crate::element::IntoElement;
 use crate::key::Key;
@@ -23,6 +24,25 @@ impl<M: 'static> TestUi<M> {
 
     pub fn with_theme(size: Size, theme: Theme, scale: f32) -> TestUi<M> {
         TestUi { ui: Ui::new(Resources::bundled_only(), theme, size, scale) }
+    }
+
+    /// A window that runs `app` at scale 1, in whatever theme the app asks for.
+    pub fn with_app<A: App<Msg = M>>(width: f32, height: f32, app: A) -> TestUi<M> {
+        TestUi::with_app_scaled(size(width, height), 1.0, app)
+    }
+
+    pub fn with_app_scaled<A: App<Msg = M>>(size: Size, scale: f32, app: A) -> TestUi<M> {
+        TestUi { ui: Ui::with_app(Resources::bundled_only(), size, scale, app) }
+    }
+
+    /// The hosted app. Panics if there is none or it is another type, which is what a test wants.
+    pub fn app<A: App<Msg = M>>(&self) -> &A {
+        self.ui.app::<A>().expect("the window does not run an app of this type")
+    }
+
+    /// Changes the hosted app's state as the host would, and shows the result.
+    pub fn update_app<A: App<Msg = M>, R>(&mut self, f: impl FnOnce(&mut A) -> R) -> R {
+        self.ui.update_app(f).expect("the window does not run an app of this type")
     }
 
     /// Shows this tree, as the app would after an update.

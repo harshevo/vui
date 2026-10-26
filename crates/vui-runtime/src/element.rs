@@ -33,7 +33,7 @@ use vui_core::{Corners, CursorIcon, Fill, KeyEvent, Modifiers, Point, PointerBut
 
 use crate::access::{A11y, Role};
 use crate::key::Key;
-use crate::style::{Style, Styled};
+use crate::style::{Axis, Style, Styled};
 use crate::widget::{Dirty, Erased, Focus, Widget};
 
 /// How round an element's corners are. Tokens follow the theme, so restyling the theme restyles every
@@ -130,6 +130,36 @@ pub struct Click {
     pub count: u8,
 }
 
+/// Arrow keys move focus among the focusable elements inside an element, and Tab treats all of them as
+/// one stop: a list, a sidebar, a radio group, a toolbar. Tab leaves the group; coming back lands on
+/// the item that had focus last, or on the one marked [`Builder::tab_default`].
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct FocusGroup {
+    /// Up and down for `Y`, left and right for `X`, all four for `None`.
+    pub axis: Option<Axis>,
+    /// Going past the last item lands on the first, and the other way round.
+    pub wrap: bool,
+}
+
+impl FocusGroup {
+    pub const fn vertical() -> FocusGroup {
+        FocusGroup { axis: Some(Axis::Y), wrap: false }
+    }
+
+    pub const fn horizontal() -> FocusGroup {
+        FocusGroup { axis: Some(Axis::X), wrap: false }
+    }
+
+    pub const fn both() -> FocusGroup {
+        FocusGroup { axis: None, wrap: false }
+    }
+
+    pub const fn wrapping(mut self) -> FocusGroup {
+        self.wrap = true;
+        self
+    }
+}
+
 pub(crate) type Handler<M> = Box<dyn Fn(&Click) -> M>;
 pub(crate) type KeyHandler<M> = Box<dyn Fn(&KeyEvent) -> Option<M>>;
 
@@ -143,6 +173,8 @@ pub(crate) struct Input<M> {
     pub key: Option<KeyHandler<M>>,
     pub drop: Option<Box<dyn Fn(Vec<PathBuf>) -> M>>,
     pub focus: Option<Focus>,
+    pub group: Option<FocusGroup>,
+    pub tab_default: bool,
     pub cursor: Option<CursorIcon>,
     pub disabled: bool,
     pub pointer_events: bool,
@@ -159,6 +191,8 @@ impl<M> Default for Input<M> {
             key: None,
             drop: None,
             focus: None,
+            group: None,
+            tab_default: false,
             cursor: None,
             disabled: false,
             pointer_events: true,
@@ -306,7 +340,7 @@ pub trait Parent<M: 'static>: Sized {
 }
 
 /// The chainable vocabulary every element builder shares, on top of [`Styled`]: decoration, input
-/// handlers, identity, accessibility and transitions. Implement `base_mut`, or use [`builder!`].
+/// handlers, identity, accessibility and transitions. Implement `base_mut`, or use [`builder!`](crate::builder).
 pub trait Builder<M: 'static>: Styled {
     fn base_mut(&mut self) -> &mut Base<M>;
 
@@ -453,6 +487,20 @@ pub trait Builder<M: 'static>: Styled {
         self
     }
 
+    /// Makes the element a focus group: Tab visits it once, and the arrow keys move between the
+    /// focusable elements inside it.
+    fn focus_group(mut self, group: FocusGroup) -> Self {
+        self.base_mut().input.group = Some(group);
+        self
+    }
+
+    /// Inside a focus group, the item Tab lands on when focus comes into the group: the selected radio
+    /// button, the current page. Without one, Tab returns to the item that had focus last.
+    fn tab_default(mut self, on: bool) -> Self {
+        self.base_mut().input.tab_default = on;
+        self
+    }
+
     /// The pointer shape over the element.
     fn cursor(mut self, cursor: CursorIcon) -> Self {
         self.base_mut().input.cursor = Some(cursor);
@@ -480,6 +528,13 @@ pub trait Builder<M: 'static>: Styled {
     /// The name assistive technology reads out, when the visible text is not enough.
     fn name(mut self, name: impl Into<String>) -> Self {
         self.base_mut().a11y.label = Some(name.into());
+        self
+    }
+
+    /// A name for an element that has none yet: `name` called later or earlier still wins. Widgets
+    /// that sit beside a visible label use it to name the control after that label.
+    fn default_name(mut self, name: impl Into<String>) -> Self {
+        self.base_mut().a11y.label.get_or_insert_with(|| name.into());
         self
     }
 

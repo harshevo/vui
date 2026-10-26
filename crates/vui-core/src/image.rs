@@ -8,7 +8,9 @@
 
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::collections::hash_map::DefaultHasher;
 use std::fmt;
+use std::hash::{Hash, Hasher};
 use std::io::Cursor;
 use std::path::Path;
 use std::rc::Rc;
@@ -268,6 +270,8 @@ pub struct ImageId(u64);
 struct Store {
     next: u64,
     images: HashMap<ImageId, ImageData>,
+    /// Images made on demand, by the hash of what they were made from.
+    keyed: HashMap<u64, ImageId>,
 }
 
 /// The registry of decoded images. Cheap to clone; clones share the same images.
@@ -278,7 +282,7 @@ pub struct Images {
 
 impl Images {
     pub fn new() -> Images {
-        Images { store: Rc::new(RefCell::new(Store { next: 1, images: HashMap::new() })) }
+        Images { store: Rc::new(RefCell::new(Store { next: 1, images: HashMap::new(), keyed: HashMap::new() })) }
     }
 
     pub fn insert(&self, data: ImageData) -> ImageId {
@@ -286,6 +290,26 @@ impl Images {
         let id = ImageId(s.next);
         s.next += 1;
         s.images.insert(id, data);
+        id
+    }
+
+    /// The image made from `key`, made by `make` the first time and kept after that: icons at a pixel
+    /// size, placeholders, anything generated rather than loaded. `make` runs without the registry
+    /// borrowed, so it may use it.
+    pub fn get_or_insert_with(&self, key: &(impl Hash + ?Sized), make: impl FnOnce() -> ImageData) -> ImageId {
+        let mut hasher = DefaultHasher::new();
+        key.hash(&mut hasher);
+        let hash = hasher.finish();
+        {
+            let s = self.store.borrow();
+            if let Some(&id) = s.keyed.get(&hash)
+                && s.images.contains_key(&id)
+            {
+                return id;
+            }
+        }
+        let id = self.insert(make());
+        self.store.borrow_mut().keyed.insert(hash, id);
         id
     }
 
@@ -440,5 +464,25 @@ mod tests {
         assert!(other.remove(a).is_some());
         assert_eq!(images.len(), 1, "clones share the registry");
         assert!(images.get(a).is_none());
+    }
+
+    #[test]
+    fn keyed_images_are_made_once_and_remade_after_removal() {
+        let images = Images::new();
+        let made = std::cell::Cell::new(0);
+        let make = || {
+            made.set(made.get() + 1);
+            ImageData::solid(2, 2, Color::WHITE)
+        };
+        let a = images.get_or_insert_with(&("icon", "search", 32u32), make);
+        let b = images.get_or_insert_with(&("icon", "search", 32u32), make);
+        assert_eq!((a, made.get()), (b, 1), "the second ask is answered from the registry");
+        let c = images.get_or_insert_with(&("icon", "search", 48u32), make);
+        assert_ne!(a, c, "another size is another image");
+        assert_eq!(made.get(), 2);
+        images.remove(a);
+        let d = images.get_or_insert_with(&("icon", "search", 32u32), make);
+        assert!(images.get(d).is_some(), "an image removed behind the registry's back is made again");
+        assert_eq!(made.get(), 3);
     }
 }

@@ -28,6 +28,7 @@ pub(crate) struct PaintEnv<'a> {
 struct Look {
     rect: Rect,
     content: Rect,
+    exact: Rect,
     clip: Option<Rect>,
     radii: Corners,
     smooth: f32,
@@ -46,6 +47,7 @@ impl Look {
             env: pe.env,
             rect: self.rect,
             content: self.content,
+            exact: self.exact,
             clip: self.clip,
             radii: self.radii,
             smooth: self.smooth,
@@ -87,6 +89,7 @@ pub(crate) fn paint<M: 'static>(node: &Node<M>, scene: &mut Scene, pe: &PaintEnv
     let look = Look {
         rect,
         content: node.content_rect(rect),
+        exact: node.content_rect(node.rect),
         clip: inner_clip,
         radii,
         smooth,

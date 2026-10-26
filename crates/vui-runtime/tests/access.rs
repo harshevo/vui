@@ -121,6 +121,21 @@ fn an_explicit_name_and_description_beat_the_text_inside() {
 }
 
 #[test]
+fn a_default_name_fills_a_gap_and_never_replaces_a_name_the_app_gave() {
+    let mut t = ui(300.0, 200.0);
+    t.view(column().children((
+        div().height(20.0).on_click(Msg::Click("a")).default_name("Beside a label"),
+        div().height(20.0).on_click(Msg::Click("b")).name("Mine").default_name("Beside a label"),
+        div().height(20.0).on_click(Msg::Click("c")).default_name("Beside a label").name("Mine too"),
+    )));
+    let tree = tree_of(&mut t);
+    assert!(tree.find("Beside a label").is_some());
+    assert!(tree.find("Mine").is_some(), "set first, kept");
+    assert!(tree.find("Mine too").is_some(), "set after, wins");
+    assert_eq!(tree.nodes.iter().filter(|n| n.name.as_deref() == Some("Beside a label")).count(), 1);
+}
+
+#[test]
 fn the_app_can_choose_the_role() {
     let mut t = ui(300.0, 200.0);
     t.view(column().children((

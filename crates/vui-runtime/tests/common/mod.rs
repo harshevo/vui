@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use vui_core::{Size, size};
 use vui_runtime::testing::TestUi;
-use vui_runtime::{Base, Dirty, Env, Widget, builder};
+use vui_runtime::{Base, Dirty, Env, EventCx, Focus, Widget, WidgetEvent, builder};
 
 /// The messages the tests' elements send.
 #[derive(Clone, Debug, PartialEq)]
@@ -103,4 +103,44 @@ impl<M: 'static> ProbeEl<M> {
         self.widget.size = size(w, h);
         self
     }
+}
+
+/// A widget that takes focus on click or Tab and writes down every focus change it hears.
+pub struct Watch {
+    pub log: Log,
+    pub tag: &'static str,
+}
+
+impl<M: 'static> Widget<M> for Watch {
+    type State = ();
+
+    fn create_state(&self) {}
+
+    fn update(&self, _old: &Watch, _state: &mut ()) -> Dirty {
+        Dirty::None
+    }
+
+    fn event(&self, _state: &mut (), _cx: &mut EventCx<M>, event: &WidgetEvent) -> bool {
+        if let WidgetEvent::FocusChanged { focused, visible, by } = event {
+            let state = if *focused { "focus" } else { "blur" };
+            let look = if *visible { "visible" } else { "hidden" };
+            self.log.borrow_mut().push(format!("{} {state} {look} {by:?}", self.tag));
+        }
+        false
+    }
+
+    fn focusable(&self) -> Focus {
+        Focus::Click
+    }
+}
+
+pub struct WatchEl<M: 'static> {
+    base: Base<M>,
+    widget: Watch,
+}
+
+builder!(WatchEl<M> => Watch);
+
+pub fn watch<M: 'static>(log: &Log, tag: &'static str) -> WatchEl<M> {
+    WatchEl { base: Base::new(), widget: Watch { log: log.clone(), tag } }
 }

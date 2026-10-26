@@ -4,6 +4,7 @@
 
 pub mod access;
 mod access_tree;
+mod app;
 pub mod builtin;
 pub mod effects;
 pub mod element;
@@ -16,15 +17,17 @@ pub mod testing;
 pub mod ui;
 pub mod widget;
 
+pub use app::{App, Cx};
 pub use access::{A11y, AccessAction, AccessActionKind, AccessInfo, AccessNode, AccessRange, AccessTree, Role};
 pub use builtin::{Img, Label, img, label, small, title};
 pub use effects::{Clipboard, Effect, MemoryClipboard};
 pub use element::{
-    Base, Builder, Click, Container, Decor, Div, Element, IntoChildren, IntoElement, Parent, Radius, column, div, row, spacer,
+    Base, Builder, Click, Container, Decor, Div, Element, FocusGroup, IntoChildren, IntoElement, Parent, Radius, column, div, row,
+    spacer,
 };
 pub use key::Key;
 pub use style::{
     AUTO, Align, Axis, Direction, Edges, Justify, Len, Overflow, Position, Sides, Style, Styled, pct, px,
 };
 pub use ui::{Inspect, Ui};
-pub use widget::{Dirty, Env, EventCx, Focus, PaintCx, TickCx, Widget, WidgetEvent};
+pub use widget::{Dirty, Env, EventCx, Focus, FocusBy, PaintCx, TickCx, Widget, WidgetEvent};

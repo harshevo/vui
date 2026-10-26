@@ -2,7 +2,7 @@
 //! after each change, feeds in platform events and frame ticks, and gets back messages for its `update`,
 //! effects for the window system, and a scene to render.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::rc::Rc;
 
@@ -11,6 +11,7 @@ use vui_core::{
     Theme, Vec2, vec2,
 };
 
+use crate::app::{App, Cx, Driver};
 use crate::effects::{Clipboard, Effect, MemoryClipboard};
 use crate::element::{Click, IntoElement};
 use crate::key::{Key, NodeId};
@@ -18,7 +19,7 @@ use crate::layout::layout_root;
 use crate::node::{Ids, Node, TickState, chain, node_at, node_at_mut, path_of};
 use crate::paint::{PaintEnv, paint};
 use crate::style::{Axis, Overflow};
-use crate::widget::{Env, EventCx, Focus, Output, WidgetEvent};
+use crate::widget::{Env, EventCx, Focus, FocusBy, Output, WidgetEvent};
 use vui_core::Scene;
 
 /// The pointer is held down on a node.
@@ -96,7 +97,13 @@ pub struct Inspect {
 pub struct Ui<M: 'static> {
     pub(crate) root: Option<Node<M>>,
     pub(crate) core: Core<M>,
+    /// The app this UI runs, if it hosts one: it answers messages and supplies the view.
+    driver: Option<Box<dyn Driver<M>>>,
+    quit: bool,
 }
+
+/// How many times in a row the hosted app may answer messages that its own answers produced.
+const MAX_PUMP_ROUNDS: usize = 64;
 
 impl<M: 'static> Ui<M> {
     pub fn new(res: Resources, theme: Theme, size: Size, scale: f32) -> Ui<M> {
@@ -126,7 +133,73 @@ impl<M: 'static> Ui<M> {
                 animating: false,
                 wake_at: None,
             },
+            driver: None,
+            quit: false,
         }
+    }
+
+    /// A UI that runs `app`: events become messages, the app's `update` answers them, and the window
+    /// shows its `view` and `theme`, all inside `handle`. `take_messages` stays empty.
+    pub fn with_app<A: App<Msg = M>>(res: Resources, size: Size, scale: f32, app: A) -> Ui<M> {
+        let mut ui = Ui::new(res, app.theme(), size, scale);
+        let driver: Box<dyn Driver<M>> = Box::new(app);
+        ui.show(&*driver);
+        ui.driver = Some(driver);
+        ui
+    }
+
+    /// Puts the app's current view and theme on screen.
+    fn show(&mut self, driver: &dyn Driver<M>) {
+        self.set_view(driver.view());
+        let theme = driver.theme();
+        if theme != *self.core.env.theme {
+            self.set_theme(theme);
+        }
+    }
+
+    /// Hands the hosted app the messages widgets have sent and shows its new view, until nothing more
+    /// comes back.
+    pub(crate) fn pump(&mut self) {
+        let Some(mut driver) = self.driver.take() else { return };
+        for _ in 0..MAX_PUMP_ROUNDS {
+            // Laying out a new view can move things under the pointer, which sends hover messages.
+            self.sync();
+            let messages = self.take_messages();
+            if messages.is_empty() {
+                break;
+            }
+            let mut cx = Cx::default();
+            for message in messages {
+                driver.update(message, &mut cx);
+            }
+            self.show(&*driver);
+            self.quit |= cx.quit;
+            if let Some(key) = cx.focus {
+                self.focus_key(key);
+            }
+        }
+        self.driver = Some(driver);
+    }
+
+    /// The hosted app, if there is one and it is an `A`. For tests and tools.
+    pub fn app<A: App<Msg = M>>(&self) -> Option<&A> {
+        self.driver.as_ref()?.as_any().downcast_ref()
+    }
+
+    /// Changes the hosted app's state directly, then shows its new view: for the host to report
+    /// things that are not widget messages, such as the system switching to dark mode.
+    pub fn update_app<A: App<Msg = M>, R>(&mut self, f: impl FnOnce(&mut A) -> R) -> Option<R> {
+        let mut driver = self.driver.take()?;
+        let out = driver.as_any_mut().downcast_mut::<A>().map(f);
+        self.show(&*driver);
+        self.driver = Some(driver);
+        self.sync();
+        out
+    }
+
+    /// The app asked to close (`Cx::quit`).
+    pub fn quit_requested(&self) -> bool {
+        self.quit
     }
 
     /// Installs the tree the app wants on screen. Nodes that match keep their state.
@@ -145,6 +218,8 @@ impl<M: 'static> Ui<M> {
             crate::widget::Dirty::Paint => core.paint_dirty = true,
             crate::widget::Dirty::None => {}
         }
+        // A transition or a widget animation begun by this update needs frames from here on.
+        core.animating |= self.root.as_ref().is_some_and(Node::animating);
         self.forget_missing();
     }
 
@@ -323,6 +398,7 @@ impl<M: 'static> Ui<M> {
                 }
             }
         }
+        self.pump();
         self.sync();
     }
 
@@ -366,6 +442,26 @@ impl<M: 'static> Ui<M> {
             thumb_y: node.bar(Axis::Y).map(|b| b.thumb),
             bars: node.scroll.bars.value(),
         })
+    }
+
+    /// Moves focus to the keyed element, showing the ring if the last input came from the keyboard.
+    /// Returns false when there is no such element or it cannot take focus.
+    pub fn focus_key(&mut self, key: impl Into<Key>) -> bool {
+        self.sync();
+        let key = key.into();
+        let Some(root) = self.root.as_mut() else { return false };
+        let Some(node) = find_key(root, &key) else { return false };
+        let id = node.id;
+        let Some(path) = path_of(root, id) else { return false };
+        if node.focus_mode() == Focus::Never || chain(root, &path).iter().any(|n| n.input.disabled || n.eff.hidden) {
+            return false;
+        }
+        let mut run = Run { root, core: &mut self.core };
+        run.set_focus(Some(id), run.core.keyboard);
+        let rect = node_at(run.root, &path).rect;
+        run.reveal(&path, rect);
+        self.sync();
+        true
     }
 
     /// The key of the focused element, if it has one.
@@ -433,16 +529,89 @@ fn hit<M: 'static>(root: &Node<M>, p: Point) -> Option<Vec<usize>> {
     walk(root, p, &mut path).then_some(path)
 }
 
-fn collect_focusable<M: 'static>(node: &Node<M>, out: &mut Vec<NodeId>) {
-    if node.eff.hidden || node.input.disabled {
-        return;
+/// One place Tab stops: a lone focusable element, or a whole focus group.
+struct Stop {
+    /// Where Tab lands.
+    entry: NodeId,
+    /// 0 for the first item, 1 for the item that had focus last, 2 for the item marked `tab_default`.
+    rank: u8,
+    /// Everything that counts as being on this stop.
+    members: Vec<NodeId>,
+}
+
+/// The Tab order. Every focusable element is a stop of its own, except the items of a focus group,
+/// which share one stop where the group's first item is.
+fn collect_stops<M: 'static>(root: &Node<M>) -> Vec<Stop> {
+    struct Walk {
+        stops: Vec<Stop>,
+        /// Group node to its stop.
+        groups: HashMap<NodeId, usize>,
     }
-    if node.focus_mode() != Focus::Never {
-        out.push(node.id);
+    /// `group` is the nearest group above `node` and the item it last had focus on.
+    fn walk<M: 'static>(node: &Node<M>, group: Option<(NodeId, Option<NodeId>)>, w: &mut Walk) {
+        if node.eff.hidden || node.input.disabled {
+            return;
+        }
+        if node.focus_mode() != Focus::Never {
+            match group {
+                None => w.stops.push(Stop { entry: node.id, rank: 0, members: vec![node.id] }),
+                Some((g, memory)) => {
+                    let i = match w.groups.get(&g) {
+                        Some(&i) => i,
+                        None => {
+                            w.stops.push(Stop { entry: node.id, rank: 0, members: Vec::new() });
+                            w.groups.insert(g, w.stops.len() - 1);
+                            w.stops.len() - 1
+                        }
+                    };
+                    let rank = if node.input.tab_default {
+                        2
+                    } else if memory == Some(node.id) {
+                        1
+                    } else {
+                        0
+                    };
+                    let stop = &mut w.stops[i];
+                    stop.members.push(node.id);
+                    if rank > stop.rank {
+                        stop.entry = node.id;
+                        stop.rank = rank;
+                    }
+                }
+            }
+        }
+        // A group's own focus belongs to the context around it; what is inside belongs to the group.
+        let inner = if node.input.group.is_some() { Some((node.id, node.memory)) } else { group };
+        for child in &node.children {
+            walk(child, inner, w);
+        }
     }
-    for child in &node.children {
-        collect_focusable(child, out);
+    let mut w = Walk { stops: Vec::new(), groups: HashMap::new() };
+    walk(root, None, &mut w);
+    w.stops
+}
+
+/// The focusable elements that belong to this focus group, in order: those inside it that are not
+/// inside a group of their own.
+fn group_items<M: 'static>(group: &Node<M>) -> Vec<NodeId> {
+    fn walk<M: 'static>(node: &Node<M>, out: &mut Vec<NodeId>) {
+        if node.eff.hidden || node.input.disabled {
+            return;
+        }
+        if node.focus_mode() != Focus::Never {
+            out.push(node.id);
+        }
+        if node.input.group.is_none() {
+            for child in &node.children {
+                walk(child, out);
+            }
+        }
     }
+    let mut out = Vec::new();
+    for child in &group.children {
+        walk(child, &mut out);
+    }
+    out
 }
 
 /// Hands one event to one widget and returns whether it used it.
@@ -539,7 +708,7 @@ impl<M: 'static> Run<'_, M> {
             self.reveal(path, rect);
         }
         match req.focus {
-            Some(true) => self.set_focus(Some(id), self.core.keyboard),
+            Some(true) => self.set_focus_by(Some(id), self.core.keyboard, FocusBy::Other),
             Some(false) if self.core.focus == Some(id) => self.set_focus(None, false),
             _ => {}
         }
@@ -607,7 +776,7 @@ impl<M: 'static> Run<'_, M> {
         }
         self.update_hover(Some(pos));
         let Some(path) = hit(self.root, pos) else {
-            self.set_focus(None, false);
+            self.set_focus_by(None, false, FocusBy::Pointer);
             return;
         };
         if self.disabled_on(&path) {
@@ -659,9 +828,9 @@ impl<M: 'static> Run<'_, M> {
         let modes: Vec<(NodeId, Focus)> = nodes.iter().rev().map(|n| (n.id, n.focus_mode())).collect();
         if let Some((id, _)) = modes.iter().find(|(_, f)| *f == Focus::Click) {
             let id = *id;
-            self.set_focus(Some(id), false);
+            self.set_focus_by(Some(id), false, FocusBy::Pointer);
         } else if modes.iter().all(|(_, f)| *f == Focus::Never) {
-            self.set_focus(None, false);
+            self.set_focus_by(None, false, FocusBy::Pointer);
         }
     }
 
@@ -908,6 +1077,10 @@ impl<M: 'static> Run<'_, M> {
     // ---- focus and keys -----------------------------------------------------------------------
 
     pub fn set_focus(&mut self, target: Option<NodeId>, visible: bool) {
+        self.set_focus_by(target, visible, FocusBy::Other);
+    }
+
+    fn set_focus_by(&mut self, target: Option<NodeId>, visible: bool, by: FocusBy) {
         let visible = visible && target.is_some();
         let old = self.core.focus;
         self.core.focus_visible = visible;
@@ -920,14 +1093,25 @@ impl<M: 'static> Run<'_, M> {
             return;
         }
         self.core.focus = target;
+        self.remember(target);
         self.core.out.effects.push(Effect::ImeArea(None));
         if let Some(path) = old.and_then(|o| path_of(self.root, o)) {
             node_at_mut(self.root, &path).anim.focus.set_target(0.0);
-            self.call(&path, &WidgetEvent::FocusChanged { focused: false, visible: false });
+            self.call(&path, &WidgetEvent::FocusChanged { focused: false, visible: false, by });
         }
         if let Some(path) = target.and_then(|t| path_of(self.root, t)) {
             node_at_mut(self.root, &path).anim.focus.set_target(if visible { 1.0 } else { 0.0 });
-            self.call(&path, &WidgetEvent::FocusChanged { focused: true, visible });
+            self.call(&path, &WidgetEvent::FocusChanged { focused: true, visible, by });
+        }
+    }
+
+    /// Tells the focus group around `target` which of its items had focus last.
+    fn remember(&mut self, target: Option<NodeId>) {
+        let Some(target) = target else { return };
+        let Some(path) = path_of(self.root, target) else { return };
+        let group = chain(self.root, &path)[..path.len()].iter().rposition(|n| n.input.group.is_some());
+        if let Some(k) = group {
+            node_at_mut(self.root, &path[..k]).memory = Some(target);
         }
     }
 
@@ -974,27 +1158,65 @@ impl<M: 'static> Run<'_, M> {
             {
                 self.activate(&path);
             }
+            vui_core::Key::Named(
+                named @ (NamedKey::ArrowUp | NamedKey::ArrowDown | NamedKey::ArrowLeft | NamedKey::ArrowRight | NamedKey::Home | NamedKey::End),
+            ) if !key.mods.any() => self.group_key(named),
             _ => {}
         }
     }
 
-    /// Moves focus to the next (or previous) focusable element, wrapping around.
+    /// Moves focus to the next (or previous) Tab stop, wrapping around. A focus group is one stop.
     fn tab(&mut self, backwards: bool) {
-        let mut order = Vec::new();
-        collect_focusable(self.root, &mut order);
-        let n = order.len();
+        let stops = collect_stops(self.root);
+        let n = stops.len();
         if n == 0 {
             return;
         }
-        let current = self.core.focus.and_then(|f| order.iter().position(|&id| id == f));
+        let current = self.core.focus.and_then(|f| stops.iter().position(|s| s.members.contains(&f)));
         let next = match (current, backwards) {
             (Some(i), false) => (i + 1) % n,
             (Some(i), true) => (i + n - 1) % n,
             (None, false) => 0,
             (None, true) => n - 1,
         };
-        let id = order[next];
-        self.set_focus(Some(id), true);
+        self.focus_and_reveal(stops[next].entry, FocusBy::Tab);
+    }
+
+    /// Arrow keys, Home and End inside a focus group move focus between its items.
+    fn group_key(&mut self, key: NamedKey) {
+        let Some(focus) = self.core.focus else { return };
+        let Some(path) = path_of(self.root, focus) else { return };
+        let nodes = chain(self.root, &path);
+        let Some(g) = nodes[..path.len()].iter().rposition(|n| n.input.group.is_some()) else { return };
+        let Some(group) = nodes[g].input.group else { return };
+        let items = group_items(nodes[g]);
+        let Some(at) = items.iter().position(|&id| id == focus) else { return };
+        let vertical = group.axis != Some(Axis::X);
+        let horizontal = group.axis != Some(Axis::Y);
+        let step: isize = match key {
+            NamedKey::ArrowDown if vertical => 1,
+            NamedKey::ArrowUp if vertical => -1,
+            NamedKey::ArrowRight if horizontal => 1,
+            NamedKey::ArrowLeft if horizontal => -1,
+            NamedKey::Home => -(at as isize),
+            NamedKey::End => items.len() as isize - 1 - at as isize,
+            _ => return,
+        };
+        let last = items.len() as isize - 1;
+        let to = at as isize + step;
+        let to = match to {
+            t if (0..=last).contains(&t) => t,
+            t if group.wrap => t.rem_euclid(last + 1),
+            _ => return,
+        };
+        if to as usize != at {
+            self.focus_and_reveal(items[to as usize], FocusBy::Arrow);
+        }
+    }
+
+    /// Focuses by keyboard and scrolls the element into view.
+    fn focus_and_reveal(&mut self, id: NodeId, by: FocusBy) {
+        self.set_focus_by(Some(id), true, by);
         if let Some(path) = path_of(self.root, id) {
             let rect = node_at(self.root, &path).rect;
             self.reveal(&path, rect);

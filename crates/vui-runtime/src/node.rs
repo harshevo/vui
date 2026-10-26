@@ -171,6 +171,8 @@ pub(crate) struct Node<M: 'static> {
     pub clip: Option<Rect>,
     pub scroll: Scroll,
     pub anim: Anim,
+    /// For a focus group: the item inside it that had focus last.
+    pub memory: Option<NodeId>,
 }
 
 impl<M: 'static> LayoutNode<Env> for Node<M> {
@@ -283,6 +285,7 @@ impl<M: 'static> Node<M> {
             clip: None,
             scroll: Scroll::new(),
             anim: Anim::new(opacity),
+            memory: None,
         }
     }
 
@@ -442,6 +445,19 @@ impl<M: 'static> Node<M> {
         for child in &mut self.children {
             child.collapse();
         }
+    }
+
+    /// True if anything in the subtree has an animation to run: a transition that was just started,
+    /// or a widget that says so. The ticks keep it going once they have begun.
+    pub fn animating(&self) -> bool {
+        let a = &self.anim;
+        let springs = [&a.hover, &a.press, &a.focus, &a.drop, &a.opacity];
+        springs.iter().any(|s| !s.is_settled())
+            || a.width.is_some()
+            || a.height.is_some()
+            || a.fill.is_some()
+            || self.widget.animating(&*self.state)
+            || self.children.iter().any(Node::animating)
     }
 
     /// Advances every spring and widget animation by `dt` seconds. Returns true if something in the

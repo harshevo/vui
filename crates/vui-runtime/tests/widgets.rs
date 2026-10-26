@@ -447,7 +447,7 @@ impl<M: 'static> Widget<M> for Spy {
     fn event(&self, _: &mut (), cx: &mut EventCx<M>, event: &WidgetEvent) -> bool {
         let line = match event {
             WidgetEvent::HoverChanged(on) => format!("hover {on} (cx {})", cx.hovered),
-            WidgetEvent::FocusChanged { focused, visible } => format!("focus {focused} visible {visible} (cx {})", cx.focused),
+            WidgetEvent::FocusChanged { focused, visible, .. } => format!("focus {focused} visible {visible} (cx {})", cx.focused),
             WidgetEvent::WindowFocus(on) => format!("window {on}"),
             WidgetEvent::Action(action) => format!("action {action:?}"),
             _ => return false,

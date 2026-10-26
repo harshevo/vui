@@ -23,11 +23,21 @@ its own workspace so it can grow into a general framework.
 | `vui-fonts` | Inter and JetBrains Mono as bytes (SIL OFL 1.1) |
 | `vui-render` | the wgpu renderer: shapes, text, images, custom passes, headless rendering and read-back |
 | `vui-runtime` | elements and reconciliation, layout, hit-testing, input routing, focus, scrolling, animation and the accessibility tree; headless, so all of it is tested without a window |
-| `vui-widgets` | the standard widget library |
+| `vui-icons` | line icons on a 24 point grid, rasterised by vui at any size and weight, and a spinner |
+| `vui-widgets` | buttons, switches, checkboxes, radios, segmented control, sliders, progress, text fields and areas with a full editor behind them, lists and a sidebar, badges, avatars, picture tiles and form layout |
 | `vui` | the facade crate: `use vui::prelude::*` |
-| `examples/gallery` | every widget in light and dark, used for golden-image tests |
+| `examples/gallery` | every widget in light and dark as an app that runs headless; its pages and the states of its controls are golden images |
 
-**Status**: early. The renderer and the widget runtime work and are tested; the standard widgets and the macOS window backend come next.
+**Status**: early. The renderer, the widget runtime and the standard widgets work and are tested. Overlays (menus, select, tooltips, dialogs, toasts) and the macOS window backend come next.
+
+**Gallery**
+
+The gallery is an ordinary vui app: a sidebar and eight pages (foundations, buttons, controls, inputs, lists, images, icons, settings). Until the window backend exists it runs without a window, and renders each page, light and dark, to a PNG:
+
+```sh
+cargo run -p gallery --release -- target/gallery            # every page
+cargo run -p gallery --release -- target/gallery buttons    # one page
+```
 
 **Tests**
 
@@ -35,3 +45,5 @@ its own workspace so it can grow into a general framework.
 cargo test --workspace
 VUI_BLESS=1 cargo test --workspace   # rewrite the golden images after an intended visual change
 ```
+
+Golden images live in each crate's `tests/golden`. A failing comparison writes the frame and a highlighted diff to `tests/actual`; look at both before deciding the change was meant.

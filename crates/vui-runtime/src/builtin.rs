@@ -92,7 +92,7 @@ impl<M: 'static> Widget<M> for LabelWidget {
     fn paint(&self, _state: &LabelState, cx: &mut PaintCx) {
         let style = self.spec.style(cx.theme());
         // A hair of slack: a box sized to its text can come out a rounding error narrower than the text.
-        let layout = cx.fonts().layout_cached(&self.spec.text, &style, Some(cx.content.w + 0.01));
+        let layout = cx.fonts().layout_cached(&self.spec.text, &style, Some(cx.exact.w + 0.01));
         cx.text(layout, cx.content.origin(), self.color);
     }
 

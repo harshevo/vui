@@ -42,6 +42,20 @@ pub enum Focus {
     Click,
 }
 
+/// What moved focus. A radio group selects the option an arrow key lands on but not the one Tab lands on.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub enum FocusBy {
+    /// A click or tap.
+    Pointer,
+    /// The Tab key.
+    Tab,
+    /// An arrow key, Home or End inside a focus group.
+    Arrow,
+    /// Anything else: the app asked, or the widget did.
+    #[default]
+    Other,
+}
+
 /// The shared services widgets measure and paint with.
 #[derive(Clone)]
 pub struct Env {
@@ -80,8 +94,8 @@ pub enum WidgetEvent<'a> {
     /// The pointer entered or left it.
     HoverChanged(bool),
     /// Focus arrived or left. `visible` is true when it came by keyboard, which is when a focus ring
-    /// is wanted.
-    FocusChanged { focused: bool, visible: bool },
+    /// is wanted. `by` is what moved it, on the element losing focus as well as the one gaining it.
+    FocusChanged { focused: bool, visible: bool, by: FocusBy },
     /// The window became or stopped being the key window. Only the focused widget hears it: a text
     /// field hides its caret.
     WindowFocus(bool),
@@ -235,9 +249,14 @@ impl TickCx<'_> {
 pub struct PaintCx<'a> {
     pub scene: &'a mut Scene,
     pub env: &'a Env,
-    /// The node's border box and content box, in window coordinates.
+    /// The node's border box and content box, in window coordinates, moved onto the device pixel grid
+    /// so that quads and images have crisp edges.
     pub rect: Rect,
     pub content: Rect,
+    /// The content box as layout left it, before moving onto the pixel grid. Measure and wrap text to
+    /// this one: moving the edges can make a box that was sized to its text a fraction of a pixel too
+    /// narrow to hold it.
+    pub exact: Rect,
     /// Everything outside this rect is cut away.
     pub clip: Option<Rect>,
     /// The element's own corner radii, resolved against the theme, and how continuous they are.
@@ -277,6 +296,14 @@ impl PaintCx<'_> {
     /// Rounds a rect's edges to whole device pixels, so lines stay crisp.
     pub fn snap(&self, rect: Rect) -> Rect {
         rect.snap(self.env.scale)
+    }
+
+    /// Runs `f` with everything outside `rect` cut away as well: text that scrolls inside a field.
+    pub fn clipped(&mut self, rect: Rect, f: impl FnOnce(&mut PaintCx)) {
+        let saved = self.clip;
+        self.clip = Some(saved.map_or(rect, |c| c.intersection(rect).unwrap_or(Rect::ZERO)));
+        f(self);
+        self.clip = saved;
     }
 
     /// Adds a quad, cut to the clip.
@@ -361,6 +388,13 @@ pub trait Widget<M>: Sized + 'static {
         false
     }
 
+    /// Whether an animation is waiting to run. Asked after each `update`, so a widget that points a
+    /// spring at a new target there gets the frames to play it; `tick` takes over from then on.
+    fn animating(&self, state: &Self::State) -> bool {
+        let _ = state;
+        false
+    }
+
     /// Describes the widget to assistive technology.
     fn access(&self, state: &Self::State, info: &mut AccessInfo) {
         let _ = (state, info);
@@ -389,6 +423,7 @@ pub(crate) trait Erased<M: 'static>: 'static {
     fn paint_over(&self, state: &dyn Any, cx: &mut PaintCx);
     fn event(&self, state: &mut dyn Any, cx: &mut EventCx<M>, event: &WidgetEvent) -> bool;
     fn tick(&self, state: &mut dyn Any, cx: &mut TickCx, dt: f32) -> bool;
+    fn animating(&self, state: &dyn Any) -> bool;
     fn access(&self, state: &dyn Any, info: &mut AccessInfo);
     fn focusable(&self) -> Focus;
     fn cursor(&self) -> Option<CursorIcon>;
@@ -444,6 +479,10 @@ impl<M: 'static, W: Widget<M>> Erased<M> for W {
 
     fn tick(&self, state: &mut dyn Any, cx: &mut TickCx, dt: f32) -> bool {
         Widget::<M>::tick(self, state_mut(state), cx, dt)
+    }
+
+    fn animating(&self, state: &dyn Any) -> bool {
+        Widget::<M>::animating(self, state_ref(state))
     }
 
     fn access(&self, state: &dyn Any, info: &mut AccessInfo) {

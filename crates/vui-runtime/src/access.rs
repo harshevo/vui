@@ -68,9 +68,15 @@ pub struct AccessInfo {
     pub label: Option<String>,
     pub value: Option<String>,
     pub toggled: Option<bool>,
+    /// A checkbox that is neither checked nor unchecked: some of what it stands for is on. `toggled`
+    /// says which way the next click goes.
+    pub mixed: bool,
     pub selected: Option<bool>,
     pub expanded: Option<bool>,
     pub range: Option<AccessRange>,
+    /// For text input: where the selection starts and ends, as character offsets into `value`. Both
+    /// are the same when there is only a caret.
+    pub selection: Option<(usize, usize)>,
     /// Actions the widget answers itself, beyond clicking an element that has a click handler.
     pub actions: Vec<AccessActionKind>,
 }
@@ -115,9 +121,11 @@ pub struct AccessNode {
     pub bounds: Rect,
     pub children: Vec<u64>,
     pub toggled: Option<bool>,
+    pub mixed: bool,
     pub selected: Option<bool>,
     pub expanded: Option<bool>,
     pub range: Option<AccessRange>,
+    pub selection: Option<(usize, usize)>,
     pub disabled: bool,
     pub focusable: bool,
     pub actions: Vec<AccessActionKind>,

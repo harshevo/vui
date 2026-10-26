@@ -115,9 +115,11 @@ fn build<M: 'static>(node: &Node<M>, inert: bool, out: &mut Vec<AccessNode>) -> 
         bounds: node.rect,
         children,
         toggled: info.toggled,
+        mixed: info.mixed,
         selected: info.selected,
         expanded: info.expanded,
         range: info.range,
+        selection: info.selection,
         disabled: inert,
         focusable: focus != Focus::Never && !inert,
         actions,
@@ -142,9 +144,11 @@ impl<M: 'static> Ui<M> {
             bounds: Rect::new(0.0, 0.0, size.w, size.h),
             children,
             toggled: None,
+            mixed: false,
             selected: None,
             expanded: None,
             range: None,
+            selection: None,
             disabled: false,
             focusable: false,
             actions: Vec::new(),
@@ -183,6 +187,7 @@ impl<M: 'static> Ui<M> {
                 run.call(&path, &WidgetEvent::Action(&other));
             }
         }
+        self.pump();
         self.sync();
     }
 }

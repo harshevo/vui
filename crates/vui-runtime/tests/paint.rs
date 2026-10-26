@@ -225,3 +225,28 @@ fn the_painted_text_uses_the_labels_own_style() {
     let types = Theme::light().types;
     assert_eq!(heights, [types.body.line_height, types.title.line_height, types.small.line_height, types.body.line_height]);
 }
+
+/// Edges move onto the pixel grid when drawn, and a label sized to its text must not come out a
+/// fraction of a pixel too narrow to hold it and wrap its last word.
+#[test]
+fn a_label_sized_to_its_text_never_wraps_at_any_scale() {
+    let phrases = ["vui", "Speak, and it listens", "Remembers what you read", "Updated two minutes ago", "Wi-Fi", "Control 8"];
+    for scale in [1.0, 1.25, 1.5, 2.0, 3.0] {
+        let mut t = TestUi::<Msg>::with_theme(size(600.0, 300.0), Theme::light(), scale);
+        t.view(
+            column().padding(7.3).gap(3.7).children(
+                phrases
+                    .iter()
+                    .enumerate()
+                    .map(|(i, text)| vui_runtime::row().padding_x(i as f32 * 0.37).child(label(*text).weight(500)))
+                    .collect::<Vec<_>>(),
+            ),
+        );
+        let scene = t.scene();
+        for command in &scene.commands {
+            if let Command::Text(text) = command {
+                assert_eq!(text.layout.line_count(), 1, "{:?} at scale {scale}", text.layout.text());
+            }
+        }
+    }
+}

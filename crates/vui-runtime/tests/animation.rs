@@ -188,3 +188,66 @@ fn a_theme_switch_does_not_animate() {
     t.ui.set_theme(vui_core::Theme::dark());
     assert_eq!(first_fill(&mut t), vui_core::Theme::dark().palette.side);
 }
+
+#[test]
+fn a_transition_asks_for_frames_as_soon_as_it_starts() {
+    let mut t = ui(400.0, 100.0);
+    let view = |w: f32| column().child(div().key("a").width(w).height(20.0).animated());
+    t.view(view(100.0));
+    assert!(!t.ui.needs_frame(), "nothing is moving yet");
+    t.view(view(200.0));
+    assert!(t.ui.needs_frame(), "a window that only ticks while this is true would never start the glide");
+    t.settle();
+    assert!(!t.ui.needs_frame());
+}
+
+/// A widget that slides a value to whatever it is told, the way a toggle's knob follows its state.
+mod slider {
+    use vui_core::{Spring, SpringValue};
+    use vui_runtime::{Base, Dirty, TickCx, Widget, builder};
+
+    pub struct Glide(pub f32);
+
+    impl<M: 'static> Widget<M> for Glide {
+        type State = SpringValue;
+
+        fn create_state(&self) -> SpringValue {
+            SpringValue::new(self.0, Spring::SNAPPY)
+        }
+
+        fn update(&self, _old: &Glide, state: &mut SpringValue) -> Dirty {
+            state.set_target(self.0);
+            Dirty::Paint
+        }
+
+        fn tick(&self, state: &mut SpringValue, _cx: &mut TickCx, dt: f32) -> bool {
+            state.step(dt)
+        }
+
+        fn animating(&self, state: &SpringValue) -> bool {
+            !state.is_settled()
+        }
+    }
+
+    pub struct GlideEl<M: 'static> {
+        base: Base<M>,
+        widget: Glide,
+    }
+
+    builder!(GlideEl<M> => Glide);
+
+    pub fn glide<M: 'static>(to: f32) -> GlideEl<M> {
+        GlideEl { base: Base::new(), widget: Glide(to) }
+    }
+}
+
+#[test]
+fn a_widget_that_starts_an_animation_in_update_gets_the_frames_for_it() {
+    let mut t = ui(100.0, 100.0);
+    t.view(column().child(slider::glide(0.0)));
+    assert!(!t.ui.needs_frame());
+    t.view(column().child(slider::glide(1.0)));
+    assert!(t.ui.needs_frame());
+    t.settle();
+    assert!(!t.ui.needs_frame());
+}

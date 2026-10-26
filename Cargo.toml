@@ -4,6 +4,7 @@ members = [
     "crates/vui",
     "crates/vui-core",
     "crates/vui-fonts",
+    "crates/vui-icons",
     "crates/vui-render",
     "crates/vui-runtime",
     "crates/vui-widgets",
