@@ -26,6 +26,8 @@ pub trait Host {
     /// Feeds one event in and returns what the window system should do about it.
     fn handle(&mut self, event: Event) -> Vec<Effect>;
     fn drags_window(&mut self, p: Point) -> bool;
+    /// Whether something at `p` takes the pointer.
+    fn takes_pointer(&mut self, p: Point) -> bool;
     /// The view's size in points and its backing scale.
     fn resize(&mut self, size: Size, scale: f32);
     fn set_system_mode(&mut self, mode: Mode) -> Vec<Effect>;
@@ -177,6 +179,10 @@ impl<M: 'static> Host for Window<M> {
 
     fn drags_window(&mut self, p: Point) -> bool {
         self.ui.drags_window(p)
+    }
+
+    fn takes_pointer(&mut self, p: Point) -> bool {
+        self.ui.takes_pointer(p)
     }
 
     fn resize(&mut self, points: Size, scale: f32) {

@@ -11,6 +11,7 @@ use std::ptr::NonNull;
 use std::rc::Rc;
 use std::sync::mpsc;
 
+use block2::RcBlock;
 use dispatch2::DispatchQueue;
 
 use objc2::rc::{Retained, Weak};
@@ -18,7 +19,7 @@ use objc2::runtime::{AnyObject, NSObject, NSObjectProtocol, ProtocolObject, Sel}
 use objc2::{AllocAnyThread, DefinedClass, MainThreadMarker, MainThreadOnly, Message, define_class, msg_send, sel};
 use objc2_app_kit::{
     NSAppearanceCustomization, NSAppearanceNameAqua, NSAppearanceNameDarkAqua, NSApplication, NSApplicationActivationPolicy,
-    NSBackingStoreType, NSColor, NSCursor, NSEvent, NSEventModifierFlags, NSMainMenuWindowLevel, NSMenu, NSMenuItem, NSPanel,
+    NSBackingStoreType, NSColor, NSCursor, NSEvent, NSEventMask, NSEventModifierFlags, NSMainMenuWindowLevel, NSMenu, NSMenuItem, NSPanel,
     NSPasteboard, NSPasteboardTypeString, NSResponder, NSScreen, NSTextInputClient, NSTrackingArea, NSTrackingAreaOptions, NSView,
     NSWindow, NSWindowCollectionBehavior, NSWindowDelegate, NSWindowOcclusionState, NSWindowStyleMask, NSWindowTitleVisibility,
 };
@@ -37,7 +38,7 @@ use vui_runtime::{App, Clipboard, Effect, Ui};
 use crate::convert::{frame_step, scroll_delta, scroll_phase, utf16_len, utf16_range_to_bytes};
 use crate::host::{Host, Snapshot, Window};
 use crate::keys::{modifiers, named_key, shortcut_char, typed_text};
-use crate::{Error, OverlayOptions, Proxy, Screen, WindowOptions};
+use crate::{Error, OverlayOptions, Place, Proxy, Screen, WindowOptions};
 
 // ---- the view ------------------------------------------------------------------------------------
 
@@ -761,6 +762,8 @@ pub struct Application {
     snapshot: Option<PathBuf>,
     snapshot_quit: bool,
     snapshots: Rc<Cell<usize>>,
+    /// The pointer watchers of overlays that let clicks through their empty space.
+    monitors: Vec<Retained<AnyObject>>,
 }
 
 impl Application {
@@ -780,6 +783,7 @@ impl Application {
             snapshot: std::env::var_os("VUI_SNAPSHOT").map(PathBuf::from),
             snapshot_quit: std::env::var_os("VUI_SNAPSHOT_QUIT").is_some(),
             snapshots: Rc::new(Cell::new(0)),
+            monitors: Vec::new(),
         })
     }
 
@@ -831,9 +835,16 @@ impl Application {
     /// Opens an overlay running `app`: see [`OverlayOptions`].
     pub fn overlay<A: App>(&mut self, options: OverlayOptions, app: A) -> Result<Proxy<A::Msg>, Error> {
         let mtm = self.mtm;
-        let screen = overlay_screen(mtm).frame();
+        let ns_screen = overlay_screen(mtm);
+        let screen = ns_screen.frame();
         let (w, h) = (options.size.w as f64, options.size.h as f64);
-        let origin = NSPoint::new(screen.origin.x + ((screen.size.width - w) / 2.0).round(), screen.origin.y + screen.size.height - h);
+        let origin = match options.place {
+            Place::Top => NSPoint::new(screen.origin.x + ((screen.size.width - w) / 2.0).round(), screen.origin.y + screen.size.height - h),
+            Place::Right => {
+                let visible = ns_screen.visibleFrame();
+                NSPoint::new(screen.origin.x + screen.size.width - w, visible.origin.y + visible.size.height - h)
+            }
+        };
         let frame = NSRect::new(origin, NSSize::new(w, h));
         let style = NSWindowStyleMask::Borderless | NSWindowStyleMask::NonactivatingPanel;
         let panel = NSPanel::initWithContentRect_styleMask_backing_defer(NSPanel::alloc(mtm), frame, style, NSBackingStoreType::Buffered, false);
@@ -857,6 +868,10 @@ impl Application {
 
         let content = NSRect::new(NSPoint::new(0.0, 0.0), frame.size);
         let proxy = self.attach(panel.into_super(), content, options.size, false, true, app)?;
+        let (window, view, _) = self.windows.last().expect("just attached");
+        if options.through_empty {
+            self.monitors.extend(follow_pointer(window, view));
+        }
         let (window, view, _) = self.windows.last().expect("just attached");
         window.orderFrontRegardless();
         view.start_display_link();
@@ -950,6 +965,44 @@ fn numbered(path: &std::path::Path, n: usize) -> PathBuf {
         None => format!("{stem}-{n}"),
     };
     path.with_file_name(name)
+}
+
+/// Watches the pointer, inside the app and out, and has `window` take clicks only while the pointer is
+/// over something in it that takes them.
+fn follow_pointer(window: &Retained<NSWindow>, view: &Retained<VuiView>) -> Vec<Retained<AnyObject>> {
+    let check = {
+        let (window, view) = (window.clone(), view.clone());
+        move || {
+            let at = NSEvent::mouseLocation();
+            let frame = window.frame();
+            let inside = at.x >= frame.origin.x
+                && at.x < frame.origin.x + frame.size.width
+                && at.y >= frame.origin.y
+                && at.y < frame.origin.y + frame.size.height;
+            let p = pt((at.x - frame.origin.x) as f32, (frame.origin.y + frame.size.height - at.y) as f32);
+            let takes = inside && view.with_host(|h| h.takes_pointer(p)).unwrap_or(false);
+            if window.ignoresMouseEvents() == takes {
+                window.setIgnoresMouseEvents(!takes);
+            }
+        }
+    };
+    let mask = NSEventMask::MouseMoved | NSEventMask::LeftMouseDragged | NSEventMask::ScrollWheel;
+    let outside = {
+        let check = check.clone();
+        RcBlock::new(move |_: NonNull<NSEvent>| check())
+    };
+    let inside = RcBlock::new(move |event: NonNull<NSEvent>| -> *mut NSEvent {
+        check();
+        event.as_ptr()
+    });
+    let mut monitors = Vec::new();
+    if let Some(m) = NSEvent::addGlobalMonitorForEventsMatchingMask_handler(mask, &outside) {
+        monitors.push(m);
+    }
+    if let Some(m) = unsafe { NSEvent::addLocalMonitorForEventsMatchingMask_handler(mask, &inside) } {
+        monitors.push(m);
+    }
+    monitors
 }
 
 /// The built-in display if it has a notch, else the one with the menu bar.

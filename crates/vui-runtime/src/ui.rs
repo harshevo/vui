@@ -537,6 +537,13 @@ impl<M: 'static> Ui<M> {
         drag
     }
 
+    /// Whether something at `p` takes the pointer: an element that is not marked
+    /// [`pointer_events(false)`](crate::Builder::pointer_events), the root included.
+    pub fn takes_pointer(&mut self, p: Point) -> bool {
+        self.sync();
+        self.root.as_ref().is_some_and(|root| hit(root, p).is_some())
+    }
+
     /// The key of the focused element, if it has one.
     pub fn focused_key(&self) -> Option<Key> {
         let (root, id) = (self.root.as_ref()?, self.core.focus?);

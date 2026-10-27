@@ -69,23 +69,47 @@ impl WindowOptions {
 }
 
 /// A borderless, see-through window that floats above everything, the menu bar included, on every
-/// Space and over full-screen apps, and never takes focus. It sits at the top centre of the screen that
-/// [`Application::screen`] describes, its top edge at the top of the screen.
+/// Space and over full-screen apps, and never takes focus. It sits where [`Place`] says on the screen
+/// that [`Application::screen`] describes.
 #[derive(Clone, Debug, PartialEq)]
 pub struct OverlayOptions {
     /// Size in points. Whatever the app does not paint stays see-through.
     pub size: Size,
     /// Clicks pass through to whatever is underneath.
     pub click_through: bool,
+    pub place: Place,
+    /// Clicks pass through wherever the pointer is over nothing that takes it, and land on the overlay
+    /// wherever it is: a panel that is mostly empty space.
+    pub through_empty: bool,
+}
+
+/// Where an overlay sits.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Place {
+    /// At the top centre, its top edge at the top of the screen: over the notch.
+    Top,
+    /// Against the right edge, its top edge just under the menu bar.
+    Right,
 }
 
 impl OverlayOptions {
     pub fn new(size: Size) -> OverlayOptions {
-        OverlayOptions { size, click_through: true }
+        OverlayOptions { size, click_through: true, place: Place::Top, through_empty: false }
     }
 
     pub fn click_through(mut self, through: bool) -> OverlayOptions {
         self.click_through = through;
+        self
+    }
+
+    pub fn place(mut self, place: Place) -> OverlayOptions {
+        self.place = place;
+        self
+    }
+
+    /// See [`OverlayOptions::through_empty`].
+    pub fn through_empty(mut self) -> OverlayOptions {
+        self.through_empty = true;
         self
     }
 }
