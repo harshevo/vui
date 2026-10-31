@@ -595,6 +595,7 @@ fn cursor(icon: CursorIcon) -> Retained<NSCursor> {
         CursorIcon::ResizeHorizontal => NSCursor::columnResizeCursor(),
         CursorIcon::ResizeVertical => NSCursor::rowResizeCursor(),
         CursorIcon::NotAllowed => NSCursor::operationNotAllowedCursor(),
+        CursorIcon::Crosshair => NSCursor::crosshairCursor(),
     }
 }
 

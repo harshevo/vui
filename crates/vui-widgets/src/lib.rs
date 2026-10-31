@@ -15,6 +15,7 @@ mod icon;
 mod item;
 mod progress;
 mod effects;
+mod lasso;
 mod segmented;
 mod sidebar;
 mod slider;
@@ -29,6 +30,7 @@ pub use display::{
 pub use form::{field, setting};
 pub use icon::{ICON_SIZE, IconEl, IconWidget, SPINNER_PERIOD, icon, paint_icon, paint_spinner};
 pub use item::{Item, ItemWidget, item};
+pub use lasso::{Lasso, LassoState, LassoWidget, bounds as lasso_bounds, lasso};
 pub use effects::{EffectState, Glow, GlowWidget, Shimmer, ShimmerWidget, glow, shimmer};
 pub use progress::{Progress, ProgressWidget, Spinner, SpinnerWidget, progress, progress_indeterminate, spinner};
 pub use segmented::segmented;

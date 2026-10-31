@@ -158,6 +158,8 @@ pub enum CursorIcon {
     ResizeHorizontal,
     ResizeVertical,
     NotAllowed,
+    /// Fine crosshairs, for drawing or picking a spot.
+    Crosshair,
 }
 
 #[cfg(test)]

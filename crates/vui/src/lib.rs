@@ -43,7 +43,7 @@ pub use vui_widgets as widgets;
 /// element `Key` of `vui_runtime`. Spell them `core::Key` and `runtime::Key`.
 pub mod prelude {
     pub use vui_core::{
-        Color, Corners, CursorIcon, Fill, Insets, NamedKey, Point, Rect, Size, Spring, Theme, Tone, pt, rect, size,
+        Color, Corners, CursorIcon, Fill, Insets, Mode, NamedKey, Point, Rect, Shadow, Size, Spring, Theme, Tone, pt, rect, size,
     };
     pub use vui_icons::{Icon, Weight, set as icon_set};
     pub use vui_runtime::{
