@@ -90,6 +90,8 @@ pub enum Place {
     Top,
     /// Against the right edge, its top edge just under the menu bar.
     Right,
+    /// Over the whole of display `n`, in the order [`Application::displays`] lists them.
+    Display(usize),
 }
 
 impl OverlayOptions {

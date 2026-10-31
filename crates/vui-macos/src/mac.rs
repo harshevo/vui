@@ -804,6 +804,20 @@ impl Application {
         describe(&overlay_screen(self.mtm))
     }
 
+    /// Every display's frame in points, in the coordinates screenshots use: the origin at the top left
+    /// of the main display, y growing down.
+    pub fn displays(&self) -> Vec<vui_core::Rect> {
+        let screens = NSScreen::screens(self.mtm);
+        let main = screens.firstObject().map_or(0.0, |s| s.frame().size.height);
+        screens
+            .iter()
+            .map(|s| {
+                let f = s.frame();
+                vui_core::rect(f.origin.x as f32, (main - f.origin.y - f.size.height) as f32, f.size.width as f32, f.size.height as f32)
+            })
+            .collect()
+    }
+
     /// Opens a window running `app`, centred on the screen and in front.
     pub fn window<A: App>(&mut self, options: WindowOptions, app: A) -> Result<Proxy<A::Msg>, Error> {
         let mtm = self.mtm;
@@ -836,7 +850,10 @@ impl Application {
     /// Opens an overlay running `app`: see [`OverlayOptions`].
     pub fn overlay<A: App>(&mut self, options: OverlayOptions, app: A) -> Result<Proxy<A::Msg>, Error> {
         let mtm = self.mtm;
-        let ns_screen = overlay_screen(mtm);
+        let ns_screen = match options.place {
+            Place::Display(n) => NSScreen::screens(mtm).iter().nth(n).unwrap_or_else(|| overlay_screen(mtm)),
+            _ => overlay_screen(mtm),
+        };
         let screen = ns_screen.frame();
         let (w, h) = (options.size.w as f64, options.size.h as f64);
         let origin = match options.place {
@@ -845,6 +862,7 @@ impl Application {
                 let visible = ns_screen.visibleFrame();
                 NSPoint::new(screen.origin.x + screen.size.width - w, visible.origin.y + visible.size.height - h)
             }
+            Place::Display(_) => NSPoint::new(screen.origin.x, screen.origin.y + screen.size.height - h),
         };
         let frame = NSRect::new(origin, NSSize::new(w, h));
         let style = NSWindowStyleMask::Borderless | NSWindowStyleMask::NonactivatingPanel;
