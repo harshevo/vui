@@ -24,5 +24,5 @@ pub use image::{Fit, ImageData, ImageError, ImageId, Images, fit_image};
 pub use input::{CursorIcon, Event, ImeEvent, Key, KeyEvent, Modifiers, NamedKey, PointerButton, ScrollPhase};
 pub use resources::Resources;
 pub use scene::{Border, Command, CustomCmd, ImageCmd, ImageMode, Quad, Sampling, Scene, TextCmd};
-pub use text::{FontFamily, Fonts, TextAlign, TextLayout, TextStyle, TextWrap};
+pub use text::{FontFamily, Fonts, Span, TextAlign, TextLayout, TextStyle, TextWrap};
 pub use theme::{Fill, Mode, Palette, TextRole, Theme, Tone, space};

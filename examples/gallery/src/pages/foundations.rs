@@ -67,6 +67,10 @@ pub fn view(_g: &Gallery) -> Div<Msg> {
                 )),
             ),
             section(
+                "Markdown",
+                markdown("### Release notes\n\nThe renderer now draws **soft shadows**, a *shimmer* and a glow, all in one `vui.effects` pass. See [the docs](https://example.com).\n\n- Shadows follow rounded corners\n- Glow can breathe\n\n> Replies from models show as text, never as markup.\n\n```\ncargo test -p gallery\n```").with(|d| d.max_width(560.0)),
+            ),
+            section(
                 "Depth",
                 row().gap(24.0).children((
                     captioned("Soft", div().size(96.0, 64.0).rounded(Radius::Card).bg(Tone::Bg).shadow(Shadow::SOFT)),

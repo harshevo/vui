@@ -115,6 +115,44 @@ impl TextStyle {
     }
 }
 
+/// A run of text styled apart from the rest of its paragraph: bold, italic, code or a link. Anything
+/// left `None` follows the paragraph's [`TextStyle`] and colour.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Span {
+    pub text: String,
+    pub weight: Option<u16>,
+    pub italic: bool,
+    pub mono: bool,
+    /// Its own colour; it then ignores the element's opacity.
+    pub color: Option<crate::Color>,
+}
+
+impl Span {
+    pub fn new(text: impl Into<String>) -> Span {
+        Span { text: text.into(), ..Span::default() }
+    }
+
+    pub fn weight(mut self, weight: u16) -> Span {
+        self.weight = Some(weight);
+        self
+    }
+
+    pub fn italic(mut self) -> Span {
+        self.italic = true;
+        self
+    }
+
+    pub fn mono(mut self) -> Span {
+        self.mono = true;
+        self
+    }
+
+    pub fn color(mut self, color: crate::Color) -> Span {
+        self.color = Some(color);
+        self
+    }
+}
+
 /// Shaped text, ready to measure and paint.
 pub struct TextLayout {
     buffer: Buffer,
@@ -124,6 +162,8 @@ pub struct TextLayout {
     /// Byte offset where each paragraph (split at `\n`) starts.
     line_starts: Vec<usize>,
     line_height: f32,
+    /// Byte offset where each span starts, for rich text.
+    span_starts: Vec<usize>,
 }
 
 impl fmt::Debug for TextLayout {
@@ -141,6 +181,14 @@ impl TextLayout {
     /// Visual lines after wrapping.
     pub fn line_count(&self) -> usize {
         self.lines
+    }
+
+    /// Which span the byte `index` is in, for rich text.
+    pub fn span_at(&self, index: usize) -> Option<usize> {
+        if self.span_starts.is_empty() {
+            return None;
+        }
+        Some(self.span_starts.partition_point(|&start| start <= index).saturating_sub(1))
     }
 
     pub fn text(&self) -> &str {
@@ -361,6 +409,34 @@ impl Fonts {
     }
 
     fn layout_raw(&self, text: &str, style: &TextStyle, max_width: Option<f32>) -> TextLayout {
+        self.shape(text, &[], style, max_width)
+    }
+
+    /// Shapes spans of rich text as one paragraph flow, wrapped at `max_width`.
+    pub fn layout_rich(&self, spans: &[Span], style: &TextStyle, max_width: Option<f32>) -> TextLayout {
+        let text: String = spans.iter().map(|s| s.text.as_str()).collect();
+        self.shape(&text, spans, style, max_width)
+    }
+
+    /// Like [`Fonts::layout_rich`], reusing an earlier frame's result when nothing changed.
+    pub fn layout_rich_cached(&self, spans: &[Span], style: &TextStyle, max_width: Option<f32>) -> Rc<TextLayout> {
+        let key = CacheKey::new(&format!("\u{1}{spans:?}"), style, max_width);
+        {
+            let mut cache = self.shared.cache.borrow_mut();
+            let frame = cache.frame;
+            if let Some((layout, used)) = cache.map.get_mut(&key) {
+                *used = frame;
+                return layout.clone();
+            }
+        }
+        let layout = Rc::new(self.layout_rich(spans, style, max_width));
+        let mut cache = self.shared.cache.borrow_mut();
+        let frame = cache.frame;
+        cache.map.insert(key, (layout.clone(), frame));
+        layout
+    }
+
+    fn shape(&self, text: &str, spans: &[Span], style: &TextStyle, max_width: Option<f32>) -> TextLayout {
         let mut fs = self.shared.system.borrow_mut();
         let mut buffer = Buffer::new(&mut fs, Metrics::new(style.size, style.line_height));
         buffer.set_size(max_width, None);
@@ -381,7 +457,37 @@ impl Fonts {
             TextAlign::Center => Some(Align::Center),
             TextAlign::End => Some(Align::End),
         };
-        buffer.set_text(text, &attrs, Shaping::Advanced, align);
+        let mut span_starts = Vec::new();
+        if spans.is_empty() {
+            buffer.set_text(text, &attrs, Shaping::Advanced, align);
+        } else {
+            let mono: &str = &self.shared.mono;
+            let mut at = 0;
+            let styled: Vec<(&str, Attrs)> = spans
+                .iter()
+                .enumerate()
+                .map(|(i, span)| {
+                    span_starts.push(at);
+                    at += span.text.len();
+                    let mut a = attrs.clone().metadata(i);
+                    if let Some(w) = span.weight {
+                        a = a.weight(Weight(w));
+                    }
+                    if span.italic {
+                        a = a.style(cosmic_text::Style::Italic);
+                    }
+                    if span.mono {
+                        a = a.family(Family::Name(mono));
+                    }
+                    if let Some(c) = span.color {
+                        let [r, g, b, alpha] = c.to_rgba8();
+                        a = a.color(cosmic_text::Color::rgba(r, g, b, alpha));
+                    }
+                    (span.text.as_str(), a)
+                })
+                .collect();
+            buffer.set_rich_text(styled, &attrs, Shaping::Advanced, align);
+        }
         buffer.shape_until_scroll(&mut fs, false);
 
         let (mut w, mut bottom, mut lines) = (0.0f32, 0.0f32, 0usize);
@@ -397,7 +503,7 @@ impl Fonts {
 
         let mut line_starts = vec![0];
         line_starts.extend(text.match_indices('\n').map(|(i, _)| i + 1));
-        TextLayout { buffer, size: size(w, bottom), lines, text: Arc::from(text), line_starts, line_height: style.line_height }
+        TextLayout { buffer, size: size(w, bottom), lines, text: Arc::from(text), line_starts, line_height: style.line_height, span_starts }
     }
 
     /// Like [`Fonts::layout`], reusing the result from an earlier frame when nothing changed.
