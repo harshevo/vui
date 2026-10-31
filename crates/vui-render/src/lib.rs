@@ -9,6 +9,7 @@ mod text;
 
 pub mod context;
 pub mod custom;
+pub mod effects;
 pub mod golden;
 pub mod image;
 pub mod renderer;

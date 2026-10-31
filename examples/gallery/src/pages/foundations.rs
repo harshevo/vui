@@ -1,6 +1,8 @@
 //! Type, colour, space and corners: the tokens everything else is made of.
 
 use super::*;
+use vui::core::Shadow;
+use vui::widgets::glow;
 
 /// Greys: the surfaces, then the text on them.
 const NEUTRALS: [(&str, Tone); 8] = [
@@ -62,6 +64,15 @@ pub fn view(_g: &Gallery) -> Div<Msg> {
                 "Corners",
                 row().gap(16.0).children([("Control 8", Radius::Control), ("Card 12", Radius::Card), ("Panel 16", Radius::Panel)].map(
                     |(name, radius)| captioned(name, div().size(96.0, 64.0).rounded(radius).bg(Tone::Wash)),
+                )),
+            ),
+            section(
+                "Depth",
+                row().gap(24.0).children((
+                    captioned("Soft", div().size(96.0, 64.0).rounded(Radius::Card).bg(Tone::Bg).shadow(Shadow::SOFT)),
+                    captioned("Raised", div().size(96.0, 64.0).rounded(Radius::Card).bg(Tone::Bg).shadow(Shadow::RAISED)),
+                    captioned("Floating", div().size(96.0, 64.0).rounded(Radius::Card).bg(Tone::Bg).shadow(Shadow::FLOATING)),
+                    captioned("Glow", glow(true).size(96.0, 64.0).rounded(Radius::Card).bg(Tone::Bg)),
                 )),
             ),
         ),

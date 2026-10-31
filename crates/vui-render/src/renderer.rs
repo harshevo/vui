@@ -52,6 +52,7 @@ impl Renderer {
         let quads = QuadPipeline::new(&device, format);
         let images = ImagePipeline::new(&device, format);
         let text = TextPipeline::new(&device, &queue, format);
+        let effects = Pass { name: vui_core::effects::PASS, pass: Box::new(crate::effects::EffectsPass::new(&device, format)), commands: Vec::new() };
         Renderer {
             device,
             queue,
@@ -63,7 +64,7 @@ impl Renderer {
             scratch_quads: Vec::new(),
             scratch_images: Vec::new(),
             batches: Vec::new(),
-            passes: Vec::new(),
+            passes: vec![effects],
         }
     }
 

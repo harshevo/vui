@@ -115,6 +115,13 @@ pub(crate) fn paint<M: 'static>(node: &Node<M>, scene: &mut Scene, pe: &PaintEnv
     let on_screen = node.clip.is_none_or(|c| c.intersects(rect));
     if on_screen {
         let fill = fill.mul_alpha(alpha);
+        if let Some(shadow) = node.decor.shadow {
+            let k = if theme.mode == vui_core::Mode::Dark { 2.5 } else { 1.0 };
+            let mut cmd = vui_core::effects::shadow(rect, radii.tl.max(radii.br), shadow.times(k));
+            cmd.clip = node.clip;
+            cmd.opacity = alpha;
+            scene.push(vui_core::Command::Custom(cmd));
+        }
         let border = node.decor.border.map(|(width, color)| Border { width, color: color.resolve(palette).mul_alpha(alpha) });
         if fill.a > 0.0 || border.is_some_and(|b| b.width > 0.0 && b.color.a > 0.0) {
             scene.quad(Quad { rect, radii, smooth, fill, border, clip: node.clip });

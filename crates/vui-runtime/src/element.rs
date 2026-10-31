@@ -97,6 +97,8 @@ pub struct Decor {
     /// Faded in while files are dragged over it.
     pub drop_fill: Fill,
     pub border: Option<(f32, Fill)>,
+    /// A soft shadow under the element's box, drawn by the renderer's effects pass.
+    pub shadow: Option<vui_core::Shadow>,
     pub radius: Radius,
     /// Multiplies the element and everything inside it.
     pub opacity: f32,
@@ -112,6 +114,7 @@ impl Default for Decor {
             press_fill: Fill::NONE,
             drop_fill: Fill::NONE,
             border: None,
+            shadow: None,
             radius: Radius::None,
             opacity: 1.0,
             focus_ring: true,
@@ -382,6 +385,13 @@ pub trait Builder<M: 'static>: Styled {
     /// A line `width` thick drawn inside the element's edge. Layout ignores it: pad to make room.
     fn border(mut self, width: f32, fill: impl Into<Fill>) -> Self {
         self.base_mut().decor.border = Some((width, fill.into()));
+        self
+    }
+
+    /// A soft shadow under the element, following its rounded corners: `.shadow(Shadow::RAISED)`.
+    /// It is stronger in dark mode, where a faint one would not show.
+    fn shadow(mut self, shadow: vui_core::Shadow) -> Self {
+        self.base_mut().decor.shadow = Some(shadow);
         self
     }
 
