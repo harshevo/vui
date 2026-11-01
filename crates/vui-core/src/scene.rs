@@ -10,6 +10,7 @@ use crate::color::Color;
 use crate::geom::{Corners, Point, Rect, Size, rect};
 use crate::image::ImageId;
 use crate::text::TextLayout;
+use crate::vector::Mesh;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Border {
@@ -191,12 +192,31 @@ impl CustomCmd {
     }
 }
 
+/// Triangles with a colour per vertex: vector shapes, lines and chart marks, already tessellated in
+/// window coordinates (see [`crate::vector`]). The mesh is shared, so a widget that keeps one between
+/// frames pays nothing to draw it again.
+#[derive(Clone, Debug)]
+pub struct MeshCmd {
+    pub mesh: Rc<Mesh>,
+    /// Anything outside this rect (logical pixels) is cut away.
+    pub clip: Option<Rect>,
+    /// Opacity of the element that drew it and everything above it.
+    pub opacity: f32,
+}
+
+impl MeshCmd {
+    pub fn new(mesh: Rc<Mesh>) -> MeshCmd {
+        MeshCmd { mesh, clip: None, opacity: 1.0 }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum Command {
     Quad(Quad),
     Image(ImageCmd),
     Text(TextCmd),
     Custom(CustomCmd),
+    Mesh(MeshCmd),
 }
 
 #[derive(Clone, Debug)]
@@ -230,6 +250,12 @@ impl Scene {
 
     pub fn image(&mut self, image: ImageCmd) {
         self.commands.push(Command::Image(image));
+    }
+
+    pub fn mesh(&mut self, mesh: MeshCmd) {
+        if !mesh.mesh.is_empty() {
+            self.commands.push(Command::Mesh(mesh));
+        }
     }
 
     pub fn text(&mut self, layout: Rc<TextLayout>, origin: Point, color: Color, clip: Option<Rect>) {

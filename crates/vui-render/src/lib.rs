@@ -4,6 +4,7 @@
 //! which is how the tests and the gallery's screenshots work.
 
 mod image_pipeline;
+mod mesh;
 mod quad;
 mod text;
 

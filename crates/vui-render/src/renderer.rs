@@ -10,6 +10,7 @@ use crate::context::{Gpu, GpuError};
 use crate::custom::CustomPass;
 use crate::image::Image;
 use crate::image_pipeline::{ImageInstance, ImagePipeline, ImageStats};
+use crate::mesh::{MeshDraw, MeshPipeline, MeshVertex};
 use crate::quad::{QuadInstance, QuadPipeline};
 use crate::text::TextPipeline;
 
@@ -21,6 +22,7 @@ enum Batch {
     Text { renderer: usize, commands: Range<usize> },
     /// The `index`-th command of this frame for custom pass `pass`.
     Custom { pass: usize, index: usize },
+    Mesh(MeshDraw),
 }
 
 struct Pass {
@@ -38,6 +40,8 @@ pub struct Renderer {
     quads: QuadPipeline,
     images: ImagePipeline,
     text: TextPipeline,
+    meshes: MeshPipeline,
+    scratch_meshes: (Vec<MeshVertex>, Vec<u32>),
     scratch_quads: Vec<QuadInstance>,
     scratch_images: Vec<ImageInstance>,
     batches: Vec<Batch>,
@@ -52,6 +56,7 @@ impl Renderer {
         let quads = QuadPipeline::new(&device, format);
         let images = ImagePipeline::new(&device, format);
         let text = TextPipeline::new(&device, &queue, format);
+        let meshes = MeshPipeline::new(&device, format);
         let effects = Pass { name: vui_core::effects::PASS, pass: Box::new(crate::effects::EffectsPass::new(&device, format)), commands: Vec::new() };
         Renderer {
             device,
@@ -61,6 +66,8 @@ impl Renderer {
             quads,
             images,
             text,
+            meshes,
+            scratch_meshes: (Vec::new(), Vec::new()),
             scratch_quads: Vec::new(),
             scratch_images: Vec::new(),
             batches: Vec::new(),
@@ -117,6 +124,7 @@ impl Renderer {
         let viewport = [size_px.0 as f32, size_px.1 as f32];
         self.quads.upload(&self.device, &self.queue, &self.scratch_quads, viewport);
         self.images.upload(&self.device, &self.queue, &self.scratch_images, viewport);
+        self.meshes.upload(&self.device, &self.queue, &self.scratch_meshes.0, &self.scratch_meshes.1, viewport);
         self.text.begin_frame(&self.queue, size_px);
         for batch in &self.batches {
             if let Batch::Text { renderer, commands } = batch {
@@ -172,6 +180,7 @@ impl Renderer {
                     Batch::Image { instance, id } => self.images.draw(&mut pass, *id, *instance),
                     Batch::Text { renderer, .. } => self.text.draw(*renderer, &mut pass),
                     Batch::Custom { pass: p, index } => self.passes[*p].pass.draw(&mut pass, *index),
+                    Batch::Mesh(draw) => self.meshes.draw(&mut pass, draw, [size_px.0, size_px.1]),
                 }
             }
         }
@@ -184,6 +193,8 @@ impl Renderer {
     fn plan(&mut self, scene: &Scene) {
         self.scratch_quads.clear();
         self.scratch_images.clear();
+        self.scratch_meshes.0.clear();
+        self.scratch_meshes.1.clear();
         self.batches.clear();
         for p in &mut self.passes {
             p.commands.clear();
@@ -215,6 +226,13 @@ impl Renderer {
                     }
                     self.batches.push(Batch::Text { renderer: text_runs, commands: start..i });
                     text_runs += 1;
+                }
+                Command::Mesh(cmd) => {
+                    i += 1;
+                    let (vertices, indices) = &mut self.scratch_meshes;
+                    if let Some(draw) = MeshPipeline::add(cmd, scene.scale, [scene.pixel_size().0, scene.pixel_size().1], vertices, indices) {
+                        self.batches.push(Batch::Mesh(draw));
+                    }
                 }
                 Command::Custom(cmd) => {
                     if let Some(p) = self.passes.iter().position(|p| p.name == cmd.pass) {
