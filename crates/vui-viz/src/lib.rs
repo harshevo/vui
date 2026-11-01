@@ -4,6 +4,7 @@
 pub mod canvas;
 pub mod chart;
 pub mod format;
+pub mod graph;
 pub mod scale;
 pub mod style;
 
