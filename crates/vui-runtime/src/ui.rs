@@ -589,6 +589,20 @@ fn find_key<'a, M: 'static>(node: &'a Node<M>, key: &Key) -> Option<&'a Node<M>>
 
 /// The child indices down to the topmost node that takes pointer input at `p`.
 fn hit<M: 'static>(root: &Node<M>, p: Point) -> Option<Vec<usize>> {
+    /// Paths to the floating elements, each with how many floats it is inside of.
+    fn floats<M: 'static>(node: &Node<M>, depth: usize, path: &mut Vec<usize>, out: &mut Vec<(usize, Vec<usize>)>) {
+        for (i, child) in node.children.iter().enumerate() {
+            if child.eff.hidden {
+                continue;
+            }
+            path.push(i);
+            if child.eff.float {
+                out.push((depth, path.clone()));
+            }
+            floats(child, depth + usize::from(child.eff.float), path, out);
+            path.pop();
+        }
+    }
     fn walk<M: 'static>(node: &Node<M>, p: Point, path: &mut Vec<usize>) -> bool {
         if node.eff.hidden || node.clip.is_some_and(|c| !c.contains(p)) {
             return false;
@@ -597,6 +611,9 @@ fn hit<M: 'static>(root: &Node<M>, p: Point) -> Option<Vec<usize>> {
             return false;
         }
         for (i, child) in node.children.iter().enumerate().rev() {
+            if child.eff.float {
+                continue;
+            }
             path.push(i);
             if walk(child, p, path) {
                 return true;
@@ -604,6 +621,17 @@ fn hit<M: 'static>(root: &Node<M>, p: Point) -> Option<Vec<usize>> {
             path.pop();
         }
         node.input.pointer_events && node.rect.contains(p)
+    }
+    let mut above = Vec::new();
+    floats(root, 0, &mut Vec::new(), &mut above);
+    // Floats paint in tree order, and the floats inside them after all of those: the reverse of
+    // that is the order they are hit in.
+    above.sort_by_key(|(depth, _)| *depth);
+    for (_, mut path) in above.into_iter().rev() {
+        let node = path.iter().fold(root, |n, &i| &n.children[i]);
+        if walk(node, p, &mut path) {
+            return Some(path);
+        }
     }
     let mut path = Vec::new();
     walk(root, p, &mut path).then_some(path)

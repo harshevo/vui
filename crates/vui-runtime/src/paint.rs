@@ -63,7 +63,27 @@ impl Look {
     }
 }
 
-pub(crate) fn paint<M: 'static>(node: &Node<M>, scene: &mut Scene, pe: &PaintEnv, inherited: f32) {
+/// Paints the tree, then the floating elements above it in the order they come, each with what
+/// floats inside it above that.
+pub(crate) fn paint<M: 'static>(root: &Node<M>, scene: &mut Scene, pe: &PaintEnv, inherited: f32) {
+    let mut floats = Vec::new();
+    paint_node(root, scene, pe, inherited, &mut floats);
+    while !floats.is_empty() {
+        let mut above = Vec::new();
+        for (node, alpha) in floats {
+            paint_node(node, scene, pe, alpha, &mut above);
+        }
+        floats = above;
+    }
+}
+
+fn paint_node<'a, M: 'static>(
+    node: &'a Node<M>,
+    scene: &mut Scene,
+    pe: &PaintEnv,
+    inherited: f32,
+    floats: &mut Vec<(&'a Node<M>, f32)>,
+) {
     if node.eff.hidden {
         return;
     }
@@ -129,7 +149,11 @@ pub(crate) fn paint<M: 'static>(node: &Node<M>, scene: &mut Scene, pe: &PaintEnv
         node.widget.paint(&*node.state, &mut look.cx(scene, pe));
     }
     for child in &node.children {
-        paint(child, scene, pe, alpha);
+        if child.eff.float {
+            floats.push((child, alpha));
+        } else {
+            paint_node(child, scene, pe, alpha, floats);
+        }
     }
     if !on_screen {
         return;

@@ -27,6 +27,8 @@ pub(crate) const BAR_WIDTH: f32 = 6.0;
 pub(crate) const BAR_WIDTH_HOT: f32 = 9.0;
 const BAR_INSET: f32 = 2.0;
 const BAR_MIN: f32 = 28.0;
+/// How near the end, in points, still counts as at the end for a container that follows it.
+const FOLLOW_SLACK: f32 = 2.0;
 /// Seconds the scrollbars stay up after the last scroll.
 const BAR_HOLD: f32 = 0.9;
 
@@ -147,8 +149,12 @@ impl Scroll {
         self.idle = 0.0;
     }
 
-    /// Records how far the content can scroll, pulling the position back if the content shrank.
-    fn set_max(&mut self, max: Vec2) {
+    /// Records how far the content can scroll, pulling the position back if the content shrank, and
+    /// with `follow`, keeping a position that was at the end there.
+    fn set_max(&mut self, max: Vec2, follow: bool) {
+        if follow && max.y > self.max.y && self.y.target() >= self.max.y - FOLLOW_SLACK {
+            self.y.snap_to(max.y);
+        }
         self.max = max;
         if self.x.value() > max.x || self.x.target() > max.x {
             self.x.snap_to(self.x.value().min(max.x));
@@ -457,9 +463,9 @@ impl<M: 'static> Node<M> {
         self.clip = clip;
         if self.eff.overflow == Overflow::Scroll {
             let (c, s) = (self.layout.content, self.layout.size);
-            self.scroll.set_max(vec2((c.w - s.w).max(0.0), (c.h - s.h).max(0.0)));
+            self.scroll.set_max(vec2((c.w - s.w).max(0.0), (c.h - s.h).max(0.0)), self.eff.follow_end);
         } else if self.scroll.max != Vec2::ZERO {
-            self.scroll.set_max(Vec2::ZERO);
+            self.scroll.set_max(Vec2::ZERO, false);
         }
         let child_clip = if self.eff.overflow == Overflow::Visible {
             clip
@@ -473,7 +479,8 @@ impl<M: 'static> Node<M> {
         let off = self.scroll.offset();
         let base = pt(self.rect.x - off.x, self.rect.y - off.y);
         for child in &mut self.children {
-            child.arrange(base, child_clip);
+            // A floating element is above everything, so nothing it sits in cuts it off.
+            child.arrange(base, if child.eff.float { None } else { child_clip });
         }
     }
 

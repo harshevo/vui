@@ -200,3 +200,42 @@ fn only_the_rows_in_view_are_painted_and_each_is_clipped_to_the_container() {
     let rows = vui_runtime::testing::quads(&scene).into_iter().filter(|q| q.fill == wash).count();
     assert_eq!(rows, 4, "after scrolling by two rows, rows 2 to 5 are in view");
 }
+
+#[test]
+fn a_following_scroller_starts_at_the_end_and_keeps_up_until_the_reader_scrolls_back() {
+    let mut t = ui(200.0, 100.0);
+    t.view(list(10).follow_end());
+    t.settle();
+    assert_eq!(scroll_y(&mut t), 200.0, "starts at the end");
+    t.view(list(12).follow_end());
+    t.settle();
+    assert_eq!(scroll_y(&mut t), 260.0, "keeps up with new rows");
+    t.trackpad(pt(100.0, 50.0), 0.0, 100.0);
+    t.view(list(14).follow_end());
+    t.settle();
+    assert_eq!(scroll_y(&mut t), 160.0, "lets go once the reader scrolls back");
+}
+
+#[test]
+fn a_float_is_clicked_above_later_siblings_and_outside_its_scroller() {
+    let mut t = ui(200.0, 100.0);
+    let menu = div().key("menu").float().top(20.0).left(0.0).width(100.0).height(100.0).on_click(Msg::Value(99));
+    let first = div().key(0u32).height(30.0).shrink(0.0).child(menu);
+    let rest = (1..10u32).map(|i| div().key(i).height(30.0).shrink(0.0).on_click(Msg::Value(i as i32)));
+    t.view(column().key("list").height(40.0).overflow(Overflow::Scroll).child(first).children(rest.collect::<Vec<_>>()));
+    t.settle();
+    t.click(pt(50.0, 45.0));
+    assert_eq!(t.messages(), vec![Msg::Value(99)], "over row 1, and below the scroller's edge");
+}
+
+#[test]
+fn a_float_takes_its_contents_height_however_little_room_its_parent_has() {
+    let mut t = ui(200.0, 100.0);
+    let menu = column().key("menu").float().top(20.0).left(0.0).right(0.0).children(
+        (0..3u32).map(|i| div().key(i).height(30.0)).collect::<Vec<_>>(),
+    );
+    t.view(column().child(div().key("row").height(24.0).child(menu)));
+    t.settle();
+    assert_eq!(t.rect("menu").h, 90.0);
+    assert_eq!(t.rect(2u32).y, 80.0);
+}

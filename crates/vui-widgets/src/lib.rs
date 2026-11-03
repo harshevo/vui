@@ -20,6 +20,7 @@ pub mod markdown;
 mod segmented;
 mod sidebar;
 mod slider;
+mod splitter;
 mod text_field;
 mod tile;
 
@@ -38,5 +39,6 @@ pub use progress::{Progress, ProgressWidget, Spinner, SpinnerWidget, progress, p
 pub use segmented::segmented;
 pub use sidebar::{ListRow, NavItem, SELECTED, SIDEBAR_WIDTH, list, list_row, nav_heading, nav_item, nav_section, sidebar};
 pub use slider::{Slider, SliderWidget, slider};
+pub use splitter::{Splitter, SplitterWidget, splitter};
 pub use text_field::{FieldState, TextField, TextFieldWidget, password_field, search_field, text_area, text_field};
 pub use tile::{ImageTile, TileWidget, image_tile};

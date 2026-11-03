@@ -256,6 +256,11 @@ pub struct Style {
     pub shrink: f32,
     pub basis: Len,
     pub overflow: Overflow,
+    /// A scroll container that stays at its end while it is there, as a log or a chat does.
+    pub follow_end: bool,
+    /// Drawn and clicked above everything else in the window, and not cut off by scrolling or
+    /// clipping ancestors: menus and popovers.
+    pub float: bool,
 }
 
 impl Default for Style {
@@ -283,6 +288,8 @@ impl Default for Style {
             shrink: 1.0,
             basis: Len::Auto,
             overflow: Overflow::Visible,
+            follow_end: false,
+            float: false,
         }
     }
 }
@@ -516,6 +523,14 @@ pub trait Styled: Sized {
         self
     }
 
+    /// Like [`absolute`](Self::absolute), but above everything else in the window: drawn last, hit
+    /// first, and not cut off by the scroll containers or clipping boxes it sits in. Place it with
+    /// `top`, `left`, `right`, `bottom` against its parent, as a menu under the button that opened it.
+    fn float(mut self) -> Self {
+        self.style_mut().float = true;
+        self.absolute()
+    }
+
     /// Pins all four edges to the parent's, inset by `v`.
     fn inset(self, v: f32) -> Self {
         self.top(v).left(v).right(v).bottom(v)
@@ -531,6 +546,13 @@ pub trait Styled: Sized {
     /// below its content.
     fn overflow(mut self, overflow: Overflow) -> Self {
         self.style_mut().overflow = overflow;
+        self
+    }
+
+    /// For a scroll container: start at the end, and keep up with content that grows there while
+    /// the reader is at the end. Scrolling back up lets go until they scroll down to the end again.
+    fn follow_end(mut self) -> Self {
+        self.style_mut().follow_end = true;
         self
     }
 }

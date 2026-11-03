@@ -828,7 +828,12 @@ fn place_absolute<C, N: LayoutNode<C>>(child: &mut N, cx: &mut C, cb: Size, pare
             (Some(s), Some(e)) => Some((room - s - e - ms - me).max(0.0)),
             _ => None,
         });
-        let offer = Avail::Definite(decided.unwrap_or_else(|| (room - start.unwrap_or(0.0) - end.unwrap_or(0.0) - ms - me).max(0.0)));
+        // A float is drawn above everything and not cut off, so it is not held to the room its
+        // parent has left: without a size it takes its content's.
+        let offer = match decided {
+            None if cs.float => Avail::MaxContent,
+            _ => Avail::Definite(decided.unwrap_or_else(|| (room - start.unwrap_or(0.0) - end.unwrap_or(0.0) - ms - me).max(0.0))),
+        };
         match axis {
             Axis::X => (known.x, avail.x) = (decided, offer),
             Axis::Y => (known.y, avail.y) = (decided, offer),
