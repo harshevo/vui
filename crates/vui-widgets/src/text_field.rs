@@ -64,6 +64,7 @@ pub struct TextFieldWidget<M> {
     placeholder: String,
     on_change: Option<Handler<M>>,
     on_submit: Option<Handler<M>>,
+    on_paste_image: Option<Rc<dyn Fn(Vec<u8>) -> M>>,
     spec: Spec,
 }
 
@@ -428,6 +429,10 @@ impl<M: 'static> TextFieldWidget<M> {
                 'v' if editable => {
                     if let Some(text) = cx.clipboard_text() {
                         editor.insert(&text);
+                    } else if let Some(on_paste) = &self.on_paste_image
+                        && let Some(png) = cx.clipboard_image()
+                    {
+                        cx.emit(on_paste(png));
                     }
                 }
                 'z' if editable => {
@@ -847,7 +852,7 @@ impl<M: 'static> TextField<M> {
     fn new(value: impl Into<String>, spec: Spec) -> TextField<M> {
         let field = TextField {
             base: Base::new(),
-            widget: TextFieldWidget { value: value.into(), placeholder: String::new(), on_change: None, on_submit: None, spec },
+            widget: TextFieldWidget { value: value.into(), placeholder: String::new(), on_change: None, on_submit: None, on_paste_image: None, spec },
         };
         // The field shows its own focus, so the runtime's ring stays off.
         field.bg(Tone::Field).rounded(Radius::Control).focus_ring(false)
@@ -870,6 +875,13 @@ impl<M: 'static> TextField<M> {
     /// Sent with the text when Return is pressed in a single line, or Command-Return in several.
     pub fn on_submit(mut self, f: impl Fn(String) -> M + 'static) -> Self {
         self.widget.on_submit = Some(Rc::new(f));
+        self
+    }
+
+    /// Sent with a picture pasted while the clipboard holds no text, as PNG bytes. Without it, a
+    /// picture on the clipboard pastes nothing.
+    pub fn on_paste_image(mut self, f: impl Fn(Vec<u8>) -> M + 'static) -> Self {
+        self.widget.on_paste_image = Some(Rc::new(f));
         self
     }
 

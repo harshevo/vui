@@ -212,6 +212,11 @@ impl<M> EventCx<'_, M> {
         self.clipboard.set(text);
     }
 
+    /// A picture on the clipboard, as PNG bytes.
+    pub fn clipboard_image(&self) -> Option<Vec<u8>> {
+        self.clipboard.image()
+    }
+
     /// A window position relative to the node's border box.
     pub fn to_local(&self, p: Point) -> Point {
         Point { x: p.x - self.rect.x, y: p.y - self.rect.y }

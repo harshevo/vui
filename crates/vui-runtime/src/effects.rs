@@ -16,11 +16,15 @@ pub enum Effect {
     ImeArea(Option<Rect>),
 }
 
-/// Plain-text clipboard access. The backend installs the system pasteboard; tests use
-/// [`MemoryClipboard`].
+/// Clipboard access: text both ways, and a picture to paste. The backend installs the system
+/// pasteboard; tests use [`MemoryClipboard`].
 pub trait Clipboard {
     fn get(&self) -> Option<String>;
     fn set(&self, text: &str);
+    /// A picture on the clipboard, as PNG bytes.
+    fn image(&self) -> Option<Vec<u8>> {
+        None
+    }
 }
 
 /// A clipboard that lives in this process.

@@ -14,6 +14,7 @@ enum Msg {
     Text(String),
     Submit(String),
     Key(&'static str),
+    Picture(Vec<u8>),
 }
 
 type Make = fn(&str) -> TextField<Msg>;
@@ -22,6 +23,7 @@ struct Form {
     text: String,
     submitted: Vec<String>,
     keys: Vec<&'static str>,
+    pictures: Vec<Vec<u8>>,
     make: Make,
     digits_only: bool,
 }
@@ -38,6 +40,7 @@ impl App for Form {
             }
             Msg::Submit(t) => self.submitted.push(t),
             Msg::Key(k) => self.keys.push(k),
+            Msg::Picture(p) => self.pictures.push(p),
         }
     }
 
@@ -51,7 +54,7 @@ impl App for Form {
                 _ => None,
             })
             .children((
-                (self.make)(&self.text).key("f").width(240.0).on_change(Msg::Text).on_submit(Msg::Submit),
+                (self.make)(&self.text).key("f").width(240.0).on_change(Msg::Text).on_submit(Msg::Submit).on_paste_image(Msg::Picture),
                 text_field("second").key("g").width(240.0),
             ))
     }
@@ -90,7 +93,7 @@ fn select_all_on_focus(t: &str) -> TextField<Msg> {
 }
 
 fn window_with(make: Make, text: &str, digits_only: bool) -> TestUi<Msg> {
-    let form = Form { text: text.into(), submitted: Vec::new(), keys: Vec::new(), make, digits_only };
+    let form = Form { text: text.into(), submitted: Vec::new(), keys: Vec::new(), pictures: Vec::new(), make, digits_only };
     TestUi::with_app(320.0, 220.0, form)
 }
 
@@ -470,6 +473,32 @@ fn copy_cut_and_paste_use_the_clipboard() {
     assert_eq!(text(&t), "hello worldhello");
     t.shortcut('a').shortcut('x');
     assert_eq!((clip.get().as_deref(), text(&t).as_str()), (Some("hello worldhello"), ""));
+}
+
+/// A clipboard holding only a picture, as after a screenshot.
+struct PictureOnly;
+
+impl Clipboard for PictureOnly {
+    fn get(&self) -> Option<String> {
+        None
+    }
+    fn set(&self, _: &str) {}
+    fn image(&self) -> Option<Vec<u8>> {
+        Some(b"png".to_vec())
+    }
+}
+
+#[test]
+fn a_picture_on_the_clipboard_is_handed_to_the_app() {
+    let mut t = focused(plain);
+    t.ui.set_clipboard(Rc::new(PictureOnly));
+    t.shortcut('v');
+    assert_eq!((form(&t).pictures.clone(), text(&t)), (vec![b"png".to_vec()], String::new()));
+    // Text on the clipboard pastes as text, and no picture.
+    let clip = clipboard(&mut t);
+    clip.set("hi");
+    t.shortcut('v');
+    assert_eq!((form(&t).pictures.len(), text(&t)), (1, "hi".to_string()));
 }
 
 #[test]

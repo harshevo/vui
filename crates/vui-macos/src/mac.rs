@@ -20,7 +20,7 @@ use objc2::{AllocAnyThread, DefinedClass, MainThreadMarker, MainThreadOnly, Mess
 use objc2_app_kit::{
     NSAppearanceCustomization, NSAppearanceNameAqua, NSAppearanceNameDarkAqua, NSApplication, NSApplicationActivationPolicy,
     NSBackingStoreType, NSColor, NSCursor, NSEvent, NSEventMask, NSEventModifierFlags, NSMainMenuWindowLevel, NSMenu, NSMenuItem, NSPanel,
-    NSPasteboard, NSPasteboardTypeString, NSResponder, NSScreen, NSTextInputClient, NSTrackingArea, NSTrackingAreaOptions, NSView,
+    NSBitmapImageFileType, NSBitmapImageRep, NSPasteboard, NSPasteboardTypePNG, NSPasteboardTypeString, NSPasteboardTypeTIFF, NSResponder, NSScreen, NSTextInputClient, NSTrackingArea, NSTrackingAreaOptions, NSView,
     NSWindow, NSWindowCollectionBehavior, NSWindowDelegate, NSWindowOcclusionState, NSWindowStyleMask, NSWindowTitleVisibility,
 };
 use objc2_foundation::{
@@ -601,7 +601,7 @@ fn cursor(icon: CursorIcon) -> Retained<NSCursor> {
 
 // ---- the pasteboard ------------------------------------------------------------------------------
 
-/// The system clipboard, plain text only.
+/// The system clipboard: text, and pictures to paste.
 pub struct Pasteboard;
 
 impl Clipboard for Pasteboard {
@@ -614,6 +614,18 @@ impl Clipboard for Pasteboard {
         let board = NSPasteboard::generalPasteboard();
         board.clearContents();
         board.setString_forType(&NSString::from_str(text), unsafe { NSPasteboardTypeString });
+    }
+
+    /// PNG as it is; TIFF, which screenshots and many apps copy, converted to PNG.
+    fn image(&self) -> Option<Vec<u8>> {
+        let board = NSPasteboard::generalPasteboard();
+        if let Some(png) = board.dataForType(unsafe { NSPasteboardTypePNG }) {
+            return Some(png.to_vec());
+        }
+        let tiff = board.dataForType(unsafe { NSPasteboardTypeTIFF })?;
+        let rep = NSBitmapImageRep::imageRepWithData(&tiff)?;
+        let png = unsafe { rep.representationUsingType_properties(NSBitmapImageFileType::PNG, &objc2_foundation::NSDictionary::new()) }?;
+        Some(png.to_vec())
     }
 }
 
