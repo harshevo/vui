@@ -4,7 +4,7 @@ use vui_core::{Color, Command, ImageCmd, ImageData, ImageId, NamedKey, Quad, Sce
 use vui_runtime::testing::{TestUi, quads, texts};
 use vui_runtime::{Align, App, Builder, Cx, IntoElement, Parent, Role, Styled, column};
 use vui_widgets::{
-    avatar, badge, card, image_tile, kbd, progress, progress_indeterminate, section_title, segmented, separator, separator_vertical,
+    avatar, badge, card, image_tile, kbd, progress, progress_indeterminate, section_title, segmented, segmented_keyed, separator, separator_vertical,
     spinner,
 };
 
@@ -415,4 +415,20 @@ fn a_tile_takes_its_height_from_the_picture_when_only_the_width_is_set() {
 fn badges_keycaps_and_avatars_are_text_and_boxes_with_no_pictures() {
     let mut t = still(column().children((badge("A"), kbd("B"), avatar("C D"))));
     assert!(images(&t.scene()).is_empty());
+}
+
+#[test]
+fn a_keyed_segment_can_be_found_and_chosen() {
+    let mut t = TestUi::<u8>::new(320.0, 120.0);
+    t.view(column().padding(20.0).align_items(Align::Start).child(segmented_keyed(
+        "level",
+        [(1u8, "low".to_string(), "Low".to_string()), (2, "high".into(), "High".into())],
+        &1,
+        |n| n,
+    )));
+    let track = t.rect("level");
+    let high = t.rect("level-high");
+    assert!(high.x > track.x && high.right() <= track.right() + 0.5, "{high:?} in {track:?}");
+    t.click_key("level-high");
+    assert_eq!(t.messages(), [2]);
 }

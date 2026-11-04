@@ -18,6 +18,30 @@ pub fn segmented<M: 'static, T: PartialEq + Clone + 'static>(
     selected: &T,
     on_select: impl Fn(T) -> M + 'static,
 ) -> Div<M> {
+    build(options.into_iter().map(|(value, label)| (value, label, None)), selected, on_select)
+}
+
+/// Like [`segmented`], with the track keyed `key` and each segment `{key}-{id}`, so tests and
+/// assistive tools can find one choice: `(value, id, label)`.
+pub fn segmented_keyed<M: 'static, T: PartialEq + Clone + 'static>(
+    key: &str,
+    options: impl IntoIterator<Item = (T, String, String)>,
+    selected: &T,
+    on_select: impl Fn(T) -> M + 'static,
+) -> Div<M> {
+    build(
+        options.into_iter().map(|(value, id, label)| (value, label, Some(format!("{key}-{id}")))),
+        selected,
+        on_select,
+    )
+    .key(key.to_string())
+}
+
+fn build<M: 'static, T: PartialEq + Clone + 'static>(
+    options: impl IntoIterator<Item = (T, String, Option<String>)>,
+    selected: &T,
+    on_select: impl Fn(T) -> M + 'static,
+) -> Div<M> {
     let on_select = Rc::new(on_select);
     let mut track = row::<M>()
         .padding(TRACK_PAD)
@@ -27,7 +51,7 @@ pub fn segmented<M: 'static, T: PartialEq + Clone + 'static>(
         .focus_group(FocusGroup::horizontal())
         .role(Role::Group)
         .align_self(vui_runtime::Align::Start);
-    for (value, label) in options {
+    for (value, label, key) in options {
         let chosen = value == *selected;
         let mut spec = Spec::new(label, Role::RadioButton);
         spec.weight = 500;
@@ -52,6 +76,10 @@ pub fn segmented<M: 'static, T: PartialEq + Clone + 'static>(
             .tab_default(chosen)
             .select_on_arrow(pick.clone())
             .on_click_with(pick);
+        let segment = match key {
+            Some(key) => segment.key(key),
+            None => segment,
+        };
         track = track.child(segment);
     }
     track

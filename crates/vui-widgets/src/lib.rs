@@ -36,7 +36,7 @@ pub use markdown::{Markdown, RichText, markdown, rich_text};
 pub use lasso::{Lasso, LassoState, LassoWidget, bounds as lasso_bounds, lasso};
 pub use effects::{EffectState, Glow, GlowWidget, Shimmer, ShimmerWidget, glow, shimmer};
 pub use progress::{Progress, ProgressWidget, Spinner, SpinnerWidget, progress, progress_indeterminate, spinner};
-pub use segmented::segmented;
+pub use segmented::{segmented, segmented_keyed};
 pub use sidebar::{ListRow, NavItem, SELECTED, SIDEBAR_WIDTH, list, list_row, nav_heading, nav_item, nav_section, sidebar};
 pub use slider::{Slider, SliderWidget, slider};
 pub use splitter::{Splitter, SplitterWidget, splitter};
