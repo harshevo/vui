@@ -47,8 +47,8 @@ pub mod prelude {
     };
     pub use vui_icons::{Icon, Weight, set as icon_set};
     pub use vui_runtime::{
-        AUTO, A11y, AccessAction, App, Align, Builder, Click, Cx, Div, Element, Focus, FocusGroup, IntoChildren, IntoElement, Justify,
-        Img, Label, Overflow, Parent, Radius, Role, Styled, column, div, img, label, pct, px, row, small, spacer, title,
+        AUTO, A11y, AccessAction, App, Align, Breakpoint, Builder, Click, Cx, Div, Element, Focus, FocusGroup, IntoChildren, IntoElement, Justify,
+        Img, Label, Overflow, Parent, Radius, Role, Styled, Width, column, div, img, label, pct, px, row, small, spacer, title,
     };
     pub use vui_widgets::*;
 }
