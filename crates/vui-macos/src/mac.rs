@@ -5,6 +5,14 @@
 //! nothing. Keys go through the input method (`NSTextInputClient`) so dead keys, Japanese, Chinese and
 //! Korean input, dictation and the emoji picker all type into vui's text fields.
 
+#[path = "mac/pasteboard.rs"]
+mod pasteboard;
+pub use pasteboard::Pasteboard;
+
+#[path = "mac/menu.rs"]
+mod menu;
+use menu::main_menu;
+
 use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
 use std::ptr::NonNull;
@@ -599,36 +607,6 @@ fn cursor(icon: CursorIcon) -> Retained<NSCursor> {
     }
 }
 
-// ---- the pasteboard ------------------------------------------------------------------------------
-
-/// The system clipboard: text, and pictures to paste.
-pub struct Pasteboard;
-
-impl Clipboard for Pasteboard {
-    fn get(&self) -> Option<String> {
-        let board = NSPasteboard::generalPasteboard();
-        board.stringForType(unsafe { NSPasteboardTypeString }).map(|s| s.to_string())
-    }
-
-    fn set(&self, text: &str) {
-        let board = NSPasteboard::generalPasteboard();
-        board.clearContents();
-        board.setString_forType(&NSString::from_str(text), unsafe { NSPasteboardTypeString });
-    }
-
-    /// PNG as it is; TIFF, which screenshots and many apps copy, converted to PNG.
-    fn image(&self) -> Option<Vec<u8>> {
-        let board = NSPasteboard::generalPasteboard();
-        if let Some(png) = board.dataForType(unsafe { NSPasteboardTypePNG }) {
-            return Some(png.to_vec());
-        }
-        let tiff = board.dataForType(unsafe { NSPasteboardTypeTIFF })?;
-        let rep = NSBitmapImageRep::imageRepWithData(&tiff)?;
-        let png = unsafe { rep.representationUsingType_properties(NSBitmapImageFileType::PNG, &objc2_foundation::NSDictionary::new()) }?;
-        Some(png.to_vec())
-    }
-}
-
 // ---- delegates -----------------------------------------------------------------------------------
 
 pub struct WindowIvars {
@@ -682,65 +660,6 @@ impl WindowDelegate {
         let this = Self::alloc(mtm).set_ivars(WindowIvars { view: Weak::from_retained(&view.retain()), quit_on_close });
         unsafe { msg_send![super(this), init] }
     }
-}
-
-// ---- the menu bar --------------------------------------------------------------------------------
-
-fn item(mtm: MainThreadMarker, title: &str, action: Option<Sel>, key: &str, mods: NSEventModifierFlags) -> Retained<NSMenuItem> {
-    let item = unsafe {
-        NSMenuItem::initWithTitle_action_keyEquivalent(NSMenuItem::alloc(mtm), &NSString::from_str(title), action, &NSString::from_str(key))
-    };
-    item.setKeyEquivalentModifierMask(mods);
-    item
-}
-
-fn submenu(mtm: MainThreadMarker, title: &str, items: &[Retained<NSMenuItem>]) -> Retained<NSMenuItem> {
-    let menu = NSMenu::initWithTitle(NSMenu::alloc(mtm), &NSString::from_str(title));
-    for i in items {
-        menu.addItem(i);
-    }
-    let holder = item(mtm, title, None, "", NSEventModifierFlags::empty());
-    holder.setSubmenu(Some(&menu));
-    holder
-}
-
-fn main_menu(mtm: MainThreadMarker, name: &str) -> Retained<NSMenu> {
-    let cmd = NSEventModifierFlags::Command;
-    let bar = NSMenu::new(mtm);
-    bar.addItem(&submenu(
-        mtm,
-        name,
-        &[
-            item(mtm, &format!("Hide {name}"), Some(sel!(hide:)), "h", cmd),
-            item(mtm, "Hide Others", Some(sel!(hideOtherApplications:)), "h", cmd | NSEventModifierFlags::Option),
-            item(mtm, "Show All", Some(sel!(unhideAllApplications:)), "", NSEventModifierFlags::empty()),
-            NSMenuItem::separatorItem(mtm),
-            item(mtm, &format!("Quit {name}"), Some(sel!(terminate:)), "q", cmd),
-        ],
-    ));
-    bar.addItem(&submenu(
-        mtm,
-        "Edit",
-        &[
-            item(mtm, "Undo", Some(sel!(undo:)), "z", cmd),
-            item(mtm, "Redo", Some(sel!(redo:)), "z", cmd | NSEventModifierFlags::Shift),
-            NSMenuItem::separatorItem(mtm),
-            item(mtm, "Cut", Some(sel!(cut:)), "x", cmd),
-            item(mtm, "Copy", Some(sel!(copy:)), "c", cmd),
-            item(mtm, "Paste", Some(sel!(paste:)), "v", cmd),
-            item(mtm, "Select All", Some(sel!(selectAll:)), "a", cmd),
-        ],
-    ));
-    bar.addItem(&submenu(
-        mtm,
-        "Window",
-        &[
-            item(mtm, "Minimize", Some(sel!(performMiniaturize:)), "m", cmd),
-            item(mtm, "Zoom", Some(sel!(performZoom:)), "", NSEventModifierFlags::empty()),
-            item(mtm, "Close", Some(sel!(performClose:)), "w", cmd),
-        ],
-    ));
-    bar
 }
 
 // ---- the application -----------------------------------------------------------------------------
