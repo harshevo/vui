@@ -19,6 +19,11 @@ use crate::theme::TextToken;
 /// Re-exported so the renderer and backends use the exact same cosmic-text.
 pub use cosmic_text;
 
+
+/// How far past its width a line may run before it wraps: far below a visible pixel, far above
+/// the rounding error of adding and removing padding.
+const WIDTH_SLACK: f32 = 0.05;
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum FontFamily {
     /// The interface font (Inter by default).
@@ -439,7 +444,9 @@ impl Fonts {
     fn shape(&self, text: &str, spans: &[Span], style: &TextStyle, max_width: Option<f32>) -> TextLayout {
         let mut fs = self.shared.system.borrow_mut();
         let mut buffer = Buffer::new(&mut fs, Metrics::new(style.size, style.line_height));
-        buffer.set_size(max_width, None);
+        // A box sized to its text is often handed that width back after padding is added and taken
+        // away again, a rounding error narrower; without a hair of slack its last word would wrap.
+        buffer.set_size(max_width.map(|w| w + WIDTH_SLACK), None);
         buffer.set_wrap(match style.wrap {
             TextWrap::Words => Wrap::WordOrGlyph,
             TextWrap::WordsOnly => Wrap::Word,

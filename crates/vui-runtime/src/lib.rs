@@ -29,7 +29,7 @@ pub use element::{
 pub use key::Key;
 pub use responsive::{Breakpoint, Restyle, Width};
 pub use style::{
-    AUTO, Align, Axis, Direction, Edges, Justify, Len, Overflow, Position, Sides, Style, Styled, pct, px,
+    AUTO, Align, Axis, Direction, Edges, Justify, Len, Overflow, Position, Sides, Style, Styled, Thumb, pct, px,
 };
 pub use ui::{Inspect, Ui};
 pub use widget::{Dirty, Env, EventCx, Focus, FocusBy, PaintCx, TickCx, Widget, WidgetEvent};

@@ -14,7 +14,7 @@ use crate::element::{Base, Decor, Element, Input};
 use crate::key::{Key, NodeId};
 use crate::layout::{Avail, LayoutCache, LayoutNode, NodeLayout, Pair};
 use crate::responsive::{self, Rule};
-use crate::style::{Axis, Len, Overflow, Style};
+use crate::style::{Axis, Len, Overflow, Style, Thumb};
 use crate::widget::{Dirty, Env, Erased, Focus, TickCx};
 
 /// Hover, press, focus and drop fades: critically damped, so they never overshoot a 0 to 1 amount.
@@ -28,6 +28,8 @@ pub(crate) const BAR_WIDTH: f32 = 6.0;
 pub(crate) const BAR_WIDTH_HOT: f32 = 9.0;
 const BAR_INSET: f32 = 2.0;
 const BAR_MIN: f32 = 28.0;
+/// The shortest a fixed thumb gets, so it can still be grabbed in a short view.
+const BAR_FIXED_MIN: f32 = 16.0;
 /// How near the end, in points, still counts as at the end for a container that follows it.
 const FOLLOW_SLACK: f32 = 2.0;
 /// Seconds the scrollbars stay up after the last scroll.
@@ -473,7 +475,10 @@ impl<M: 'static> Node<M> {
         if track <= 0.0 {
             return None;
         }
-        let len = (track * view / (view + max)).clamp(BAR_MIN.min(track), track);
+        let len = match self.eff.thumb {
+            Thumb::Proportional => (track * view / (view + max)).clamp(BAR_MIN.min(track), track),
+            Thumb::Fixed(fraction) => (track * fraction).clamp(BAR_FIXED_MIN.min(track), track),
+        };
         let free = track - len;
         let pos = if free > 0.0 { free * offset / max } else { 0.0 };
         let thick = self.scroll.thick.value().clamp(0.0, 1.0);

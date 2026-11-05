@@ -224,6 +224,18 @@ pub enum Overflow {
     Scroll,
 }
 
+/// How long a scroll container's scrollbar thumb is.
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+pub enum Thumb {
+    /// As much of the track as the view is of the content: long for a little overflow, short for a
+    /// lot. The default.
+    #[default]
+    Proportional,
+    /// This fraction of the track (0 to 1), however long the content is: a small marker that does
+    /// not change size as content grows.
+    Fixed(f32),
+}
+
 /// Everything layout reads. All of it is plain data, so a style is cheap to copy and compare.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Style {
@@ -258,6 +270,8 @@ pub struct Style {
     pub overflow: Overflow,
     /// A scroll container that stays at its end while it is there, as a log or a chat does.
     pub follow_end: bool,
+    /// How long the scrollbar thumb is.
+    pub thumb: Thumb,
     /// Drawn and clicked above everything else in the window, and not cut off by scrolling or
     /// clipping ancestors: menus and popovers.
     pub float: bool,
@@ -289,6 +303,7 @@ impl Default for Style {
             basis: Len::Auto,
             overflow: Overflow::Visible,
             follow_end: false,
+            thumb: Thumb::Proportional,
             float: false,
         }
     }
@@ -557,6 +572,13 @@ pub trait Styled: Sized {
     /// the reader is at the end. Scrolling back up lets go until they scroll down to the end again.
     fn follow_end(mut self) -> Self {
         self.style_mut().follow_end = true;
+        self
+    }
+
+    /// For a scroll container: a scrollbar thumb `fraction` (0 to 1) of the track long, whatever
+    /// the content's length, instead of one that shrinks and grows with it.
+    fn fixed_thumb(mut self, fraction: f32) -> Self {
+        self.style_mut().thumb = Thumb::Fixed(fraction.clamp(0.0, 1.0));
         self
     }
 }

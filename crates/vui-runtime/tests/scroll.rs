@@ -143,6 +143,24 @@ fn the_scrollbar_thumb_reflects_how_much_is_in_view() {
 }
 
 #[test]
+fn a_fixed_thumb_keeps_its_length_as_content_grows() {
+    let mut t = ui(200.0, 1000.0);
+    t.view(list(40).fixed_thumb(0.04));
+    let short = t.inspect("list").thumb_y.unwrap();
+    // 4% of 996 px of track, whatever the content's length.
+    assert!((short.h - 39.84).abs() < 0.01, "{short:?}");
+    t.view(list(400).fixed_thumb(0.04));
+    assert_eq!(t.inspect("list").thumb_y.unwrap().h, short.h);
+    t.trackpad(pt(100.0, 500.0), 0.0, -100_000.0);
+    let end = t.inspect("list").thumb_y.unwrap();
+    assert!((end.bottom() - 998.0).abs() < 0.01, "at the end of the content the thumb reaches the track's end: {end:?}");
+
+    let mut t = ui(200.0, 100.0);
+    t.view(list(10).fixed_thumb(0.04));
+    assert_eq!(t.inspect("list").thumb_y.unwrap().h, 16.0, "never shorter than can be grabbed");
+}
+
+#[test]
 fn a_short_list_has_no_thumb() {
     let mut t = ui(200.0, 400.0);
     t.view(list(3));

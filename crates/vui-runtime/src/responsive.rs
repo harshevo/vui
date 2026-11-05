@@ -154,7 +154,7 @@ macro_rules! properties {
 
 properties!(
     direction, hidden, position, width, height, min_width, min_height, max_width, max_height, aspect_ratio, padding, margin, inset, gap,
-    wrap, align_items, align_self, justify, grow, shrink, basis, overflow, follow_end, float,
+    wrap, align_items, align_self, justify, grow, shrink, basis, overflow, follow_end, thumb, float,
 );
 
 /// An element's own style with the rules that match a window `width` wide applied over it.
