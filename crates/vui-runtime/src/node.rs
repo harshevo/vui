@@ -13,6 +13,7 @@ use crate::access::A11y;
 use crate::element::{Base, Decor, Element, Input};
 use crate::key::{Key, NodeId};
 use crate::layout::{Avail, LayoutCache, LayoutNode, NodeLayout, Pair};
+use crate::responsive::{self, Rule};
 use crate::style::{Axis, Len, Overflow, Style};
 use crate::widget::{Dirty, Env, Erased, Focus, TickCx};
 
@@ -179,7 +180,12 @@ pub(crate) struct Node<M: 'static> {
     pub key: Option<Key>,
     pub widget: Box<dyn Erased<M>>,
     pub state: Box<dyn Any>,
-    /// What the element asked for. `eff` follows it, one step behind while a size is animating.
+    /// The element's own style, before its responsive rules.
+    pub asked: Style,
+    /// Restyles for ranges of window widths (see [`crate::responsive`]).
+    pub rules: Vec<Rule>,
+    /// What the element asked for at the window's current width: `asked` with the matching rules
+    /// applied. `eff` follows it, one step behind while a size is animating.
     pub target: Style,
     /// What layout reads: `style`, with sizes that are mid-transition replaced by their current value.
     pub eff: Style,
@@ -291,9 +297,10 @@ fn retarget(current: Option<SpringValue>, old: Len, new: Len, spring: Option<Spr
 }
 
 impl<M: 'static> Node<M> {
-    pub fn build(el: Element<M>, ids: &mut Ids) -> Node<M> {
+    pub fn build(el: Element<M>, ids: &mut Ids, env: &Env) -> Node<M> {
         let Element { base, widget, children } = el;
-        let Base { style, decor, input, a11y, key, transition, appear } = base;
+        let Base { style: asked, rules, decor, input, a11y, key, transition, appear } = base;
+        let style = responsive::resolve(asked, &rules, env.window);
         let opacity = decor.opacity;
         let state = widget.create_state();
         let mut anim = Anim::new(opacity);
@@ -305,13 +312,15 @@ impl<M: 'static> Node<M> {
             key,
             widget,
             state,
+            asked,
+            rules,
             target: style,
             eff: style,
             decor,
             input,
             a11y,
             transition,
-            children: children.into_iter().map(|c| Node::build(c, ids)).collect(),
+            children: children.into_iter().map(|c| Node::build(c, ids, env)).collect(),
             cache: LayoutCache::default(),
             layout: NodeLayout::default(),
             rect: Rect::ZERO,
@@ -326,24 +335,15 @@ impl<M: 'static> Node<M> {
     /// has to be redone.
     pub fn update(&mut self, el: Element<M>, ids: &mut Ids, env: &Env) -> Dirty {
         let Element { base, widget, children } = el;
-        let Base { style, decor, input, a11y, key: _, transition, appear: _ } = base;
+        let Base { style: asked, rules, decor, input, a11y, key: _, transition, appear: _ } = base;
 
         let mut dirty = widget.update(&*self.widget, &mut *self.state);
         self.widget = widget;
         self.transition = transition;
 
-        if style != self.target {
-            self.anim.width = retarget(self.anim.width.take(), self.target.width, style.width, transition);
-            self.anim.height = retarget(self.anim.height.take(), self.target.height, style.height, transition);
-            let (old, new) = (sides(&self.target.inset), sides(&style.inset));
-            for (i, slot) in self.anim.inset.iter_mut().enumerate() {
-                *slot = retarget(slot.take(), old[i], new[i], transition);
-            }
-            self.target = style;
-        }
-        let before = self.eff;
-        self.refresh_eff();
-        if self.eff != before {
+        self.asked = asked;
+        self.rules = rules;
+        if self.retarget_style(env.window) {
             dirty = dirty.max(Dirty::Layout);
         }
 
@@ -363,6 +363,41 @@ impl<M: 'static> Node<M> {
             self.cache.clear();
         }
         dirty
+    }
+
+    /// Resolves the element's style for a window `width` wide and moves towards it, animating sizes
+    /// that have a transition. Says whether what layout reads changed.
+    fn retarget_style(&mut self, width: f32) -> bool {
+        let style = responsive::resolve(self.asked, &self.rules, width);
+        let transition = self.transition;
+        if style != self.target {
+            self.anim.width = retarget(self.anim.width.take(), self.target.width, style.width, transition);
+            self.anim.height = retarget(self.anim.height.take(), self.target.height, style.height, transition);
+            let (old, new) = (sides(&self.target.inset), sides(&style.inset));
+            for (i, slot) in self.anim.inset.iter_mut().enumerate() {
+                *slot = retarget(slot.take(), old[i], new[i], transition);
+            }
+            self.target = style;
+        }
+        let before = self.eff;
+        self.refresh_eff();
+        self.eff != before
+    }
+
+    /// The window is now `width` wide: re-resolves every responsive rule in the subtree and clears
+    /// the layout of whatever changed and of its ancestors. Says whether anything changed.
+    pub fn respond(&mut self, width: f32) -> bool {
+        let mut changed = false;
+        for child in &mut self.children {
+            changed |= child.respond(width);
+        }
+        if !self.rules.is_empty() {
+            changed |= self.retarget_style(width);
+        }
+        if changed {
+            self.cache.clear();
+        }
+        changed
     }
 
     fn refresh_eff(&mut self) {
@@ -623,7 +658,7 @@ fn reconcile<M: 'static>(old: &mut Vec<Node<M>>, new: Vec<Element<M>>, ids: &mut
                 out.push(node);
             }
             None => {
-                out.push(Node::build(el, ids));
+                out.push(Node::build(el, ids, env));
                 dirty = Dirty::Layout;
             }
         }

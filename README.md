@@ -11,6 +11,9 @@ its own workspace so it can grow into a general framework.
   with correct colour handling. No webview, no platform widgets in the way.
 - Retained widget tree with a flexbox layout engine written for vui, springs for motion, and an
   accessibility tree generated from the same widgets that paint (the macOS backend hands it to AccessKit).
+- Responsive: `.when(Breakpoint::Wide, |s| s.margin_x(pct(15.0)))` restyles an element for a range of
+  window widths (Compact under 600, Medium to 900, Wide beyond, or any `Width` range), and the UI
+  follows the window as it is resized without the app rebuilding its view.
 - Testable without a window: layout, events and painting run headless, and rendered frames are
   compared with golden images.
 - Extensible: custom widgets implement one trait, custom shader passes plug into the renderer, themes

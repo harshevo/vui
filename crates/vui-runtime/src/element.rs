@@ -33,6 +33,7 @@ use vui_core::{Corners, CursorIcon, Fill, KeyEvent, Modifiers, Point, PointerBut
 
 use crate::access::{A11y, Role};
 use crate::key::Key;
+use crate::responsive::{Restyle, Rule, Width};
 use crate::style::{Axis, Style, Styled};
 use crate::widget::{Dirty, Erased, Focus, Widget};
 
@@ -215,6 +216,8 @@ impl<M> Input<M> {
 /// What every element has, whatever its widget: layout, decoration, input and accessibility.
 pub struct Base<M> {
     pub(crate) style: Style,
+    /// Restyles for ranges of window widths, applied over `style` by the UI.
+    pub(crate) rules: Vec<Rule>,
     pub(crate) decor: Decor,
     pub(crate) input: Input<M>,
     pub(crate) a11y: A11y,
@@ -227,6 +230,7 @@ impl<M> Default for Base<M> {
     fn default() -> Base<M> {
         Base {
             style: Style::default(),
+            rules: Vec::new(),
             decor: Decor::default(),
             input: Input::default(),
             a11y: A11y::default(),
@@ -546,6 +550,16 @@ pub trait Builder<M: 'static>: Styled {
     /// inside it that takes clicks or focus. For the empty canvas around a window's content.
     fn window_drag(mut self, on: bool) -> Self {
         self.base_mut().input.window_drag = on;
+        self
+    }
+
+    /// Restyles the element while the window's width is in `when`: a [`Breakpoint`](crate::Breakpoint)
+    /// or a [`Width`] range. `f` is given the style so far, and only the properties it changes are
+    /// kept, so `.when(Breakpoint::Wide, |s| s.margin_x(pct(15.0)))` changes the side margins on a
+    /// wide window and nothing else. The UI follows the window as it is resized.
+    fn when(mut self, when: impl Into<Width>, f: impl FnOnce(Restyle) -> Restyle) -> Self {
+        let base = self.base_mut();
+        crate::responsive::record(&mut base.rules, &base.style, when.into(), f);
         self
     }
 

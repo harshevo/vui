@@ -63,11 +63,13 @@ pub struct Env {
     pub theme: Rc<Theme>,
     /// Device pixels per logical pixel.
     pub scale: f32,
+    /// The window's width in logical pixels, which responsive rules are matched against.
+    pub window: f32,
 }
 
 impl Env {
     pub fn new(res: Resources, theme: Theme, scale: f32) -> Env {
-        Env { res, theme: Rc::new(theme), scale }
+        Env { res, theme: Rc::new(theme), scale, window: 0.0 }
     }
 
     pub fn fonts(&self) -> &Fonts {

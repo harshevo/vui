@@ -115,7 +115,7 @@ impl<M: 'static> Ui<M> {
         Ui {
             root: None,
             core: Core {
-                env: Env::new(res, theme, scale),
+                env: Env { window: size.w, ..Env::new(res, theme, scale) },
                 size,
                 ids: Ids::default(),
                 time: 0.0,
@@ -266,7 +266,7 @@ impl<M: 'static> Ui<M> {
         let dirty = match self.root.as_mut() {
             Some(root) if root.widget.widget_type() == el.widget.widget_type() => root.update(el, &mut core.ids, &core.env),
             _ => {
-                self.root = Some(Node::build(el, &mut core.ids));
+                self.root = Some(Node::build(el, &mut core.ids, &core.env));
                 crate::widget::Dirty::Layout
             }
         };
@@ -321,6 +321,15 @@ impl<M: 'static> Ui<M> {
         if size != self.core.size {
             self.core.size = size;
             self.core.layout_dirty = true;
+            if size.w != self.core.env.window {
+                self.core.env.window = size.w;
+                // Responsive rules follow the window; nodes whose style changed lose their layout.
+                if let Some(root) = self.root.as_mut()
+                    && root.respond(size.w)
+                {
+                    self.core.animating |= root.animating();
+                }
+            }
             // The app hears of the new size, and may answer with a message to show it.
             let message = self.driver.as_ref().and_then(|d| d.resized(size));
             if let Some(message) = message {

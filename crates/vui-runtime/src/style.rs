@@ -391,17 +391,21 @@ pub trait Styled: Sized {
         self
     }
 
-    fn margin_x(mut self, v: f32) -> Self {
+    /// Left and right margins: pixels, or a percentage of the parent's width.
+    fn margin_x(mut self, v: impl Into<Len>) -> Self {
+        let v = v.into();
         let m = &mut self.style_mut().margin;
-        m.left = Len::Px(v);
-        m.right = Len::Px(v);
+        m.left = v;
+        m.right = v;
         self
     }
 
-    fn margin_y(mut self, v: f32) -> Self {
+    /// Top and bottom margins: pixels, or a percentage of the parent's width (as in CSS).
+    fn margin_y(mut self, v: impl Into<Len>) -> Self {
+        let v = v.into();
         let m = &mut self.style_mut().margin;
-        m.top = Len::Px(v);
-        m.bottom = Len::Px(v);
+        m.top = v;
+        m.bottom = v;
         self
     }
 

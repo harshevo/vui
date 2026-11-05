@@ -12,6 +12,7 @@ pub mod key;
 pub mod layout;
 mod node;
 mod paint;
+pub mod responsive;
 pub mod style;
 pub mod testing;
 pub mod ui;
@@ -26,6 +27,7 @@ pub use element::{
     spacer,
 };
 pub use key::Key;
+pub use responsive::{Breakpoint, Restyle, Width};
 pub use style::{
     AUTO, Align, Axis, Direction, Edges, Justify, Len, Overflow, Position, Sides, Style, Styled, pct, px,
 };
