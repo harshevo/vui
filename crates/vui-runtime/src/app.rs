@@ -3,7 +3,7 @@
 
 use std::any::Any;
 
-use vui_core::{Mode, Theme};
+use vui_core::{Mode, Size, Theme};
 
 use crate::element::{Element, IntoElement};
 use crate::key::Key;
@@ -48,6 +48,13 @@ pub trait App: 'static {
     fn theme(&self, system: Mode) -> Theme {
         Theme::for_mode(system)
     }
+
+    /// The window's size, when it is first shown and whenever it changes. An app that needs the size
+    /// in its view answers with a message to keep it; the default ignores it.
+    fn resized(&self, size: Size) -> Option<Self::Msg> {
+        let _ = size;
+        None
+    }
 }
 
 /// What `update` can ask of the UI beyond changing state.
@@ -81,6 +88,7 @@ pub(crate) trait Driver<M> {
     fn update(&mut self, msg: M, cx: &mut Cx);
     fn view(&self) -> Element<M>;
     fn theme(&self, system: Mode) -> Theme;
+    fn resized(&self, size: Size) -> Option<M>;
     fn as_any(&self) -> &dyn Any;
     fn as_any_mut(&mut self) -> &mut dyn Any;
 }
@@ -96,6 +104,10 @@ impl<A: App> Driver<A::Msg> for A {
 
     fn theme(&self, system: Mode) -> Theme {
         App::theme(self, system)
+    }
+
+    fn resized(&self, size: Size) -> Option<A::Msg> {
+        App::resized(self, size)
     }
 
     fn as_any(&self) -> &dyn Any {

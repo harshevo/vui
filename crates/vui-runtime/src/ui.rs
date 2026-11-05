@@ -152,7 +152,11 @@ impl<M: 'static> Ui<M> {
         let mut ui = Ui::new(res, app.theme(Mode::Light), size, scale);
         let driver: Box<dyn Driver<M>> = Box::new(app);
         ui.show(&*driver);
+        let first = driver.resized(size);
         ui.driver = Some(driver);
+        if let Some(message) = first {
+            ui.send(message);
+        }
         ui
     }
 
@@ -317,6 +321,11 @@ impl<M: 'static> Ui<M> {
         if size != self.core.size {
             self.core.size = size;
             self.core.layout_dirty = true;
+            // The app hears of the new size, and may answer with a message to show it.
+            let message = self.driver.as_ref().and_then(|d| d.resized(size));
+            if let Some(message) = message {
+                self.send(message);
+            }
         }
     }
 
