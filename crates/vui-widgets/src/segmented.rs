@@ -58,7 +58,7 @@ fn build<M: 'static, T: PartialEq + Clone + 'static>(
         spec.text = TextRole::Body;
         spec.height = Height::Content;
         spec.place = Place::Center;
-        spec.label_color = if chosen { Tone::Text } else { Tone::Text2 }.into();
+        spec.label_color = if chosen { Tone::Accent } else { Tone::Text2 }.into();
         spec.toggled = Some(chosen);
         spec.focus = Focus::Keyboard;
         let pick = {
@@ -70,7 +70,7 @@ fn build<M: 'static, T: PartialEq + Clone + 'static>(
             .height(SEGMENT_HEIGHT)
             .padding_x(12.0)
             .rounded(Radius::Px(6.0))
-            .bg(if chosen { Fill::from(Tone::Field) } else { Fill::NONE })
+            .bg(if chosen { Fill::Tone(Tone::Accent, 0.14) } else { Fill::NONE })
             .hover_bg(if chosen { Fill::NONE } else { Fill::from(Tone::Hover) })
             .transition(Spring::SNAPPY)
             .tab_default(chosen)

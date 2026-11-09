@@ -31,6 +31,12 @@ fn with_fill(scene: &Scene, tone: Tone) -> Vec<&Quad> {
     quads(scene).into_iter().filter(|q| near(q.fill, color(tone))).collect()
 }
 
+/// Quads filled with `tone` at the given opacity.
+fn with_tint(scene: &Scene, tone: Tone, alpha: f32) -> Vec<&Quad> {
+    let c = color(tone).with_alpha(color(tone).a * alpha);
+    quads(scene).into_iter().filter(|q| near(q.fill, c)).collect()
+}
+
 fn still(view: impl IntoElement<()>) -> TestUi<()> {
     let mut t = TestUi::new(320.0, 240.0);
     t.view(column().padding(20.0).gap(12.0).align_items(Align::Start).child(view));
@@ -167,7 +173,7 @@ fn a_segmented_control_is_a_grey_track_with_the_chosen_segment_lifted() {
     let system = segment_rect(&mut t, "System");
     assert_eq!(system.h, 28.0);
     let scene = t.scene();
-    let lifted: Vec<_> = with_fill(&scene, Tone::Field).into_iter().filter(|q| track.contains(q.rect.center())).collect();
+    let lifted: Vec<_> = with_tint(&scene, Tone::Accent, 0.14).into_iter().filter(|q| track.contains(q.rect.center())).collect();
     assert_eq!(lifted.len(), 1);
     assert!((lifted[0].rect.center().x - system.center().x).abs() < 1.0);
 }
@@ -182,7 +188,7 @@ fn clicking_a_segment_chooses_it_and_the_lift_slides_over() {
     t.settle();
     let track = t.rect("seg");
     let scene = t.scene();
-    let lifted: Vec<_> = with_fill(&scene, Tone::Field).into_iter().filter(|q| track.contains(q.rect.center())).collect();
+    let lifted: Vec<_> = with_tint(&scene, Tone::Accent, 0.14).into_iter().filter(|q| track.contains(q.rect.center())).collect();
     assert_eq!(lifted.len(), 1);
     assert!((lifted[0].rect.center().x - dark.center().x).abs() < 1.0);
 }

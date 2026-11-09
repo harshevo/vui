@@ -38,6 +38,9 @@ pub enum BadgeTint {
     Neutral,
     Accent,
     Danger,
+    Orange,
+    Blue,
+    Purple,
 }
 
 /// The grey of a chip that must stay visible on any row, even a hovered or open one: a little of the
@@ -58,6 +61,9 @@ impl<M: 'static> Badge<M> {
             BadgeTint::Neutral => (Tone::Text2, CHIP),
             BadgeTint::Accent => (Tone::Accent, Fill::Tone(Tone::Accent, 0.12)),
             BadgeTint::Danger => (Tone::Danger, Fill::Tone(Tone::Danger, 0.12)),
+            BadgeTint::Orange => (Tone::Orange, Fill::Tone(Tone::Orange, 0.14)),
+            BadgeTint::Blue => (Tone::Blue, Fill::Tone(Tone::Blue, 0.12)),
+            BadgeTint::Purple => (Tone::Purple, Fill::Tone(Tone::Purple, 0.12)),
         };
         self.widget.spec.label_color = text.into();
         self.widget.spec.icon_color = text.into();
@@ -70,6 +76,18 @@ impl<M: 'static> Badge<M> {
 
     pub fn danger(self) -> Self {
         self.tint(BadgeTint::Danger)
+    }
+
+    pub fn orange(self) -> Self {
+        self.tint(BadgeTint::Orange)
+    }
+
+    pub fn blue(self) -> Self {
+        self.tint(BadgeTint::Blue)
+    }
+
+    pub fn purple(self) -> Self {
+        self.tint(BadgeTint::Purple)
     }
 }
 
