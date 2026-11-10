@@ -81,6 +81,10 @@ pub struct OverlayOptions {
     /// Clicks pass through wherever the pointer is over nothing that takes it, and land on the overlay
     /// wherever it is: a panel that is mostly empty space.
     pub through_empty: bool,
+    /// The overlay can take the keyboard when its app asks (`Cx::take_keys`), for a field typed into.
+    /// It still never activates the app: the person's own app stays in front, and gets the keyboard
+    /// back when the overlay's app lets go.
+    pub keyboard: bool,
 }
 
 /// Where an overlay sits.
@@ -96,7 +100,7 @@ pub enum Place {
 
 impl OverlayOptions {
     pub fn new(size: Size) -> OverlayOptions {
-        OverlayOptions { size, click_through: true, place: Place::Top, through_empty: false }
+        OverlayOptions { size, click_through: true, place: Place::Top, through_empty: false, keyboard: false }
     }
 
     pub fn click_through(mut self, through: bool) -> OverlayOptions {
@@ -112,6 +116,12 @@ impl OverlayOptions {
     /// See [`OverlayOptions::through_empty`].
     pub fn through_empty(mut self) -> OverlayOptions {
         self.through_empty = true;
+        self
+    }
+
+    /// See [`OverlayOptions::keyboard`].
+    pub fn keyboard(mut self) -> OverlayOptions {
+        self.keyboard = true;
         self
     }
 }

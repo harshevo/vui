@@ -417,10 +417,33 @@ impl VuiView {
         {
             window.setIgnoresMouseEvents(through);
         }
+        self.sync_keys();
         if self.with_host(|h| h.needs_paint()).unwrap_or(false) {
             self.request_frame();
         }
         self.check_quit();
+    }
+
+    /// An overlay that can take the keyboard takes it when its app asks, and gives it back when the
+    /// app lets go. The app the person is in stays active throughout.
+    fn sync_keys(&self) {
+        let (Some(want), Some(window)) = (self.with_host(|h| h.takes_keys()).flatten(), self.window()) else {
+            return;
+        };
+        // Only a `KeyPanel` among overlays; ordinary windows are left to the window system.
+        let key_panel = window.styleMask().contains(NSWindowStyleMask::NonactivatingPanel) && window.canBecomeKeyWindow();
+        if !key_panel || window.isKeyWindow() == want {
+            return;
+        }
+        if want {
+            window.makeKeyWindow();
+            window.makeFirstResponder(Some(self));
+        } else {
+            // Taking the panel off the screen list hands the keyboard back to the active app's own
+            // key window; it comes straight back on, still above the menu bar.
+            window.orderOut(None);
+            window.orderFrontRegardless();
+        }
     }
 
     fn apply(&self, effects: Vec<Effect>) {
@@ -608,6 +631,23 @@ fn cursor(icon: CursorIcon) -> Retained<NSCursor> {
 }
 
 // ---- delegates -----------------------------------------------------------------------------------
+
+define_class!(
+    // SAFETY: NSPanel allows subclassing; the subclass adds no state and does not implement Drop.
+    #[unsafe(super(NSPanel, NSWindow, NSResponder, NSObject))]
+    #[thread_kind = MainThreadOnly]
+    #[name = "VuiKeyPanel"]
+    /// An overlay panel that may become key. A borderless panel refuses by default, so a field in
+    /// it could never be typed into.
+    struct KeyPanel;
+
+    impl KeyPanel {
+        #[unsafe(method(canBecomeKeyWindow))]
+        fn can_become_key(&self) -> bool {
+            true
+        }
+    }
+);
 
 pub struct WindowIvars {
     view: Weak<VuiView>,
@@ -797,7 +837,15 @@ impl Application {
         };
         let frame = NSRect::new(origin, NSSize::new(w, h));
         let style = NSWindowStyleMask::Borderless | NSWindowStyleMask::NonactivatingPanel;
-        let panel = NSPanel::initWithContentRect_styleMask_backing_defer(NSPanel::alloc(mtm), frame, style, NSBackingStoreType::Buffered, false);
+        let panel = if options.keyboard {
+            // SAFETY: NSPanel's designated initialiser, sent to a fresh instance of its subclass.
+            let panel: Retained<KeyPanel> = unsafe {
+                msg_send![KeyPanel::alloc(mtm), initWithContentRect: frame, styleMask: style, backing: NSBackingStoreType::Buffered, defer: false]
+            };
+            panel.into_super()
+        } else {
+            NSPanel::initWithContentRect_styleMask_backing_defer(NSPanel::alloc(mtm), frame, style, NSBackingStoreType::Buffered, false)
+        };
         unsafe { panel.setReleasedWhenClosed(false) };
         panel.setFloatingPanel(true);
         panel.setBecomesKeyOnlyIfNeeded(true);

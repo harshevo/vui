@@ -105,6 +105,7 @@ pub struct Ui<M: 'static> {
     system: Mode,
     quit: bool,
     pass_clicks: Option<bool>,
+    take_keys: Option<bool>,
     /// Clear to nothing instead of the theme's background: for overlays the desktop shows through.
     transparent: bool,
 }
@@ -144,6 +145,7 @@ impl<M: 'static> Ui<M> {
             system: Mode::Light,
             quit: false,
             pass_clicks: None,
+            take_keys: None,
             transparent: false,
         }
     }
@@ -189,6 +191,7 @@ impl<M: 'static> Ui<M> {
             self.show(&*driver);
             self.quit |= cx.quit;
             self.pass_clicks = cx.pass_clicks.or(self.pass_clicks);
+            self.take_keys = cx.take_keys.or(self.take_keys);
             if let Some(key) = cx.focus {
                 self.focus_key(key);
             }
@@ -254,6 +257,11 @@ impl<M: 'static> Ui<M> {
     /// says, when the window keeps its own setting.
     pub fn passes_clicks(&self) -> Option<bool> {
         self.pass_clicks
+    }
+
+    /// Whether the app asked for the keyboard (`Cx::take_keys`); None until it says.
+    pub fn takes_keys(&self) -> Option<bool> {
+        self.take_keys
     }
 
     /// The app asked to close (`Cx::quit`).

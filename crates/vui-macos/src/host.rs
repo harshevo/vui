@@ -39,6 +39,8 @@ pub trait Host {
     fn quit_requested(&self) -> bool;
     /// Whether clicks should go through the window, if the app has said.
     fn passes_clicks(&self) -> Option<bool>;
+    /// Whether the app wants the keyboard, if it has said: an overlay takes or gives it up.
+    fn takes_keys(&self) -> Option<bool>;
     /// The colour around the content: what the window shows behind the view. None for a see-through
     /// window.
     fn canvas(&self) -> Option<Color>;
@@ -228,6 +230,10 @@ impl<M: 'static> Host for Window<M> {
 
     fn passes_clicks(&self) -> Option<bool> {
         self.ui.passes_clicks()
+    }
+
+    fn takes_keys(&self) -> Option<bool> {
+        self.ui.takes_keys()
     }
 
     fn canvas(&self) -> Option<Color> {

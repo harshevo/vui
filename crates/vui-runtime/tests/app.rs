@@ -226,6 +226,7 @@ impl App for Gate {
 
     fn update(&mut self, through: bool, cx: &mut Cx) {
         cx.pass_clicks(through);
+        cx.take_keys(!through);
     }
 
     fn view(&self) -> impl IntoElement<bool> {
@@ -242,4 +243,15 @@ fn update_can_ask_for_clicks_to_pass_through_or_not() {
     t.ui.send(true);
     t.settle();
     assert_eq!(t.ui.passes_clicks(), Some(true));
+}
+
+#[test]
+fn update_can_ask_for_the_keyboard_and_give_it_back() {
+    let mut t = TestUi { ui: vui_runtime::Ui::with_app(vui_core::Resources::bundled_only(), vui_core::size(100.0, 100.0), 1.0, Gate) };
+    assert_eq!(t.ui.takes_keys(), None);
+    t.ui.send(false);
+    assert_eq!(t.ui.takes_keys(), Some(true));
+    t.ui.send(true);
+    t.settle();
+    assert_eq!(t.ui.takes_keys(), Some(false));
 }

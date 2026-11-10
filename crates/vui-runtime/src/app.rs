@@ -63,6 +63,7 @@ pub struct Cx {
     pub(crate) focus: Option<Key>,
     pub(crate) quit: bool,
     pub(crate) pass_clicks: Option<bool>,
+    pub(crate) take_keys: Option<bool>,
 }
 
 impl Cx {
@@ -80,6 +81,13 @@ impl Cx {
     /// as while an overlay shows something to click. The backend reads [`Ui::passes_clicks`](crate::Ui::passes_clicks).
     pub fn pass_clicks(&mut self, through: bool) {
         self.pass_clicks = Some(through);
+    }
+
+    /// Has an overlay take the keyboard (true) while the person types into it, or give it back to
+    /// the app they were in. Only an overlay opened to take keys does; a window has them whenever
+    /// it is in front. The backend reads [`Ui::takes_keys`](crate::Ui::takes_keys).
+    pub fn take_keys(&mut self, take: bool) {
+        self.take_keys = Some(take);
     }
 }
 
