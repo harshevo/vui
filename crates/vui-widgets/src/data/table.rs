@@ -102,7 +102,13 @@ pub fn data_table<M: 'static>(columns: Vec<TableColumn<M>>, rows: impl IntoItera
         columns
             .into_iter()
             .map(|c| {
-                let arrow = c.sorted.map(|d| icon(if d == SortDir::Ascending { set::ARROW_UP } else { set::ARROW_DOWN }).square(14.0).color(Tone::Text2));
+                // A sorted column shows its direction; a sortable one a faint hint that it can be.
+                let arrow = match (c.sorted, c.on_sort.is_some()) {
+                    (Some(SortDir::Ascending), _) => Some(icon(set::ARROW_UP).square(14.0).color(Tone::Text2)),
+                    (Some(SortDir::Descending), _) => Some(icon(set::ARROW_DOWN).square(14.0).color(Tone::Text2)),
+                    (None, true) => Some(icon(set::ARROW_UP_DOWN).square(13.0).color(Tone::Text3)),
+                    (None, false) => None,
+                };
                 let title = row().gap(4.0).align_items(Align::Center).children((small(c.title).weight(500).color(Tone::Text2), arrow));
                 let cell = sized(div().row(), (c.width, c.align, c.hide_below)).child(title);
                 match c.on_sort {
