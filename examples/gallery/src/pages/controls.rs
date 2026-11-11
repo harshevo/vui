@@ -1,4 +1,4 @@
-//! Switches, checkboxes, radio buttons, segments, sliders and progress.
+//! Switches, checkboxes, radio buttons, segments, sliders (single, range, marked and upright) and progress.
 
 use super::*;
 use crate::{Choice, Mode};
@@ -39,6 +39,31 @@ pub fn view(g: &Gallery) -> Div<Msg> {
                     slider(g.level, 0.0, 10.0).step(1.0).key("level").name("Level").on_change(Msg::Level),
                     slider(60.0, 0.0, 100.0).name("Disabled").disabled(true),
                 )),
+            ),
+            section(
+                "Range, marks and values",
+                column().gap(28.0).width(320.0).children((
+                    captioned(
+                        &format!("${:.0} to ${:.0}", g.price.0, g.price.1),
+                        range_slider(g.price.0, g.price.1, 0.0, 500.0).step(10.0).gap(20.0).show_value().format(|v| format!("${v:.0}")).key("price").name("Price").fill_width().on_change(Msg::Price),
+                    ),
+                    slider(g.level, 0.0, 10.0).step(1.0).marks().show_value().key("marked").name("Marked level").on_change(Msg::Level),
+                )),
+            ),
+            section(
+                "Upright",
+                row().gap(28.0).children(
+                    ["60", "250", "1k", "4k", "12k"]
+                        .iter()
+                        .enumerate()
+                        .map(|(i, hz)| {
+                            column().gap(8.0).align_items(Align::Center).children((
+                                slider(g.bands[i], -12.0, 12.0).step(1.0).vertical().show_value().format(|v| format!("{v:+.0} dB")).key(format!("band{i}")).name(format!("{hz} Hz")).height(140.0).on_change(move |v| Msg::Band(i, v)),
+                                small(*hz).color(Tone::Text3),
+                            ))
+                        })
+                        .collect::<Vec<_>>(),
+                ),
             ),
             section(
                 "Progress",

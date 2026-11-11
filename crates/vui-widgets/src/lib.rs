@@ -11,7 +11,7 @@
 //! | Module | Widgets |
 //! | --- | --- |
 //! | `buttons` | `button`, `icon_button`, `segmented` |
-//! | `controls` | `checkbox`, `radio`, `radio_group`, `toggle`, `slider` |
+//! | `controls` | `checkbox`, `radio`, `radio_group`, `toggle`, `slider`, `range_slider` |
 //! | `inputs` | `text_field`, `search_field`, `password_field`, `text_area`, `number_input` |
 //! | `display` | `icon`, `card`, `badge`, `avatar`, `kbd`, `separator`, `chip`, `image_tile`, `markdown`, `rich_text`, `glow`, `shimmer`, `aurora`, `border_beam`, `spotlight` |
 //! | `data` | `item`, `data_table`, `tree`, `lasso` |

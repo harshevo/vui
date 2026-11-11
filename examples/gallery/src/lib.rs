@@ -134,6 +134,8 @@ pub enum Msg {
     Mode(Mode),
     Volume(f64),
     Level(f64),
+    Price(f64, f64),
+    Band(usize, f64),
     Name(String),
     Query(String),
     Secret(String),
@@ -197,6 +199,10 @@ pub struct Gallery {
     pub mode: Mode,
     pub volume: f64,
     pub level: f64,
+    /// The range slider's low and high.
+    pub price: (f64, f64),
+    /// The equaliser's bands, in decibels.
+    pub bands: [f64; 5],
     pub name: String,
     pub query: String,
     pub secret: String,
@@ -246,6 +252,8 @@ impl Gallery {
             mode: Mode::System,
             volume: 40.0,
             level: 3.0,
+            price: (120.0, 380.0),
+            bands: [3.0, 1.0, -2.0, 2.0, 4.0],
             name: "Ada Lovelace".into(),
             query: String::new(),
             secret: "hunter22".into(),
@@ -299,6 +307,8 @@ impl App for Gallery {
             }
             Msg::Volume(v) => self.volume = v,
             Msg::Level(v) => self.level = v,
+            Msg::Price(lo, hi) => self.price = (lo, hi),
+            Msg::Band(i, v) => self.bands[i] = v,
             Msg::Name(text) => self.name = text,
             Msg::Query(text) => self.query = text,
             Msg::Secret(text) => self.secret = text,

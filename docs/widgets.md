@@ -55,6 +55,8 @@ your back, and every state can be reproduced in a test.
 | `checkbox(state)` | on, off, or mixed (`CheckState::Mixed`); `.label("…")` |
 | `radio(selected)`, `radio_group(options, &selected, Msg::Pick)` | single choice, with arrow keys inside the group |
 | `slider(value, min, max)` | `.step(…)`, `.on_change(…)`; arrow keys and Page Up/Down |
+| `range_slider(low, high, min, max)` | two thumbs that never cross; `.gap(…)`, `.on_change(\|lo, hi\| …)`; Tab moves from the low thumb to the high one |
+| both sliders | `.vertical()`, `.marks()` at every step or `.marks_at(&[…])`, `.show_value()` with `.format(\|v\| …)` |
 | `number_input(value, min, max, step, Msg::Set)` | a field with − and + |
 
 ### Text input

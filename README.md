@@ -130,7 +130,7 @@ Every Rust snippet in the guides runs as a doctest, so they stay true to the API
 | Widgets | |
 | --- | --- |
 | Actions | buttons (primary, secondary, ghost, danger; sizes; icons; loading), icon buttons, segmented controls, keyboard chips |
-| Controls | switches, checkboxes (with mixed), radios and radio groups, sliders, number inputs |
+| Controls | switches, checkboxes (with mixed), radios and radio groups, sliders (range, marked, upright), number inputs |
 | Text input | text fields, text areas, search, passwords. One editor behind them: selection, undo, clipboard (text and images), input methods, dictation, emoji |
 | Display | labels and titles, markdown, badges, chips, avatars, icons, pictures, cards, separators |
 | Data | lists, sortable and responsive tables, trees, lasso selection; line, area, grouped and stacked bar, scatter and candlestick charts, pies and donuts, bar lists, sparklines, graphs |
