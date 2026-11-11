@@ -3,6 +3,7 @@
 //! effects for the window system, and a scene to render.
 
 mod events;
+mod tooltip;
 
 use std::collections::{HashMap, HashSet};
 use std::cell::Cell;
@@ -69,6 +70,7 @@ pub(crate) struct Core<M: 'static> {
     paint_dirty: bool,
     animating: bool,
     wake_at: Option<f32>,
+    tip: tooltip::Tip,
 }
 
 impl<M: 'static> Core<M> {
@@ -154,6 +156,7 @@ impl<M: 'static> Ui<M> {
                 paint_dirty: true,
                 animating: false,
                 wake_at: None,
+                tip: tooltip::Tip::default(),
             },
             driver: None,
             system: Mode::Light,
@@ -313,6 +316,11 @@ impl<M: 'static> Ui<M> {
                 trap = Some(id);
             }
         }
+        // Autofocus on a container lands on the first thing inside it that takes focus.
+        let auto = auto.and_then(|id| {
+            let node = find_id(root, id)?;
+            if node.focus_mode() != Focus::Never { Some(id) } else { collect_stops(node).first().map(|s| s.entry) }
+        });
         let target = auto.or_else(|| {
             let trap = trap?;
             let node = find_id(root, trap)?;
@@ -554,6 +562,9 @@ impl<M: 'static> Ui<M> {
         core.layout_dirty |= layout;
         core.arrange_dirty |= arrange;
         core.paint_dirty |= painted;
+        if core.tip.tick(core.time) {
+            core.paint_dirty = true;
+        }
         self.sync();
         self.fire_timers();
         self.poll();
@@ -615,6 +626,7 @@ impl<M: 'static> Ui<M> {
         if let Some(root) = self.root.as_ref() {
             let pe = PaintEnv { env: &core.env, focus: core.focus, window_focused: core.window_focused, time: core.time };
             paint(root, &mut scene, &pe, 1.0);
+            tooltip::paint(&core.tip, root, &core.env, core.size, &mut scene);
         }
         core.env.res.fonts.end_frame();
         core.paint_dirty = false;
@@ -746,6 +758,9 @@ fn lay_out_fixed<M: 'static>(node: &mut Node<M>, env: &mut Env, window: Size) {
         }
         if child.eff.position == Position::Fixed {
             place_fixed(child, env, window);
+            // Kept inside the window: a menu opened near the right edge opens leftwards.
+            let (at, size) = (child.layout.origin, child.layout.size);
+            child.layout.origin = vui_core::pt(at.x.min(window.w - size.w).max(0.0), at.y.min(window.h - size.h).max(0.0));
         }
         lay_out_fixed(child, env, window);
     }

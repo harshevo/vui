@@ -292,6 +292,11 @@ impl<M: 'static> Item<M> {
         Item { base: Base::new(), widget: ItemWidget::new(spec) }
     }
 
+    /// Reports the item to assistive technology as checked or not.
+    pub(crate) fn toggle_state(&mut self, on: bool) {
+        self.widget.spec.toggled = Some(on);
+    }
+
     pub(crate) fn select_on_arrow(mut self, f: impl Fn() -> M + 'static) -> Self {
         self.widget.on_arrow = Some(Rc::new(f));
         self

@@ -17,6 +17,7 @@ mod progress;
 mod effects;
 mod lasso;
 pub mod markdown;
+pub mod overlay;
 mod segmented;
 mod sidebar;
 mod slider;
@@ -35,6 +36,10 @@ pub use item::{Item, ItemWidget, item};
 pub use markdown::{Markdown, RichText, markdown, rich_text};
 pub use lasso::{Lasso, LassoState, LassoWidget, bounds as lasso_bounds, lasso};
 pub use effects::{EffectState, Glow, GlowWidget, Shimmer, ShimmerWidget, glow, shimmer};
+pub use overlay::{
+    Popover, Side, context_menu, dialog, dialog_actions, dropdown, menu, menu_check, menu_heading, menu_item, menu_separator, panel, popover,
+    select, toast, toasts,
+};
 pub use progress::{Progress, ProgressWidget, Spinner, SpinnerWidget, progress, progress_indeterminate, spinner};
 pub use segmented::{segmented, segmented_keyed};
 pub use sidebar::{ListRow, NavItem, SELECTED, SIDEBAR_WIDTH, list, list_row, nav_heading, nav_item, nav_section, sidebar};

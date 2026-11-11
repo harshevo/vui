@@ -48,6 +48,7 @@ pages! {
     lists => Lists,
     images => Images,
     icons => Icons,
+    overlays => Overlays,
     settings => Settings,
 }
 

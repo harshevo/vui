@@ -11,6 +11,7 @@ mod icons;
 mod images;
 mod inputs;
 mod lists;
+mod overlays;
 mod settings;
 
 /// The page that is open.
@@ -23,6 +24,7 @@ pub fn view(g: &Gallery) -> Div<Msg> {
         Page::Lists => lists::view(g),
         Page::Images => images::view(g),
         Page::Icons => icons::view(g),
+        Page::Overlays => overlays::view(g),
         Page::Settings => settings::view(g),
     }
 }

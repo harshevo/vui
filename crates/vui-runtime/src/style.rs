@@ -427,6 +427,46 @@ pub trait Styled: Sized {
         self
     }
 
+    fn padding_top(mut self, v: f32) -> Self {
+        self.style_mut().padding.top = v;
+        self
+    }
+
+    fn margin_top(mut self, v: impl Into<Len>) -> Self {
+        self.style_mut().margin.top = v.into();
+        self
+    }
+
+    fn padding_right(mut self, v: f32) -> Self {
+        self.style_mut().padding.right = v;
+        self
+    }
+
+    fn margin_right(mut self, v: impl Into<Len>) -> Self {
+        self.style_mut().margin.right = v.into();
+        self
+    }
+
+    fn padding_bottom(mut self, v: f32) -> Self {
+        self.style_mut().padding.bottom = v;
+        self
+    }
+
+    fn margin_bottom(mut self, v: impl Into<Len>) -> Self {
+        self.style_mut().margin.bottom = v.into();
+        self
+    }
+
+    fn padding_left(mut self, v: f32) -> Self {
+        self.style_mut().padding.left = v;
+        self
+    }
+
+    fn margin_left(mut self, v: impl Into<Len>) -> Self {
+        self.style_mut().margin.left = v.into();
+        self
+    }
+
     /// Soaks up the free space before the element, pushing it to the far end of a row.
     fn margin_left_auto(mut self) -> Self {
         self.style_mut().margin.left = Len::Auto;

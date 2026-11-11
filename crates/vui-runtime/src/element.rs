@@ -188,6 +188,8 @@ pub(crate) struct Input<M> {
     pub dismiss: Option<Box<dyn Fn() -> M>>,
     /// Takes focus when it first appears.
     pub autofocus: bool,
+    /// Shown under the element after the pointer rests on it.
+    pub tooltip: Option<String>,
     /// Keeps Tab inside the element while it shows: a dialog.
     pub trap_focus: bool,
 }
@@ -211,6 +213,7 @@ impl<M> Default for Input<M> {
             window_drag: false,
             dismiss: None,
             autofocus: false,
+            tooltip: None,
             trap_focus: false,
         }
     }
@@ -253,6 +256,7 @@ impl<M: 'static> Input<M> {
             pointer_events: self.pointer_events,
             window_drag: self.window_drag,
             autofocus: self.autofocus,
+            tooltip: self.tooltip,
             trap_focus: self.trap_focus,
         }
     }
@@ -603,6 +607,18 @@ pub trait Builder<M: 'static>: Styled {
         M: Clone,
     {
         self.base_mut().input.dismiss = Some(Box::new(move || message.clone()));
+        self
+    }
+
+    /// A short line shown under the element after the pointer rests on it for a moment, and read out
+    /// as its description: what an icon button does, the full text of something cut short.
+    fn tooltip(mut self, text: impl Into<String>) -> Self {
+        let text = text.into();
+        let base = self.base_mut();
+        if base.a11y.description.is_none() {
+            base.a11y.description = Some(text.clone());
+        }
+        base.input.tooltip = Some(text);
         self
     }
 

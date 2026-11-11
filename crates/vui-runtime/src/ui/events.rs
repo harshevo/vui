@@ -123,6 +123,9 @@ impl<M: 'static> Run<'_, M> {
     }
 
     fn pointer_down(&mut self, event: &Event, pos: Point, button: PointerButton, mods: Modifiers, count: u8) {
+        if self.core.tip.block() {
+            self.core.paint_dirty = true;
+        }
         self.core.pointer = Some(pos);
         self.core.mods = mods;
         self.core.keyboard = false;
@@ -298,7 +301,22 @@ impl<M: 'static> Run<'_, M> {
             self.core.out.effects.push(Effect::Cursor(cursor));
         }
         self.update_bar_hover(pos, path.as_deref());
+        self.update_tip();
         path
+    }
+
+    /// Follows the innermost hovered element that has a tooltip.
+    fn update_tip(&mut self) {
+        let tipped = self.core.hover.iter().rev().copied().find(|&id| {
+            path_of(self.root, id).is_some_and(|p| node_at(self.root, &p).input.tooltip.is_some())
+        });
+        let shown = self.core.tip.shown;
+        if self.core.tip.hover(tipped, self.core.time) {
+            self.core.wake(tooltip::TIP_DELAY);
+        }
+        if shown && !self.core.tip.shown {
+            self.core.paint_dirty = true;
+        }
     }
 
     fn hover_changed(&mut self, id: NodeId, on: bool) {
@@ -513,6 +531,9 @@ impl<M: 'static> Run<'_, M> {
     }
 
     fn key(&mut self, event: &Event, key: &KeyEvent) {
+        if key.pressed && self.core.tip.block() {
+            self.core.paint_dirty = true;
+        }
         self.core.mods = key.mods;
         if key.pressed {
             self.core.keyboard = true;

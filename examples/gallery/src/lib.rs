@@ -20,12 +20,22 @@ pub enum Page {
     Lists,
     Images,
     Icons,
+    Overlays,
     Settings,
 }
 
 impl Page {
-    pub const ALL: [Page; 8] =
-        [Page::Foundations, Page::Buttons, Page::Controls, Page::Inputs, Page::Lists, Page::Images, Page::Icons, Page::Settings];
+    pub const ALL: [Page; 9] = [
+        Page::Foundations,
+        Page::Buttons,
+        Page::Controls,
+        Page::Inputs,
+        Page::Lists,
+        Page::Images,
+        Page::Icons,
+        Page::Overlays,
+        Page::Settings,
+    ];
 
     pub fn name(self) -> &'static str {
         match self {
@@ -36,6 +46,7 @@ impl Page {
             Page::Lists => "Lists",
             Page::Images => "Images",
             Page::Icons => "Icons",
+            Page::Overlays => "Overlays",
             Page::Settings => "Settings",
         }
     }
@@ -49,6 +60,7 @@ impl Page {
             Page::Lists => icon_set::LIST,
             Page::Images => icon_set::IMAGE,
             Page::Icons => icon_set::STAR,
+            Page::Overlays => icon_set::COPY,
             Page::Settings => icon_set::SETTINGS,
         }
     }
@@ -112,6 +124,30 @@ pub enum Msg {
     Notes(String),
     Row(usize),
     Erase,
+    /// Opens one of the overlays, or closes whichever is open.
+    Open(Option<Overlay>),
+    Sort(Sort),
+    Density(u32),
+    Context(Point),
+    CloseContext,
+    Toast,
+    HideToast(u32),
+}
+
+/// The overlay the overlays page has open.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Overlay {
+    Menu,
+    Select,
+    Dialog,
+}
+
+/// How the overlays page's menu sorts.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Sort {
+    Newest,
+    Oldest,
+    Name,
 }
 
 /// The pictures the images page shows, made once at the start.
@@ -141,6 +177,13 @@ pub struct Gallery {
     pub notes: String,
     pub row: usize,
     pub erased: u32,
+    pub overlay: Option<Overlay>,
+    pub sort: Sort,
+    pub density: u32,
+    pub context: Option<Point>,
+    /// Toasts showing, by number.
+    pub toasts: Vec<u32>,
+    pub toasted: u32,
     pub pictures: Pictures,
 }
 
@@ -170,6 +213,12 @@ impl Gallery {
             notes: "Call the dentist\nBuy oat milk\nRead the vui README".into(),
             row: 1,
             erased: 0,
+            overlay: None,
+            sort: Sort::Newest,
+            density: 2,
+            context: None,
+            toasts: Vec::new(),
+            toasted: 0,
             pictures: Pictures { scenes, detail, disc, hash },
         }
     }
@@ -178,7 +227,7 @@ impl Gallery {
 impl App for Gallery {
     type Msg = Msg;
 
-    fn update(&mut self, msg: Msg, _cx: &mut Cx<Msg>) {
+    fn update(&mut self, msg: Msg, cx: &mut Cx<Msg>) {
         match msg {
             Msg::Go(page) => self.page = page,
             Msg::Dark(dark) => self.dark = dark,
@@ -203,6 +252,23 @@ impl App for Gallery {
             Msg::Notes(text) => self.notes = text,
             Msg::Row(i) => self.row = i,
             Msg::Erase => self.erased += 1,
+            Msg::Open(overlay) => self.overlay = overlay,
+            Msg::Sort(sort) => {
+                self.sort = sort;
+                self.overlay = None;
+            }
+            Msg::Density(d) => {
+                self.density = d;
+                self.overlay = None;
+            }
+            Msg::Context(at) => self.context = Some(at),
+            Msg::CloseContext => self.context = None,
+            Msg::Toast => {
+                self.toasted += 1;
+                self.toasts.push(self.toasted);
+                cx.after(std::time::Duration::from_secs(4), Msg::HideToast(self.toasted));
+            }
+            Msg::HideToast(n) => self.toasts.retain(|&t| t != n),
         }
     }
 
