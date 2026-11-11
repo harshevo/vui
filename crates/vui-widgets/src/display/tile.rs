@@ -106,8 +106,8 @@ impl<M: 'static> Widget<M> for TileWidget {
         }
     }
 
-    fn tick(&self, state: &mut TileState, _cx: &mut TickCx, dt: f32) -> bool {
-        state.shown.step(dt)
+    fn tick(&self, state: &mut TileState, cx: &mut TickCx, dt: f32) -> bool {
+        cx.step(&mut state.shown, dt)
     }
 
     fn animating(&self, state: &TileState) -> bool {

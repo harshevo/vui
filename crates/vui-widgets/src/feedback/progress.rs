@@ -74,8 +74,8 @@ impl<M: 'static> Widget<M> for ProgressWidget {
         }
     }
 
-    fn tick(&self, state: &mut ProgressState, _cx: &mut TickCx, dt: f32) -> bool {
-        let moving = state.shown.step(dt);
+    fn tick(&self, state: &mut ProgressState, cx: &mut TickCx, dt: f32) -> bool {
+        let moving = cx.step(&mut state.shown, dt);
         moving || self.value.is_none()
     }
 

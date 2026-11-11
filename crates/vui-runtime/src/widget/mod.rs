@@ -72,11 +72,17 @@ pub struct Env {
     pub scale: f32,
     /// The window's width in logical pixels, which responsive rules are matched against.
     pub window: f32,
+    /// The user's accessibility settings. `theme` already follows them; widgets that move on their
+    /// own hold still when `reduce_motion` is on.
+    pub prefs: vui_core::Preferences,
+    /// The theme as designed, before `prefs` adapted it.
+    pub(crate) designed: Rc<Theme>,
 }
 
 impl Env {
     pub fn new(res: Resources, theme: Theme, scale: f32) -> Env {
-        Env { res, theme: Rc::new(theme), scale, window: 0.0 }
+        let designed = Rc::new(theme);
+        Env { res, theme: designed.clone(), scale, window: 0.0, prefs: vui_core::Preferences::DEFAULT, designed }
     }
 
     pub fn fonts(&self) -> &Fonts {

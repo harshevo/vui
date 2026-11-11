@@ -39,12 +39,12 @@ impl<M: 'static> Widget<M> for AuroraWidget {
     fn paint(&self, _state: &(), cx: &mut PaintCx) {
         let ramp = ramp(&self.colors, &cx.env.theme.palette, 1.0);
         let radius = cx.radii.tl.max(cx.radii.br);
-        let time = self.still.unwrap_or(cx.time);
+        let time = self.still.unwrap_or(cx.effect_time());
         cx.custom(shading::aurora(cx.rect, radius, &ramp, self.period, self.blob, self.grain, time));
     }
 
-    fn tick(&self, _state: &mut (), _cx: &mut TickCx, _dt: f32) -> bool {
-        self.still.is_none()
+    fn tick(&self, _state: &mut (), cx: &mut TickCx, _dt: f32) -> bool {
+        self.still.is_none() && !cx.still()
     }
 
     fn animating(&self, _state: &()) -> bool {
@@ -145,13 +145,13 @@ impl<M: 'static> Widget<M> for BeamWidget {
         }
         let ramp = ramp(&self.colors, &cx.env.theme.palette, shown);
         let radius = cx.radii.tl.max(cx.radii.br);
-        let time = self.still.unwrap_or(cx.time);
+        let time = self.still.unwrap_or(cx.effect_time());
         cx.custom(shading::beam(cx.rect, radius, self.width, &ramp, self.period, self.length, time));
     }
 
-    fn tick(&self, state: &mut EffectState, _cx: &mut TickCx, dt: f32) -> bool {
-        let moving = state.shown.step(dt);
-        self.moving() || moving
+    fn tick(&self, state: &mut EffectState, cx: &mut TickCx, dt: f32) -> bool {
+        let moving = cx.step(&mut state.shown, dt);
+        (self.moving() && !cx.still()) || moving
     }
 
     fn animating(&self, state: &EffectState) -> bool {
@@ -271,8 +271,8 @@ impl<M: 'static> Widget<M> for SpotlightWidget {
         false
     }
 
-    fn tick(&self, state: &mut SpotlightState, _cx: &mut TickCx, dt: f32) -> bool {
-        state.shown.step(dt)
+    fn tick(&self, state: &mut SpotlightState, cx: &mut TickCx, dt: f32) -> bool {
+        cx.step(&mut state.shown, dt)
     }
 
     fn animating(&self, state: &SpotlightState) -> bool {

@@ -38,6 +38,7 @@ define_class!(
         #[unsafe(method(windowDidBecomeKey:))]
         fn did_become_key(&self, _notification: &NSNotification) {
             if let Some(view) = self.ivars().view.load() {
+                view.refresh_preferences();
                 view.send(Event::WindowFocus(true));
             }
         }

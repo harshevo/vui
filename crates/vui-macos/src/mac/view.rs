@@ -61,6 +61,9 @@ define_class!(
         fn did_change_appearance(&self) {
             let mode = self.system_mode();
             let effects = self.with_host(|h| h.set_system_mode(mode)).unwrap_or_default();
+            // Increase Contrast changes the appearance too; Reduce Motion is read here and when the
+            // window comes to the front.
+            self.refresh_preferences();
             // What shows behind the view while a live resize catches up.
             if let (Some(window), Some(Some(canvas))) = (self.window(), self.with_host(|h| h.canvas())) {
                 window.setBackgroundColor(Some(&ns_color(canvas)));

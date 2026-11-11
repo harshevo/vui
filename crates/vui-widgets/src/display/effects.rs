@@ -45,12 +45,12 @@ impl<M: 'static> Widget<M> for ShimmerWidget {
         }
         let color = self.color.resolve(&cx.env.theme.palette).mul_alpha(shown);
         let radius = cx.radii.tl.max(cx.radii.br);
-        cx.custom(effects::shimmer(cx.rect, radius, color, self.period, cx.time));
+        cx.custom(effects::shimmer(cx.rect, radius, color, self.period, cx.effect_time()));
     }
 
-    fn tick(&self, state: &mut EffectState, _cx: &mut TickCx, dt: f32) -> bool {
-        let moving = state.shown.step(dt);
-        self.on || moving
+    fn tick(&self, state: &mut EffectState, cx: &mut TickCx, dt: f32) -> bool {
+        let moving = cx.step(&mut state.shown, dt);
+        (self.on && !cx.still()) || moving
     }
 
     fn animating(&self, state: &EffectState) -> bool {
@@ -114,12 +114,12 @@ impl<M: 'static> Widget<M> for GlowWidget {
         }
         let color = self.color.resolve(&cx.env.theme.palette).mul_alpha(shown);
         let radius = cx.radii.tl.max(cx.radii.br);
-        cx.custom(effects::glow(cx.rect, radius, color, self.width, self.blur, self.period, cx.time));
+        cx.custom(effects::glow(cx.rect, radius, color, self.width, self.blur, self.period, cx.effect_time()));
     }
 
-    fn tick(&self, state: &mut EffectState, _cx: &mut TickCx, dt: f32) -> bool {
-        let moving = state.shown.step(dt);
-        (self.on && self.period > 0.0) || moving
+    fn tick(&self, state: &mut EffectState, cx: &mut TickCx, dt: f32) -> bool {
+        let moving = cx.step(&mut state.shown, dt);
+        (self.on && self.period > 0.0 && !cx.still()) || moving
     }
 
     fn animating(&self, state: &EffectState) -> bool {

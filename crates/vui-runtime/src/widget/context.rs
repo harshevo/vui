@@ -135,6 +135,22 @@ pub struct TickCx<'a> {
 }
 
 impl TickCx<'_> {
+    /// Steps a widget's own spring, or, with reduced motion on, puts it straight where it is going.
+    /// Returns true while it is still moving.
+    pub fn step(&self, spring: &mut vui_core::SpringValue, dt: f32) -> bool {
+        if self.env.prefs.reduce_motion {
+            spring.snap_to(spring.target());
+            false
+        } else {
+            spring.step(dt)
+        }
+    }
+
+    /// Whether things that move for show (glows, shimmers, drifting colour) should hold still.
+    pub fn still(&self) -> bool {
+        self.env.prefs.reduce_motion
+    }
+
     pub fn request_layout(&mut self) {
         self.layout = true;
     }
@@ -146,6 +162,13 @@ impl TickCx<'_> {
     /// Call `tick` again in `seconds`.
     pub fn request_wake(&mut self, seconds: f32) {
         self.wake = Some(self.wake.map_or(seconds, |w| w.min(seconds)));
+    }
+}
+
+impl PaintCx<'_> {
+    /// The time effects that move for show draw at: held at 0 with reduced motion on.
+    pub fn effect_time(&self) -> f32 {
+        if self.env.prefs.reduce_motion { 0.0 } else { self.time }
     }
 }
 

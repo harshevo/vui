@@ -195,8 +195,8 @@ impl<M: 'static> Widget<M> for ControlWidget<M> {
         false
     }
 
-    fn tick(&self, state: &mut ControlState, _cx: &mut TickCx, dt: f32) -> bool {
-        state.t.step(dt)
+    fn tick(&self, state: &mut ControlState, cx: &mut TickCx, dt: f32) -> bool {
+        cx.step(&mut state.t, dt)
     }
 
     fn animating(&self, state: &ControlState) -> bool {

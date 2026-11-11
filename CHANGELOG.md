@@ -30,6 +30,9 @@ the API.
   without input or focus, until it has gone.
 - Keyframes: `Keyframes<T>` with eased stops, repeats and alternation; `.animate(keyframes)` runs
   them over an element's `Pose` (opacity, scale, rotation, translation).
+- Accessibility settings: `Preferences` (reduce motion, high contrast, text scale),
+  `Ui::set_preferences`, and `Theme::adapted`. macOS windows follow Reduce Motion and Increase
+  Contrast. Widgets get `TickCx::step`, `TickCx::still` and `PaintCx::effect_time`.
 - Project files: workspace metadata and lints, CI on macOS and Linux, a frame benchmark, this
   changelog and contributor notes.
 

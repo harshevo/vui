@@ -10,6 +10,7 @@ pub(crate) use query::find_id;
 pub(crate) use tree::*;
 use view::*;
 mod clock;
+mod preferences;
 mod query;
 mod tree;
 
@@ -304,7 +305,8 @@ impl<M: 'static> Ui<M> {
 
     pub fn set_theme(&mut self, theme: Theme) {
         self.core.env.res.fonts.set_families(theme.font_sans, theme.font_mono);
-        self.core.env.theme = Rc::new(theme);
+        self.core.env.theme = Rc::new(theme.adapted(&self.core.env.prefs));
+        self.core.env.designed = Rc::new(theme);
         if let Some(root) = self.root.as_mut() {
             clear_caches(root);
         }

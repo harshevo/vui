@@ -31,6 +31,8 @@ pub trait Host {
     /// The view's size in points and its backing scale.
     fn resize(&mut self, size: Size, scale: f32);
     fn set_system_mode(&mut self, mode: Mode) -> Vec<Effect>;
+    /// The system's accessibility settings, as they are now.
+    fn set_preferences(&mut self, prefs: vui_core::Preferences) -> Vec<Effect>;
     /// Advances time by `dt` and draws if anything changed.
     fn frame(&mut self, dt: f32) -> (FrameResult, Vec<Effect>);
     /// Draws now, without moving time: after a resize.
@@ -223,6 +225,11 @@ impl<M: 'static> Host for Window<M> {
 
     fn set_system_mode(&mut self, mode: Mode) -> Vec<Effect> {
         self.ui.set_system_mode(mode);
+        self.ui.take_effects()
+    }
+
+    fn set_preferences(&mut self, prefs: vui_core::Preferences) -> Vec<Effect> {
+        self.ui.set_preferences(prefs);
         self.ui.take_effects()
     }
 

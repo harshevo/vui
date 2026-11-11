@@ -84,11 +84,11 @@ drawer and sheet, hover card, stepper, toolbar and carousel; see [Widgets](widge
 
 **Today.** Transforms: `.scale`, `.rotate` and `.translate`, sprung with `.animated()`, drawn as
 layers on both renderers. Exit animations with `.disappear()`, and keyframes with `.animate()`.
-See [Styling](styling.md#transforms). **Next:**
+See [Styling](styling.md#transforms). Reduce Motion and Increase Contrast are followed, and text
+scales with `text_scale`; see [Accessibility](accessibility.md#system-settings). **Next:**
 
-- **Reduced motion.** Follow the system setting, turning springs into fades or cuts.
-- **Increased contrast and larger text.** Follow the system settings, with a high-contrast palette
-  and type scaling.
+- **Shared-element transitions.** An element that moves between two places in the tree, such as a
+  thumbnail opening into a detail view, flies between them.
 
 ### 7. Platform features
 

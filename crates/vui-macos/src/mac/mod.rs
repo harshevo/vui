@@ -36,7 +36,7 @@ use objc2_app_kit::{
     NSAppearanceCustomization, NSAppearanceNameAqua, NSAppearanceNameDarkAqua, NSApplication, NSApplicationActivationPolicy,
     NSBackingStoreType, NSColor, NSCursor, NSEvent, NSEventMask, NSEventModifierFlags, NSMainMenuWindowLevel, NSMenu, NSMenuItem, NSPanel,
     NSBitmapImageFileType, NSBitmapImageRep, NSPasteboard, NSPasteboardTypePNG, NSPasteboardTypeString, NSPasteboardTypeTIFF, NSResponder, NSScreen, NSTextInputClient, NSTrackingArea, NSTrackingAreaOptions, NSView,
-    NSWindow, NSWindowCollectionBehavior, NSWindowDelegate, NSWindowOcclusionState, NSWindowStyleMask, NSWindowTitleVisibility,
+    NSWindow, NSWindowCollectionBehavior, NSWindowDelegate, NSWindowOcclusionState, NSWindowStyleMask, NSWindowTitleVisibility, NSWorkspace,
 };
 use objc2_foundation::{
     NSArray, NSAttributedString, NSAttributedStringKey, NSNotFound, NSNotification, NSPoint, NSRange, NSRect, NSRunLoop, NSRunLoopCommonModes, NSSize,
@@ -255,6 +255,7 @@ impl Application {
         ui.set_clipboard(Rc::new(Pasteboard));
         ui.set_transparent(transparent);
         ui.set_system_mode(view.system_mode());
+        ui.set_preferences(frames::system_preferences());
         if !transparent {
             window.setBackgroundColor(Some(&ns_color(ui.theme().palette.side)));
         }

@@ -3,6 +3,17 @@
 
 use super::*;
 
+/// The system's Reduce Motion and Increase Contrast settings. macOS has no system-wide text size
+/// for apps, so text keeps the theme's.
+pub(super) fn system_preferences() -> vui_core::Preferences {
+    let workspace = NSWorkspace::sharedWorkspace();
+    vui_core::Preferences {
+        reduce_motion: workspace.accessibilityDisplayShouldReduceMotion(),
+        high_contrast: workspace.accessibilityDisplayShouldIncreaseContrast(),
+        ..vui_core::Preferences::DEFAULT
+    }
+}
+
 impl VuiView {
     pub(super) fn scale(&self) -> f32 {
         self.window().map_or(1.0, |w| w.backingScaleFactor() as f32)
@@ -25,6 +36,13 @@ impl VuiView {
             Some(name) if &*name == unsafe { NSAppearanceNameDarkAqua } => Mode::Dark,
             _ => Mode::Light,
         }
+    }
+
+    /// Hands the UI the system's accessibility settings as they are now.
+    pub(super) fn refresh_preferences(&self) {
+        let prefs = system_preferences();
+        let effects = self.with_host(|h| h.set_preferences(prefs)).unwrap_or_default();
+        self.after_input(effects);
     }
 
     /// Advances the UI to display-link time `now` and draws, then decides when the next frame is.

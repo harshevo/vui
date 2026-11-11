@@ -38,7 +38,9 @@ impl<M: 'static> Node<M> {
             }
         }
 
-        if let Some(k) = &self.decor.motion
+        if ts.env.prefs.reduce_motion {
+            self.anim.motion = 0.0;
+        } else if let Some(k) = &self.decor.motion
             && !k.finished(self.anim.motion)
         {
             self.anim.motion += dt;
@@ -138,7 +140,9 @@ impl<M: 'static> Node<M> {
 /// Steps a spring. Returns true if its value changed.
 pub(crate) fn advance(spring: &mut SpringValue, dt: f32, ts: &mut TickState) -> bool {
     let before = spring.value();
-    if spring.step(dt) {
+    if ts.env.prefs.reduce_motion {
+        spring.snap_to(spring.target());
+    } else if spring.step(dt) {
         ts.moving = true;
     }
     let changed = spring.value() != before;

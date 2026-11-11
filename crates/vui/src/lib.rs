@@ -85,7 +85,7 @@ pub mod testing {
 /// element `Key` of `vui_runtime`. Spell them `core::Key` and `runtime::Key`.
 pub mod prelude {
     pub use vui_core::{
-        Color, Corners, CursorIcon, Easing, Fill, Insets, Keyframes, Mode, NamedKey, Point, Rect, Repeat, Shadow, Size, Spring, Theme, Tone,
+        Color, Corners, CursorIcon, Easing, Fill, Insets, Keyframes, Mode, NamedKey, Point, Preferences, Rect, Repeat, Shadow, Size, Spring, Theme, Tone,
         pt, rect, size,
         shading::Gradient,
     };

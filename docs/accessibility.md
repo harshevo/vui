@@ -59,6 +59,36 @@ let bar: Div<Msg> = row().gap(8.0).children((
 Custom widgets describe themselves in `Widget::access`; see the rating example in
 [Custom widgets](custom-widgets.md).
 
+## System settings
+
+Windows follow the user's macOS accessibility settings, and pick up changes when the appearance
+changes or the window comes to the front:
+
+- **Reduce Motion.** Springs and transitions jump to where they are going, keyframes hold their
+  first pose, and glows, shimmers, aurora and beams hold still. Spinners keep turning, because
+  they say that work is going on.
+- **Increase Contrast.** The theme is adapted with `Theme::adapted`. Secondary text and hints
+  reach WCAG AA against the page, the accent and danger colours reach it too, lines and control
+  edges reach 3:1, and washes are doubled.
+- **Larger text.** macOS has no system text size for apps. Set `text_scale` yourself, for
+  instance from an in-app setting; type and control heights scale with it.
+
+Apps and tests can set these directly:
+
+```rust
+use vui::core::{Preferences, Resources, size};
+use vui::prelude::*;
+use vui::runtime::Ui;
+
+let mut ui: Ui<()> = Ui::new(Resources::bundled_only(), Theme::light(), size(320.0, 120.0), 2.0);
+ui.set_preferences(Preferences { reduce_motion: true, high_contrast: true, text_scale: 1.25 });
+assert!(ui.theme().types.body.size > Theme::light().types.body.size);
+```
+
+Widgets that move on their own should step their springs with `TickCx::step`, which snaps them
+under reduced motion. Effects that move for show should draw at `PaintCx::effect_time` and stop
+asking for frames when `TickCx::still()` is true.
+
 ## Testing it
 
 ```rust
