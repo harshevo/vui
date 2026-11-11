@@ -7,6 +7,7 @@ use crate::{Gallery, Msg, Page};
 mod buttons;
 mod controls;
 mod data;
+mod effects;
 mod feedback;
 mod foundations;
 mod icons;
@@ -29,6 +30,7 @@ pub fn view(g: &Gallery) -> Div<Msg> {
         Page::Overlays => overlays::view(g),
         Page::Data => data::view(g),
         Page::Feedback => feedback::view(g),
+        Page::Effects => effects::view(g),
         Page::Settings => settings::view(g),
     }
 }

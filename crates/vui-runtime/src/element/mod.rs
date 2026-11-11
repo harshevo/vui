@@ -109,6 +109,10 @@ pub struct Decor {
     pub border: Option<(f32, Fill)>,
     /// A soft shadow under the element's box, drawn by the renderer's effects pass.
     pub shadow: Option<vui_core::Shadow>,
+    /// A gradient over the fill, drawn by the renderer's shading pass.
+    pub gradient: Option<vui_core::shading::Gradient>,
+    /// A border coloured by a gradient, this many points wide.
+    pub gradient_border: Option<(f32, vui_core::shading::Gradient)>,
     pub radius: Radius,
     /// Multiplies the element and everything inside it.
     pub opacity: f32,
@@ -125,6 +129,8 @@ impl Default for Decor {
             drop_fill: Fill::NONE,
             border: None,
             shadow: None,
+            gradient: None,
+            gradient_border: None,
             radius: Radius::None,
             opacity: 1.0,
             focus_ring: true,

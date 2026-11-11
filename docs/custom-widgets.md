@@ -178,6 +178,9 @@ visualiser), register a **custom pass** and draw it from a widget:
    where `data: Vec<f32>` is whatever your shader needs.
 
 vui's own shadows, glows and shimmers are built exactly this way; see
-`crates/vui-render/src/effects.rs` and `crates/vui-core/src/effects.rs`. A command for a pass the
+`crates/vui-render/src/effects.rs` and `crates/vui-core/src/effects.rs`. Gradients, the aurora, the
+border beam and the spotlight are a second built-in pass, `vui.shading`: before writing a shader
+of your own, see whether `vui::core::shading::{fill, border, aurora, beam, spotlight, grain}`
+already make the command you want, since those also draw on the CPU. A command for a pass the
 renderer doesn't have is skipped. The CPU renderer draws the built-in effects itself, and skips
 custom passes it doesn't know.

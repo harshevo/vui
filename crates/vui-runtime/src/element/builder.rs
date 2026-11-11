@@ -52,6 +52,20 @@ pub trait Builder<M: 'static>: Styled {
         self
     }
 
+    /// Fills the element with a gradient, over its `bg`: `.gradient(Gradient::linear(135.0, [Tone::Accent, Tone::Purple]))`.
+    /// Colours blend in Oklab, so the middle stays vivid.
+    fn gradient(mut self, gradient: vui_core::shading::Gradient) -> Self {
+        self.base_mut().decor.gradient = Some(gradient);
+        self
+    }
+
+    /// A border `width` points wide inside the edge, coloured by a gradient: a conic one makes the
+    /// ring that marks a featured card. Layout ignores it: pad to make room.
+    fn gradient_border(mut self, width: f32, gradient: vui_core::shading::Gradient) -> Self {
+        self.base_mut().decor.gradient_border = Some((width, gradient));
+        self
+    }
+
     fn rounded(mut self, radius: impl Into<Radius>) -> Self {
         self.base_mut().decor.radius = radius.into();
         self

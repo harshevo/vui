@@ -22,7 +22,8 @@ drawing commands that two renderers can draw:
 | **Text** | shaped by cosmic-text, rasterised by swash into a glyph atlas, drawn by glyphon | the same swash glyph images, blended the same way |
 | **Pictures** | sRGB textures with a mip chain built on the GPU, filtered in linear light; sharp and nearest sampling for pixel art | the same mip chain and trilinear filter in linear light |
 | **Meshes**: vector paths, strokes and fills from the vector engine (icons, charts) | triangles | triangles rasterised at pixel centres, top-left rule |
-| **Effects**: shadows, glows, shimmers | a custom pass (`shaders/effects.wgsl`) | the same formulas |
+| **Effects**: shadows, glows, shimmers | a built-in pass (`shaders/effects.wgsl`) | the same formulas |
+| **Shading**: gradients (linear, radial, conic, as fills or rings), aurora, border beam, spotlight, grain | a built-in pass (`shaders/shading.wgsl`), stops mixed in Oklab | the same formulas, including the grain's integer hash |
 | **Custom passes** | your wgpu code; see [Custom widgets](custom-widgets.md#custom-gpu-passes) | skipped |
 
 Colours are blended premultiplied, in the encoded sRGB the display expects, so the two renderers

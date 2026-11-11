@@ -13,6 +13,7 @@ pub mod image;
 pub mod input;
 pub mod resources;
 pub mod scene;
+pub mod shading;
 pub mod text;
 pub mod theme;
 pub mod vector;

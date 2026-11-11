@@ -86,6 +86,7 @@ pub mod testing {
 pub mod prelude {
     pub use vui_core::{
         Color, Corners, CursorIcon, Fill, Insets, Mode, NamedKey, Point, Rect, Shadow, Size, Spring, Theme, Tone, pt, rect, size,
+        shading::Gradient,
     };
     pub use vui_icons::{Icon, Weight, set as icon_set};
     pub use vui_runtime::{

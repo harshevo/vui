@@ -39,7 +39,7 @@ fn encode(v: f32) -> u8 {
 
 /// Linear light to encoded sRGB through a table: a `powf` per channel per pixel is most of the cost
 /// of drawing a picture otherwise.
-fn to_srgb(v: f32) -> f32 {
+pub(crate) fn to_srgb(v: f32) -> f32 {
     const STEPS: usize = 4096;
     static TABLE: OnceLock<Vec<f32>> = OnceLock::new();
     let table = TABLE.get_or_init(|| (0..=STEPS).map(|i| linear_to_srgb(i as f32 / STEPS as f32)).collect());

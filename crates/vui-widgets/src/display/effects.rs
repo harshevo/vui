@@ -15,15 +15,22 @@ pub struct ShimmerWidget {
     period: f32,
 }
 
+/// How far an effect has faded in, from 0 to 1, springing toward on or off.
 pub struct EffectState {
-    shown: SpringValue,
+    pub(crate) shown: SpringValue,
+}
+
+impl EffectState {
+    pub(crate) fn new(on: bool) -> EffectState {
+        EffectState { shown: SpringValue::new(if on { 1.0 } else { 0.0 }, Spring::SMOOTH) }
+    }
 }
 
 impl<M: 'static> Widget<M> for ShimmerWidget {
     type State = EffectState;
 
     fn create_state(&self) -> EffectState {
-        EffectState { shown: SpringValue::new(if self.on { 1.0 } else { 0.0 }, Spring::SMOOTH) }
+        EffectState::new(self.on)
     }
 
     fn update(&self, old: &ShimmerWidget, state: &mut EffectState) -> Dirty {
@@ -91,7 +98,7 @@ impl<M: 'static> Widget<M> for GlowWidget {
     type State = EffectState;
 
     fn create_state(&self) -> EffectState {
-        EffectState { shown: SpringValue::new(if self.on { 1.0 } else { 0.0 }, Spring::SMOOTH) }
+        EffectState::new(self.on)
     }
 
     fn update(&self, old: &GlowWidget, state: &mut EffectState) -> Dirty {

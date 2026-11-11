@@ -57,7 +57,8 @@ impl Renderer {
         let images = ImagePipeline::new(&device, format);
         let text = TextPipeline::new(&device, &queue, format);
         let meshes = MeshPipeline::new(&device, format);
-        let effects = Pass { name: vui_core::effects::PASS, pass: Box::new(crate::effects::EffectsPass::new(&device, format)), commands: Vec::new() };
+        let effects = Pass { name: vui_core::effects::PASS, pass: Box::new(crate::effects::pass(&device, format)), commands: Vec::new() };
+        let shading = Pass { name: vui_core::shading::PASS, pass: Box::new(crate::shading::pass(&device, format)), commands: Vec::new() };
         Renderer {
             device,
             queue,
@@ -71,7 +72,7 @@ impl Renderer {
             scratch_quads: Vec::new(),
             scratch_images: Vec::new(),
             batches: Vec::new(),
-            passes: vec![effects],
+            passes: vec![effects, shading],
         }
     }
 

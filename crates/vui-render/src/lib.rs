@@ -5,6 +5,7 @@
 //! tests and the gallery's screenshots work.
 
 mod image_pipeline;
+mod instanced;
 mod mesh;
 mod quad;
 mod text;
@@ -16,6 +17,7 @@ pub mod effects;
 pub mod golden;
 pub mod image;
 pub mod renderer;
+pub mod shading;
 pub mod testing;
 
 pub use context::{Gpu, GpuError};

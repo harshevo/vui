@@ -49,6 +49,43 @@ let tile: Div<()> = column()
 
 `card()` and `panel()` are ready-made surfaces with the theme's radius, border and padding.
 
+## Gradients and shaded effects
+
+`.gradient(…)` fills any element with a linear, radial or conic gradient, drawn over its `bg` and
+under its children; `.gradient_border(width, …)` draws one as a ring inside the edge. Stops are
+theme tones or colours, up to four, and blend in Oklab, so the middle of blue to pink stays vivid
+instead of going grey. Hover and press tints still land on top, so a gradient button feels like
+any other.
+
+Three containers use the same shader for things that move:
+
+- **`aurora()`** fills a box with soft colour drifting behind its contents, for heroes, empty
+  states and onboarding. `.colors([...])` picks up to four, the first being the ground.
+- **`border_beam(on)`** runs a streak of light round the edge while `on`: something syncing,
+  live or new.
+- **`spotlight()`** lights the box from wherever the pointer is over it, and fades when the
+  pointer leaves; `.at(x, y)` pins it.
+
+Each takes `.still(seconds)` to hold its motion, for screenshots and people who asked for less of
+it. All of them draw the same on the CPU renderer.
+
+```rust
+use vui::prelude::*;
+
+fn hero() -> Element<()> {
+    column().gap(24.0).children((
+        aurora().rounded(16.0).padding(32.0).child(title("Welcome back")),
+        row().gap(12.0).children((
+            button("Upgrade").primary().gradient(Gradient::linear(135.0, [Tone::Accent, Tone::Purple])),
+            border_beam(true).rounded(12.0).padding(16.0).child(label("Syncing")),
+            spotlight().rounded(12.0).padding(16.0).bg(Tone::Side).child(label("Team plan")),
+            div().padding(12.0).rounded(12.0).gradient_border(2.0, Gradient::conic([Tone::Accent, Tone::Purple, Tone::Accent])).child(label("Featured")),
+        )),
+    ))
+    .into_element()
+}
+```
+
 ## Motion
 
 vui animates with springs, so motion is interruptible and never ends abruptly.
@@ -60,7 +97,8 @@ vui animates with springs, so motion is interruptible and never ends abruptly.
 - **Built-in motion.** Controls animate on their own: switches slide, checkboxes draw their tick,
   focus rings fade, tabs and segmented controls move their marker, and menus scale in.
 - **Effects.** `glow(on)` draws an animated ring around an element, `shimmer(on)` sweeps a sheen
-  across it, and `skeleton(…)` gives a loading placeholder.
+  across it, `skeleton(…)` gives a loading placeholder, and the shaded effects above drift, run
+  and follow the pointer.
 
 ## The theme
 

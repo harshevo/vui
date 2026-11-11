@@ -64,6 +64,7 @@ pages! {
     overlays => Overlays,
     data => Data,
     feedback => Feedback,
+    effects => Effects,
     settings => Settings,
 }
 

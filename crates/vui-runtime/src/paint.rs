@@ -121,16 +121,21 @@ fn paint_node<'a, M: 'static>(
         disabled,
     };
 
-    let mut fill = node.base_fill(palette);
+    // The hover, press and drop tints, composed on their own so a gradient can sit between them and
+    // the base fill.
+    let base = node.base_fill(palette);
+    let mut tint = vui_core::Color::TRANSPARENT;
     for (over, amount) in [
         (node.decor.hover_fill, look.hover),
         (node.decor.press_fill, look.press),
         (node.decor.drop_fill, node.anim.drop.value().clamp(0.0, 1.0)),
     ] {
         if amount > 0.0 && !over.is_none() {
-            fill = over.resolve(palette).mul_alpha(amount).over(fill);
+            tint = over.resolve(palette).mul_alpha(amount).over(tint);
         }
     }
+    let gradient = node.decor.gradient.as_ref();
+    let fill = if gradient.is_some() { base } else { tint.over(base) };
     // Nothing of this node's own is on screen: skip its box and its widget, but its children may be.
     let on_screen = node.clip.is_none_or(|c| c.intersects(rect));
     if on_screen {
@@ -145,6 +150,23 @@ fn paint_node<'a, M: 'static>(
         let border = node.decor.border.map(|(width, color)| Border { width, color: color.resolve(palette).mul_alpha(alpha) });
         if fill.a > 0.0 || border.is_some_and(|b| b.width > 0.0 && b.color.a > 0.0) {
             scene.quad(Quad { rect, radii, smooth, fill, border, clip: node.clip });
+        }
+        let radius = radii.tl.max(radii.br);
+        if let Some(gradient) = gradient {
+            let mut cmd = vui_core::shading::fill(rect, radius, gradient, palette);
+            cmd.clip = node.clip;
+            cmd.opacity = alpha;
+            scene.push(vui_core::Command::Custom(cmd));
+            let tint = tint.mul_alpha(alpha);
+            if tint.a > 0.0 {
+                scene.quad(Quad { rect, radii, smooth, fill: tint, border: None, clip: node.clip });
+            }
+        }
+        if let Some((width, gradient)) = &node.decor.gradient_border {
+            let mut cmd = vui_core::shading::border(rect, radius, *width, gradient, palette);
+            cmd.clip = node.clip;
+            cmd.opacity = alpha;
+            scene.push(vui_core::Command::Custom(cmd));
         }
         node.widget.paint(&*node.state, &mut look.cx(scene, pe));
     }

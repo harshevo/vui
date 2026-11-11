@@ -131,6 +131,16 @@ The editor behind them handles the following:
 | `empty_state(icon, "Title", "Detail", actions)` | a placeholder for empty lists |
 | `skeleton(width, height)`, `skeleton_text(lines)` | loading placeholders that shimmer |
 
+### Effects
+
+| Widget | Notes |
+| --- | --- |
+| `.gradient(Gradient::linear(135.0, [Tone::Accent, Tone::Purple]))` | on any element; also `radial`, `conic`, and `.gradient_border(width, …)` |
+| `aurora()` | drifting colour behind the contents; `.colors`, `.period`, `.blob`, `.grain`, `.still` |
+| `border_beam(on)` | light running round the edge; `.colors`, `.width`, `.period`, `.length`, `.still` |
+| `spotlight()` | lit from the pointer; `.color`, `.reach`, `.at(x, y)` |
+| `glow(on)`, `shimmer(on)` | a ring that glows; a sheen that sweeps across |
+
 ### Forms
 
 | Widget | Notes |

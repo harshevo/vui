@@ -137,6 +137,7 @@ Every Rust snippet in the guides runs as a doctest, so they stay true to the API
 | Navigation | sidebars, tabs, breadcrumbs, pagination, accordions, disclosures |
 | Overlays | tooltips, popovers, dropdown menus, selects, context menus, dialogs, toasts |
 | Feedback | progress bars, spinners, alerts, empty states, skeletons, glow, shimmer |
+| Effects | linear, radial and conic gradients (fills and borders), aurora, border beam, spotlight |
 | Forms | labelled fields, settings rows, section titles |
 
 ## Architecture

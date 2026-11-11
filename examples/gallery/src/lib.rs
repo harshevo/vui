@@ -23,11 +23,12 @@ pub enum Page {
     Overlays,
     Data,
     Feedback,
+    Effects,
     Settings,
 }
 
 impl Page {
-    pub const ALL: [Page; 11] = [
+    pub const ALL: [Page; 12] = [
         Page::Foundations,
         Page::Buttons,
         Page::Controls,
@@ -38,6 +39,7 @@ impl Page {
         Page::Overlays,
         Page::Data,
         Page::Feedback,
+        Page::Effects,
         Page::Settings,
     ];
 
@@ -53,6 +55,7 @@ impl Page {
             Page::Overlays => "Overlays",
             Page::Data => "Data",
             Page::Feedback => "Feedback",
+            Page::Effects => "Effects",
             Page::Settings => "Settings",
         }
     }
@@ -69,6 +72,7 @@ impl Page {
             Page::Overlays => icon_set::COPY,
             Page::Data => icon_set::GRID,
             Page::Feedback => icon_set::BELL,
+            Page::Effects => icon_set::SPARKLES,
             Page::Settings => icon_set::SETTINGS,
         }
     }

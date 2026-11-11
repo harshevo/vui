@@ -13,7 +13,7 @@
 //! | `buttons` | `button`, `icon_button`, `segmented` |
 //! | `controls` | `checkbox`, `radio`, `radio_group`, `toggle`, `slider` |
 //! | `inputs` | `text_field`, `search_field`, `password_field`, `text_area`, `number_input` |
-//! | `display` | `icon`, `card`, `badge`, `avatar`, `kbd`, `separator`, `chip`, `image_tile`, `markdown`, `rich_text`, `glow`, `shimmer` |
+//! | `display` | `icon`, `card`, `badge`, `avatar`, `kbd`, `separator`, `chip`, `image_tile`, `markdown`, `rich_text`, `glow`, `shimmer`, `aurora`, `border_beam`, `spotlight` |
 //! | `data` | `item`, `data_table`, `tree`, `lasso` |
 //! | `feedback` | `progress`, `spinner`, `alert`, `skeleton`, `empty_state` |
 //! | `layout` | `field`, `setting`, `splitter`, `disclosure`, `accordion` |

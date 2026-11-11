@@ -12,6 +12,7 @@
 mod canvas;
 mod glyphs;
 mod pictures;
+mod shading;
 mod shapes;
 mod triangles;
 
@@ -56,6 +57,7 @@ impl CpuRenderer {
                 Command::Text(t) => self.glyphs.draw(&mut self.canvas, &self.resources.fonts, t, scale),
                 Command::Mesh(m) => triangles::mesh(&mut self.canvas, m, scale),
                 Command::Custom(c) if c.pass == vui_core::effects::PASS => shapes::effect(&mut self.canvas, c, scale),
+                Command::Custom(c) if c.pass == vui_core::shading::PASS => shading::shade(&mut self.canvas, c, scale),
                 Command::Custom(_) => {}
             }
         }

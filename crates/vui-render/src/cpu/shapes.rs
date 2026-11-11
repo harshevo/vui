@@ -136,7 +136,7 @@ pub(crate) fn quad(canvas: &mut Canvas, q: &Quad, scale: f32) {
     }
 }
 
-fn rounded_box(p: [f32; 2], half: [f32; 2], r: f32) -> f32 {
+pub(crate) fn rounded_box(p: [f32; 2], half: [f32; 2], r: f32) -> f32 {
     let rr = r.min(half[0].min(half[1]));
     let q = [p[0].abs() - half[0] + rr, p[1].abs() - half[1] + rr];
     let out = [q[0].max(0.0), q[1].max(0.0)];
