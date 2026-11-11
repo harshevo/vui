@@ -21,6 +21,13 @@ use super::render::{Frame, Lit, draw};
 use crate::canvas::{Canvas, paint};
 use crate::style::VizStyle;
 
+mod builder;
+mod state;
+
+pub use builder::{GraphView, graph_view};
+pub use state::GraphState;
+use state::*;
+
 const MARGIN: f32 = 40.0;
 /// How far the pointer may move and still count as a click.
 const SLOP: f32 = 4.0;
@@ -47,98 +54,6 @@ pub struct GraphWidget<M> {
     label: String,
     on_select: Option<Select<M>>,
     on_open: Option<Open<M>>,
-}
-
-enum Drag {
-    Pan {
-        last: Point,
-        start: Point,
-        moved: bool,
-    },
-    Node {
-        index: usize,
-        start: Point,
-        moved: bool,
-    },
-}
-
-pub struct GraphState {
-    graph: Compiled,
-    layout: Layout,
-    grown: Vec<f32>,
-    lit: Lit,
-    /// What is on screen. Paint eases it toward where the camera wants to be, so it lives in a cell.
-    shown: Cell<Option<Camera>>,
-    last_paint: Cell<f32>,
-    easing: Cell<bool>,
-    goal: Camera,
-    /// Keep everything in view as the layout moves, until the user takes the camera.
-    follow: bool,
-    clock: f32,
-    pointer: Option<Point>,
-    hover: Option<usize>,
-    drag: Option<Drag>,
-}
-
-impl GraphState {
-    fn new(data: &GraphData, highlight: &Highlight) -> GraphState {
-        let graph = Compiled::new(data);
-        let mut layout = Layout::new(data.nodes.len(), &graph.pairs());
-        // Let it get most of the way before the first frame, so the graph does not open as a ball.
-        for _ in 0..(300_000 / data.nodes.len().max(1)).clamp(10, 120) {
-            layout.step();
-        }
-        let lit = resolve(&graph, highlight);
-        GraphState {
-            grown: vec![0.0; data.nodes.len()],
-            graph,
-            layout,
-            lit,
-            shown: Cell::new(None),
-            last_paint: Cell::new(0.0),
-            easing: Cell::new(false),
-            goal: Camera::HOME,
-            follow: true,
-            clock: 0.0,
-            pointer: None,
-            hover: None,
-            drag: None,
-        }
-    }
-
-    /// Takes the camera from the fit-to-view mode so it can be moved by hand.
-    fn take_camera(&mut self) {
-        if self.follow {
-            self.goal = self.shown.get().unwrap_or(Camera::HOME);
-            self.follow = false;
-        }
-    }
-
-    /// Moves the camera at once, as direct manipulation should.
-    fn snap(&mut self) {
-        self.shown.set(Some(self.goal));
-    }
-}
-
-fn resolve(graph: &Compiled, h: &Highlight) -> Lit {
-    let idx = |id: &u64| graph.index.get(id).copied();
-    let mut lit = Lit {
-        nodes: h.nodes.iter().filter_map(idx).collect(),
-        links: Default::default(),
-        pulse: h.pulse.iter().filter_map(idx).collect(),
-    };
-    for (a, b) in &h.edges {
-        if let (Some(a), Some(b)) = (idx(a), idx(b)) {
-            lit.nodes.insert(a);
-            lit.nodes.insert(b);
-            for (n, (x, y, _)) in graph.links.iter().enumerate() {
-                if (*x, *y) == (a, b) || (*x, *y) == (b, a) {
-                    lit.links.insert(n);
-                }
-            }
-        }
-    }
-    lit
 }
 
 impl<M> GraphWidget<M> {
@@ -513,117 +428,7 @@ impl<M: 'static> GraphWidget<M> {
     }
 }
 
-pub struct GraphView<M: 'static> {
-    base: Base<M>,
-    widget: GraphWidget<M>,
-}
-
 builder!(GraphView<M> => GraphWidget<M>);
 
-impl<M: 'static> GraphView<M> {
-    /// The picked node, by id. The widget draws it ringed and keeps its neighbourhood bright.
-    pub fn selected(mut self, id: Option<u64>) -> Self {
-        self.widget.selected = id;
-        self
-    }
-
-    pub fn highlight(mut self, highlight: Highlight) -> Self {
-        self.widget.highlight = highlight;
-        self
-    }
-
-    /// Shows the graph as it was at this time (seconds since 1970): nodes and edges outside their span
-    /// are left out.
-    pub fn as_of(mut self, t: Option<f64>) -> Self {
-        self.widget.as_of = t;
-        self
-    }
-
-    /// Sends the id of a node clicked, or `None` for a click on nothing or Escape.
-    pub fn on_select(mut self, f: impl Fn(Option<u64>) -> M + 'static) -> Self {
-        self.widget.on_select = Some(Rc::new(f));
-        self
-    }
-
-    /// Sends the id of a node double-clicked.
-    pub fn on_open(mut self, f: impl Fn(u64) -> M + 'static) -> Self {
-        self.widget.on_open = Some(Rc::new(f));
-        self
-    }
-
-    pub fn name(mut self, label: impl Into<String>) -> Self {
-        self.widget.label = label.into();
-        self
-    }
-}
-
-/// A graph that fills the room it is given. Share the data with `Rc`: the view only looks at it again when
-/// it is a different `Rc` holding something different.
-pub fn graph_view<M: 'static>(data: Rc<GraphData>) -> GraphView<M> {
-    let view = GraphView {
-        base: Base::new(),
-        widget: GraphWidget {
-            data,
-            selected: None,
-            highlight: Highlight::default(),
-            as_of: None,
-            label: String::new(),
-            on_select: None,
-            on_open: None,
-        },
-    };
-    view.focus_ring(true).cursor(CursorIcon::Grab)
-}
-
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::graph::{Edge, Node};
-
-    #[test]
-    fn highlight_resolves_ids_to_places_and_lights_the_edges_between() {
-        let d = GraphData::new()
-            .node(Node::new(5, "a", 0))
-            .node(Node::new(6, "b", 0))
-            .node(Node::new(7, "c", 0))
-            .edge(Edge::new(5, 6, "x"))
-            .edge(Edge::new(6, 7, "y"));
-        let g = Compiled::new(&d);
-        let lit = resolve(
-            &g,
-            &Highlight {
-                nodes: vec![7, 99],
-                edges: vec![(6, 5)],
-                pulse: vec![7],
-            },
-        );
-        assert_eq!(lit.nodes, [0, 1, 2].into_iter().collect());
-        assert_eq!(
-            lit.links,
-            [0].into_iter().collect(),
-            "the edge counts either way round"
-        );
-        assert_eq!(lit.pulse, [2]);
-        assert!(resolve(&g, &Highlight::default()).is_empty());
-    }
-
-    #[test]
-    fn a_new_state_starts_arranged_and_nothing_has_grown_yet() {
-        let mut d = GraphData::new();
-        for i in 0..30u64 {
-            d = d.node(Node::new(i, format!("n{i}"), 0));
-            if i > 0 {
-                d = d.edge(Edge::new(i, i / 2, "r"));
-            }
-        }
-        let s = GraphState::new(&d, &Highlight::default());
-        assert!(s.grown.iter().all(|g| *g == 0.0) && s.follow);
-        assert!(!s.layout.is_settled(), "it keeps settling on screen");
-        let spread = s
-            .layout
-            .positions()
-            .map(|p| p.x.abs().max(p.y.abs()))
-            .fold(0.0, f32::max);
-        assert!(spread > 60.0, "already spread out: {spread}");
-    }
-}
+mod tests;

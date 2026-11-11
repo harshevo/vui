@@ -42,6 +42,7 @@ impl Shadow {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn cmd(kind: f32, area: Rect, shape: Rect, radius: f32, color: Color, a: f32, b: f32, c: f32, time: f32) -> CustomCmd {
     CustomCmd::new(PASS, area, vec![kind, shape.x, shape.y, shape.w, shape.h, radius, color.r, color.g, color.b, color.a, a, b, c, time])
 }

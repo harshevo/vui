@@ -6,9 +6,7 @@ use super::*;
 /// Lays out a fixed element against the window: inset from its edges, or centred without insets.
 /// Its origin is in window coordinates.
 pub fn place_fixed<C, N: LayoutNode<C>>(node: &mut N, cx: &mut C, window: Size) {
-    let mut parent = Style::default();
-    parent.justify = Justify::Center;
-    parent.align_items = Align::Center;
+    let parent = Style { justify: Justify::Center, align_items: Align::Center, ..Style::default() };
     place_absolute(node, cx, window, &parent, Edges::default(), Axis::Y);
 }
 
