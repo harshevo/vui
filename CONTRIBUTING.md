@@ -44,3 +44,9 @@ cargo bench -p vui --bench frame           # when the change touches layout or p
 A failing golden comparison writes the frame and a highlighted diff to the crate's `tests/actual/`.
 If the change is intended, look at both, then re-bless with `VUI_BLESS=1` (the gallery's golden
 tests first, since its CPU test compares against them).
+
+## Licence
+
+Unless you say otherwise, any contribution you submit for inclusion in vui is dual-licensed under
+MIT OR Apache-2.0, as the [README](README.md#licence) describes, without any additional terms or
+conditions.

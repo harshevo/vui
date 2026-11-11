@@ -43,6 +43,8 @@ the API.
   `Ui::set_frame_stats`.
 - Project files: workspace metadata and lints, CI on macOS and Linux, a frame benchmark, this
   changelog and contributor notes.
+- Licence: MIT OR Apache-2.0 (`LICENSE-MIT`, `LICENSE-APACHE` and `license` in every crate).
+  `vui-fonts` is `(MIT OR Apache-2.0) AND OFL-1.1` for its bundled fonts.
 
 ## [0.1.0] - 2026-10-26
 

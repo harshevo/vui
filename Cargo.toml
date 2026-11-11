@@ -27,6 +27,7 @@ edition = "2024"
 rust-version = "1.91"
 publish = false
 authors = ["Harsh Mishra"]
+license = "MIT OR Apache-2.0"
 repository = "https://github.com/harshevo/vui"
 keywords = ["gui", "ui", "widgets", "wgpu", "gpu"]
 categories = ["gui", "graphics", "rendering"]

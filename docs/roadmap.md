@@ -128,9 +128,7 @@ notifications; a menu-bar item; full screen. See
 
 ### 10. Project
 
-**Today.** Missing. **Plan:**
+**Today.** MIT OR Apache-2.0, with the bundled fonts under SIL OFL 1.1 (see the
+[README](../README.md#licence)), and CI on macOS and Linux. **Plan:**
 
-- **A licence.** None is set yet. MIT or Apache-2.0 is usual for Rust crates; the bundled fonts
-  are under SIL OFL 1.1.
-- **CI.** Tests on macOS, plus the CPU renderer on Linux.
-- **Publishing.** Release on crates.io with semantic versioning, and a changelog.
+- **Publishing.** Release on crates.io with semantic versioning.

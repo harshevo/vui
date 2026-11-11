@@ -196,4 +196,11 @@ vmac, its first app (a voice-first Mac assistant), and are covered by tests. The
 VoiceOver bridge, Windows and Linux backends and more widgets. See
 the [roadmap](docs/roadmap.md).
 
-**Licence:** none has been chosen yet. The bundled fonts are under the SIL Open Font License 1.1.
+## Licence
+
+vui is dual-licensed under [MIT](LICENSE-MIT) or [Apache 2.0](LICENSE-APACHE), at your option.
+The bundled Inter and JetBrains Mono fonts are under the SIL Open Font License 1.1; their licences are
+in [`crates/vui-fonts/fonts`](crates/vui-fonts/fonts).
+
+Unless you say otherwise, any contribution you submit for inclusion in vui is dual-licensed as above,
+without any additional terms or conditions.
