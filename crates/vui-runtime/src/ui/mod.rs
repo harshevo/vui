@@ -10,6 +10,7 @@ pub(crate) use query::find_id;
 pub(crate) use tree::*;
 use view::*;
 mod clock;
+mod devtools;
 mod platform;
 mod preferences;
 mod query;
@@ -132,6 +133,7 @@ pub struct Ui<M: 'static> {
     timers: Vec<(f32, M)>,
     /// Dialogs waiting for answers, the app's menus and their actions.
     platform: platform::Platform<M>,
+    devtools: devtools::DevTools,
 }
 
 /// A timer counts as due this close to its time, so a clock summed from frame steps still fires it.
@@ -182,6 +184,7 @@ impl<M: 'static> Ui<M> {
             flagged: HashSet::new(),
             timers: Vec::new(),
             platform: platform::Platform::default(),
+            devtools: devtools::DevTools::default(),
         }
     }
 
@@ -440,6 +443,14 @@ impl<M: 'static> Ui<M> {
     /// Feeds one platform event in.
     pub fn handle(&mut self, event: Event) {
         self.sync();
+        if let Event::Key(key) = &event
+            && self.devtools_key(key)
+        {
+            return;
+        }
+        if self.devtools.inspect && matches!(event, Event::PointerMoved { .. } | Event::PointerLeft) {
+            self.core.paint_dirty = true;
+        }
         match self.root.as_mut() {
             Some(root) => Run { root, core: &mut self.core }.event(event),
             None => {
@@ -454,6 +465,10 @@ impl<M: 'static> Ui<M> {
 
     /// Draws the tree.
     pub fn paint(&mut self) -> Scene {
+        self.timed_paint(Ui::paint_tree)
+    }
+
+    fn paint_tree(&mut self) -> Scene {
         self.sync();
         let core = &mut self.core;
         let clear = if self.transparent { Color::TRANSPARENT } else { core.env.theme.palette.bg };

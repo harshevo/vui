@@ -38,6 +38,9 @@ the API.
   Answers arrive through `Ui::answer` and `Ui::choose_menu`, and `TestUi::choose` plays the user
   in tests. The macOS backend shows sheets, installs the menus and the status item, and goes full
   screen. New `notes` example.
+- Dev tools: an inspector overlay (Cmd-Option-I) and frame stats (Cmd-Option-S) in every
+  window, also through `VUI_INSPECT=1`, `VUI_STATS=1`, `Ui::set_inspector` and
+  `Ui::set_frame_stats`.
 - Project files: workspace metadata and lints, CI on macOS and Linux, a frame benchmark, this
   changelog and contributor notes.
 

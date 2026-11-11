@@ -103,15 +103,16 @@ notifications; a menu-bar item; full screen. See
 
 ### 8. Developer experience
 
-**Today.** Missing. **Plan:**
+**Today.** An inspector and frame stats in every window. **Next:**
 
 - **Async.** `cx.spawn` runs a closure on a thread. Add `cx.spawn_async(future)` for async
   runtimes, and streams of messages.
 - **Components with local state.** Apps own all state today, and `Element::map` composes
   sub-apps. A small `component` helper would keep purely visual state (an open menu, a hover)
   out of the app.
-- **A visual inspector.** An overlay that shows boxes, keys, styles and the accessibility tree
-  (`Ui::inspect` exists programmatically).
+- **A fuller inspector.** The inspector and frame stats exist (see
+  [Testing](testing.md#looking-inside-a-running-app)). Next: pin an element, walk the tree, and
+  show the styles and the accessibility tree.
 - **Hot reload** of styles and themes from a file.
 - **Rustdoc for every public item** (`#![warn(missing_docs)]`) and docs.rs.
 

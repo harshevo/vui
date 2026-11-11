@@ -76,6 +76,7 @@ impl<M: 'static> Ui<M> {
 
     /// Advances animations by `dt` seconds.
     pub fn tick(&mut self, dt: f32) {
+        self.devtools.step(dt);
         let core = &mut self.core;
         core.time += dt;
         let mut ts = TickState {

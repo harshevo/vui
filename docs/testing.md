@@ -119,3 +119,22 @@ you.
 cargo test --workspace
 VUI_RENDERER=cpu cargo test --workspace   # what a GPU-less CI machine runs
 ```
+
+## Looking inside a running app
+
+Every vui window has two overlays for finding out why something looks the way it does:
+
+- **The inspector** (Cmd-Option-I) outlines the element under the pointer, shades its padding, and
+  shows a card with its widget, key, size and position, padding, accessibility role, and how deep
+  it sits.
+- **Frame stats** (Cmd-Option-S) show frames per second while something moves, how long the last
+  paint took (layout included), and how many elements there are.
+
+Start a window with them on through the environment:
+
+```sh
+VUI_INSPECT=1 VUI_STATS=1 cargo run -p vui --example dashboard
+```
+
+From code, use `Ui::set_inspector(true)` and `Ui::set_frame_stats(true)`. They work headless too, so
+a test can render a frame with the inspector on and save it.

@@ -7,6 +7,8 @@ use super::*;
 pub(crate) trait Erased<M: 'static>: 'static {
     fn as_any(&self) -> &dyn Any;
     fn widget_type(&self) -> TypeId;
+    /// The widget's type name, without its path or generics: for the inspector.
+    fn widget_name(&self) -> &'static str;
     fn create_state(&self) -> Box<dyn Any>;
     fn update(&self, old: &dyn Erased<M>, state: &mut dyn Any) -> Dirty;
     fn measure(&self, state: &mut dyn Any, env: &Env, known: Pair<Option<f32>>, avail: Pair<Avail>) -> Size;
@@ -39,6 +41,12 @@ impl<M: 'static, W: Widget<M>> Erased<M> for Plain<W> {
 
     fn widget_type(&self) -> TypeId {
         TypeId::of::<W>()
+    }
+
+    fn widget_name(&self) -> &'static str {
+        let full = std::any::type_name::<W>();
+        let bare = full.split('<').next().unwrap_or(full);
+        bare.rsplit("::").next().unwrap_or(bare)
     }
 
     fn create_state(&self) -> Box<dyn Any> {
@@ -108,6 +116,10 @@ impl<A: 'static, B: 'static> Erased<B> for Mapped<A, B> {
     /// The wrapped widget's type: state is kept across a change of mapping, as it is the same widget.
     fn widget_type(&self) -> TypeId {
         self.inner.widget_type()
+    }
+
+    fn widget_name(&self) -> &'static str {
+        self.inner.widget_name()
     }
 
     fn create_state(&self) -> Box<dyn Any> {
