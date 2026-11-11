@@ -30,6 +30,15 @@ Colours are blended premultiplied, in the encoded sRGB the display expects, so t
 agree. The golden tests compare them: every gallery page matches the GPU frame to within one level
 per channel.
 
+## High-density screens
+
+Everything is laid out in points and drawn at the window's scale: 2 on a Retina display, 3 on a
+phone-class screen, any fraction in between. Glyphs are rasterised at the scale they are drawn
+at, edges are snapped to device pixels, and pictures pick the mip level that fits. When a window
+moves to a display with another scale, macOS tells the view; vui resizes its surface and draws the
+next frame at the new scale. A test holds that to what a window opened on that display would draw,
+pixel for pixel, and the gallery keeps goldens at 1x, 2x and 3x.
+
 ## Choosing a renderer
 
 Windows use the GPU. If no adapter can be had, the window falls back to the CPU renderer on its

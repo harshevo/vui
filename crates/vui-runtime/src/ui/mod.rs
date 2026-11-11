@@ -138,6 +138,7 @@ const MAX_PUMP_ROUNDS: usize = 64;
 
 impl<M: 'static> Ui<M> {
     pub fn new(res: Resources, theme: Theme, size: Size, scale: f32) -> Ui<M> {
+        res.fonts.set_families(theme.font_sans, theme.font_mono);
         let (tx, inbox) = mpsc::channel();
         Ui {
             root: None,
@@ -302,6 +303,7 @@ impl<M: 'static> Ui<M> {
     }
 
     pub fn set_theme(&mut self, theme: Theme) {
+        self.core.env.res.fonts.set_families(theme.font_sans, theme.font_mono);
         self.core.env.theme = Rc::new(theme);
         if let Some(root) = self.root.as_mut() {
             clear_caches(root);

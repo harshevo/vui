@@ -44,8 +44,9 @@ pub(crate) struct TextCache {
 pub(crate) struct Shared {
     pub(crate) system: RefCell<FontSystem>,
     pub(crate) cache: RefCell<TextCache>,
-    pub(crate) sans: String,
-    pub(crate) mono: String,
+    /// The families `FontFamily::Sans` and `FontFamily::Mono` stand for: the theme's.
+    pub(crate) sans: RefCell<String>,
+    pub(crate) mono: RefCell<String>,
 }
 
 /// The font database, shaping engine and layout cache. Cheap to clone; clones share everything.
@@ -81,8 +82,8 @@ impl Fonts {
             shared: Rc::new(Shared {
                 system: RefCell::new(system),
                 cache: RefCell::new(TextCache::default()),
-                sans: "Inter".to_string(),
-                mono: "JetBrains Mono".to_string(),
+                sans: RefCell::new("Inter".to_string()),
+                mono: RefCell::new("JetBrains Mono".to_string()),
             }),
         }
     }
@@ -103,16 +104,35 @@ impl Fonts {
         families
     }
 
+    /// Sets the families that sans and mono text use, as a theme names them. Returns whether that
+    /// changed anything; when it did, layouts shaped before are dropped. A family that is not
+    /// installed falls back, per character, to one that has the glyphs. Every window sharing these
+    /// fonts sees the change.
+    pub fn set_families(&self, sans: &str, mono: &str) -> bool {
+        if *self.shared.sans.borrow() == sans && *self.shared.mono.borrow() == mono {
+            return false;
+        }
+        *self.shared.sans.borrow_mut() = sans.to_string();
+        *self.shared.mono.borrow_mut() = mono.to_string();
+        *self.shared.cache.borrow_mut() = TextCache::default();
+        true
+    }
+
+    /// The families sans and mono text use now.
+    pub fn families(&self) -> (String, String) {
+        (self.shared.sans.borrow().clone(), self.shared.mono.borrow().clone())
+    }
+
     /// Exclusive access to the shaping engine, for the renderer.
     pub fn system(&self) -> RefMut<'_, FontSystem> {
         self.shared.system.borrow_mut()
     }
 
-    fn family_name<'a>(&'a self, f: &'a FontFamily) -> &'a str {
+    fn family_name(&self, f: &FontFamily) -> String {
         match f {
-            FontFamily::Sans => &self.shared.sans,
-            FontFamily::Mono => &self.shared.mono,
-            FontFamily::Named(n) => n,
+            FontFamily::Sans => self.shared.sans.borrow().clone(),
+            FontFamily::Mono => self.shared.mono.borrow().clone(),
+            FontFamily::Named(n) => n.to_string(),
         }
     }
 
@@ -193,8 +213,9 @@ impl Fonts {
         if let Some(n) = style.max_lines {
             buffer.set_ellipsize(Ellipsize::End(EllipsizeHeightLimit::Lines(n)));
         }
+        let family = self.family_name(&style.family);
         let attrs = Attrs::new()
-            .family(Family::Name(self.family_name(&style.family)))
+            .family(Family::Name(&family))
             .weight(Weight(style.weight))
             .letter_spacing(style.letter_spacing);
         let align = match style.align {
@@ -206,7 +227,8 @@ impl Fonts {
         if spans.is_empty() {
             buffer.set_text(text, &attrs, Shaping::Advanced, align);
         } else {
-            let mono: &str = &self.shared.mono;
+            let mono = self.shared.mono.borrow().clone();
+            let mono: &str = &mono;
             let mut at = 0;
             let styled: Vec<(&str, Attrs)> = spans
                 .iter()

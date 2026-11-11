@@ -68,6 +68,22 @@ fn main() {
 }
 ```
 
+### The interface font
+
+A theme names the families that sans and mono text use, so one place switches the whole
+interface. Load the font first (as above), then:
+
+```rust
+use vui::prelude::*;
+
+let mut theme = Theme::light();
+theme.font_sans = "Geist";
+theme.font_mono = "Geist Mono";
+```
+
+Return that theme from `App::theme`. Text is laid out again when it changes. A family that isn't
+installed falls back, character by character, to one that has the glyphs.
+
 ## Icons
 
 vui has 157 line icons on a 24-point grid, drawn by vui's own vector engine at any size and in

@@ -16,13 +16,13 @@ importance. Each item says what exists today.
 
 | Area | State |
 | --- | --- |
-| Rendering | wgpu GPU renderer (quads, text, pictures, meshes, effects, custom passes) and a CPU renderer that matches it; automatic fallback |
+| Rendering | wgpu GPU renderer (quads, text, pictures, meshes, effects, shading, custom passes) and a CPU renderer that matches it; automatic fallback; any display scale, followed when a window changes display |
 | Layout | flexbox (grow, shrink, basis, wrap, alignment, gaps, auto margins), absolute, fixed and floating layers, scrolling, responsive `.when` rules |
 | Widgets | 70+: buttons, controls, fields and text areas, lists, tables, trees, tabs, menus, select, popovers, dialogs, toasts, alerts, progress, skeletons, markdown, forms |
 | Text | shaping, wrapping, ellipsis, fallback for every script, custom fonts, a full editor with IME, undo and the clipboard |
 | Icons | 157 line icons, four weights, `icon!` for your own |
-| Data | charts (line, step, area, bars, volume, scatter, candles), sparklines, force-directed graphs |
-| Motion | springs, transitions, appear animations, built-in control motion, glow, shimmer |
+| Data | charts (line, step, area, grouped and stacked bars, volume, scatter, candles), pies and donuts, bar lists, sparklines, force-directed graphs |
+| Motion and effects | springs, transitions, appear animations, built-in control motion, glow, shimmer; a shading pass for gradients (linear, radial, conic, borders), aurora, border beam, spotlight and grain |
 | Theming | light, dark and island themes; every colour, radius, type size and spring is data |
 | Platform | macOS: windows, overlays, input method, clipboard, cursors, file drops, display-link frames, a thread-safe `Proxy` |
 | Testing | `TestUi` for input and time; golden images on the GPU or CPU; accessibility-tree assertions |
@@ -100,8 +100,6 @@ decision.
 - **Reduced motion.** Follow the system setting, turning springs into fades or cuts.
 - **Increased contrast and larger text.** Follow the system settings, with a high-contrast palette
   and type scaling.
-- **Theme fonts.** Wire `Theme::font_sans` and `font_mono` through to text, so a theme can switch
-  the interface font. Today `Label::font` does it per label.
 
 ### 7. Platform features
 
@@ -112,8 +110,7 @@ decision.
 - drag out of the app (as a drag source);
 - notifications;
 - a status-bar item;
-- per-window full screen;
-- moving between displays with different scales.
+- per-window full screen.
 
 ### 8. Developer experience
 
@@ -135,6 +132,8 @@ decision.
 
 - **Parallel CPU rendering.** Rows are independent, so bands of the frame can draw on all cores.
 - **Damage tracking.** Redraw only the changed region on the GPU, and reuse unchanged layers.
+- **Tiled offscreen frames.** A headless frame taller or wider than the GPU's texture limit (8192
+  device pixels: a long page at 3x) fails today; draw it in tiles.
 - **A benchmark suite** for frame time and memory on the gallery and examples.
 
 ### 10. Project
