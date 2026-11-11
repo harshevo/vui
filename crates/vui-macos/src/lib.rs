@@ -32,6 +32,8 @@ pub mod host;
 mod keys;
 #[cfg(target_os = "macos")]
 mod mac;
+#[cfg(target_os = "macos")]
+mod software;
 
 #[cfg(target_os = "macos")]
 pub use mac::{Application, Pasteboard};

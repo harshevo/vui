@@ -1,5 +1,5 @@
-//! What a window runs: the UI, the surface it presents to and the renderer, behind one object-safe
-//! trait so the AppKit view does not need to know the app's message type.
+//! What a window runs: the UI, where its frames go and the renderer, behind one object-safe trait so
+//! the AppKit view does not need to know the app's message type.
 
 use std::cell::Cell;
 use std::path::PathBuf;
@@ -7,7 +7,7 @@ use std::rc::Rc;
 use std::sync::mpsc::Receiver;
 
 use vui_core::{Color, Event, Mode, Point, Size, size};
-use vui_render::Renderer;
+use vui_render::{Canvas, CpuRenderer, Renderer};
 use vui_runtime::{Effect, Ui};
 
 /// What a frame did, so the view knows when to ask for the next one.
@@ -66,40 +66,33 @@ impl Snapshot {
     }
 }
 
-/// A UI on a wgpu surface.
-pub struct Window<M: 'static> {
-    pub ui: Ui<M>,
-    surface: wgpu::Surface<'static>,
-    config: wgpu::SurfaceConfiguration,
-    renderer: Renderer,
-    snapshot: Snapshot,
-    /// Messages sent from outside the UI, through the window's `Proxy`.
-    inbox: Receiver<M>,
-    quit: bool,
-    /// The last frame could not be shown (the window was hidden or the surface was being rebuilt), so
-    /// what is on screen is out of date.
-    stale: bool,
+/// Shows a frame drawn on the CPU, at the given backing scale.
+pub type Show = Box<dyn FnMut(&Canvas, f32)>;
+
+/// Where a window's frames are drawn and shown. There is one per window, so the size of the GPU
+/// variant does not matter.
+#[allow(clippy::large_enum_variant)]
+pub enum Output {
+    /// On the GPU, into the view's Metal surface.
+    Gpu { surface: wgpu::Surface<'static>, config: wgpu::SurfaceConfiguration, renderer: Renderer },
+    /// In memory, then handed to `show` with the backing scale: where there is no GPU, or
+    /// `VUI_RENDERER=cpu` asks for it.
+    Cpu { renderer: CpuRenderer, show: Show },
 }
 
-impl<M: 'static> Window<M> {
-    pub fn new(
-        ui: Ui<M>,
-        surface: wgpu::Surface<'static>,
-        adapter: &wgpu::Adapter,
-        renderer: Renderer,
-        inbox: Receiver<M>,
-        snapshot: Snapshot,
-    ) -> Window<M> {
+impl Output {
+    /// GPU output on `surface`, configured for a UI of `size` points at `scale`.
+    pub fn gpu(surface: wgpu::Surface<'static>, adapter: &wgpu::Adapter, renderer: Renderer, transparent: bool, size: Size, scale: f32) -> Output {
         let caps = surface.get_capabilities(adapter);
         // The shaders write premultiplied colour, which is what Core Animation composites; Metal calls
         // a see-through layer post-multiplied.
-        let wanted: &[wgpu::CompositeAlphaMode] = if ui.transparent() {
+        let wanted: &[wgpu::CompositeAlphaMode] = if transparent {
             &[wgpu::CompositeAlphaMode::PostMultiplied, wgpu::CompositeAlphaMode::PreMultiplied]
         } else {
             &[wgpu::CompositeAlphaMode::Opaque]
         };
         let alpha_mode = wanted.iter().copied().find(|m| caps.alpha_modes.contains(m)).unwrap_or(caps.alpha_modes[0]);
-        let (w, h) = pixel_size(ui.size(), ui.scale());
+        let (w, h) = pixel_size(size, scale);
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: renderer.format(),
@@ -112,16 +105,26 @@ impl<M: 'static> Window<M> {
             view_formats: vec![],
         };
         surface.configure(renderer.device(), &config);
-        Window {
-            ui,
-            surface,
-            config,
-            renderer,
-            snapshot,
-            inbox,
-            quit: false,
-            stale: true,
-        }
+        Output::Gpu { surface, config, renderer }
+    }
+}
+
+/// A UI and where its frames go.
+pub struct Window<M: 'static> {
+    pub ui: Ui<M>,
+    output: Output,
+    snapshot: Snapshot,
+    /// Messages sent from outside the UI, through the window's `Proxy`.
+    inbox: Receiver<M>,
+    quit: bool,
+    /// The last frame could not be shown (the window was hidden or the surface was being rebuilt), so
+    /// what is on screen is out of date.
+    stale: bool,
+}
+
+impl<M: 'static> Window<M> {
+    pub fn new(ui: Ui<M>, output: Output, inbox: Receiver<M>, snapshot: Snapshot) -> Window<M> {
+        Window { ui, output, snapshot, inbox, quit: false, stale: true }
     }
 
     /// The format to render in for a surface: the shaders blend in encoded sRGB, so a non-sRGB format.
@@ -136,23 +139,32 @@ impl<M: 'static> Window<M> {
     /// Draws the UI to the window. Returns false if the window could not take a frame: it is covered,
     /// minimised or its surface is being rebuilt.
     fn present(&mut self) -> bool {
-        let texture = match self.surface.get_current_texture() {
-            wgpu::CurrentSurfaceTexture::Success(t) | wgpu::CurrentSurfaceTexture::Suboptimal(t) => t,
-            wgpu::CurrentSurfaceTexture::Outdated | wgpu::CurrentSurfaceTexture::Lost => {
-                self.surface.configure(self.renderer.device(), &self.config);
-                self.stale = true;
-                return false;
+        match &mut self.output {
+            Output::Gpu { surface, config, renderer } => {
+                let texture = match surface.get_current_texture() {
+                    wgpu::CurrentSurfaceTexture::Success(t) | wgpu::CurrentSurfaceTexture::Suboptimal(t) => t,
+                    wgpu::CurrentSurfaceTexture::Outdated | wgpu::CurrentSurfaceTexture::Lost => {
+                        surface.configure(renderer.device(), config);
+                        self.stale = true;
+                        return false;
+                    }
+                    _ => {
+                        self.stale = true;
+                        return false;
+                    }
+                };
+                self.stale = false;
+                let scene = self.ui.paint();
+                let view = texture.texture.create_view(&wgpu::TextureViewDescriptor::default());
+                renderer.render(&scene, &view, (config.width, config.height));
+                renderer.queue().present(texture);
             }
-            _ => {
-                self.stale = true;
-                return false;
+            Output::Cpu { renderer, show } => {
+                self.stale = false;
+                let scene = self.ui.paint();
+                show(renderer.render(&scene), scene.scale);
             }
-        };
-        self.stale = false;
-        let scene = self.ui.paint();
-        let view = texture.texture.create_view(&wgpu::TextureViewDescriptor::default());
-        self.renderer.render(&scene, &view, (self.config.width, self.config.height));
-        self.renderer.queue().present(texture);
+        }
         true
     }
 
@@ -160,7 +172,11 @@ impl<M: 'static> Window<M> {
     fn take_snapshot(&mut self) {
         let Some(path) = self.snapshot.path.take() else { return };
         let scene = self.ui.paint();
-        match self.renderer.render_to_image(&scene).map(|image| image.save_png(&path)) {
+        let image = match &mut self.output {
+            Output::Gpu { renderer, .. } => renderer.render_to_image(&scene).map_err(|e| e.to_string()),
+            Output::Cpu { renderer, .. } => Ok(renderer.render_to_image(&scene)),
+        };
+        match image.map(|image| image.save_png(&path)) {
             Ok(Ok(())) => {}
             Ok(Err(e)) => eprintln!("vui: could not write {}: {e}", path.display()),
             Err(e) => eprintln!("vui: could not render the snapshot: {e}"),
@@ -196,10 +212,12 @@ impl<M: 'static> Host for Window<M> {
         self.ui.set_size(points);
         self.ui.set_scale(scale);
         let (w, h) = pixel_size(points, scale);
-        if (w, h) != (self.config.width, self.config.height) {
-            self.config.width = w;
-            self.config.height = h;
-            self.surface.configure(self.renderer.device(), &self.config);
+        if let Output::Gpu { surface, config, renderer } = &mut self.output
+            && (w, h) != (config.width, config.height)
+        {
+            config.width = w;
+            config.height = h;
+            surface.configure(renderer.device(), config);
         }
     }
 

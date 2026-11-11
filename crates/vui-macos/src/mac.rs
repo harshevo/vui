@@ -40,11 +40,12 @@ use raw_window_handle::{AppKitDisplayHandle, AppKitWindowHandle, RawDisplayHandl
 use vui_core::{
     Color, CursorIcon, Event, ImeEvent, Key, KeyEvent, Mode, Modifiers, PointerButton, Rect, Resources, Size, pt, size,
 };
-use vui_render::{CustomPass, Gpu, Renderer};
+use vui_render::{CpuRenderer, CustomPass, Gpu, Renderer};
 use vui_runtime::{App, Clipboard, Effect, Ui};
 
 use crate::convert::{frame_step, scroll_delta, scroll_phase, utf16_len, utf16_range_to_bytes};
-use crate::host::{Host, Snapshot, Window};
+use crate::host::{Host, Output, Snapshot, Window};
+use crate::software::LayerPresenter;
 use crate::keys::{modifiers, named_key, shortcut_char, typed_text};
 use crate::{Error, OverlayOptions, Place, Proxy, Screen, WindowOptions};
 
@@ -731,6 +732,8 @@ pub struct Application {
     /// Until the first window picks a device to suit its surface.
     instance: Option<wgpu::Instance>,
     gpu: Option<Gpu>,
+    /// Frames are drawn on the CPU: asked for with `VUI_RENDERER=cpu`, or because the GPU failed.
+    cpu: bool,
     passes: Vec<(&'static str, MakePass)>,
     /// Kept alive for as long as the app runs.
     windows: Vec<(Retained<NSWindow>, Retained<VuiView>, Retained<WindowDelegate>)>,
@@ -753,6 +756,7 @@ impl Application {
             res: Resources::new(),
             instance: Some(wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle())),
             gpu: None,
+            cpu: std::env::var("VUI_RENDERER").is_ok_and(|v| v.eq_ignore_ascii_case("cpu")),
             passes: Vec::new(),
             windows: Vec::new(),
             snapshot: std::env::var_os("VUI_SNAPSHOT").map(PathBuf::from),
@@ -905,13 +909,53 @@ impl Application {
             window.setBackgroundColor(Some(&ns_color(ui.theme().palette.side)));
         }
 
-        // The surface on the view, and, for the first window, a device that can present to it.
+        let output = self.output(&view, transparent, size, scale);
+
+        let n = self.windows.len();
+        let path = self.snapshot.as_ref().map(|p| if n == 0 { p.clone() } else { numbered(p, n) });
+        if path.is_some() {
+            self.snapshots.set(self.snapshots.get() + 1);
+        }
+        let snapshot = Snapshot { path, pending: self.snapshots.clone(), quit: self.snapshot_quit };
+        let (tx, inbox) = mpsc::channel();
+        let host = Window::new(ui, output, inbox, snapshot);
+        view.ivars().host.replace(Some(Box::new(host)));
+        view.resized();
+
+        let id = VIEWS.with(|views| {
+            let mut views = views.borrow_mut();
+            views.push(Weak::from_retained(&view));
+            views.len() - 1
+        });
+        view.with_host(|h| h.set_waker(std::sync::Arc::new(move || wake(id))));
+        self.windows.push((window, view, delegate));
+        Ok(Proxy { tx, window: id })
+    }
+
+    /// Where a new view's frames go: the GPU when one can be had, else the CPU renderer, which is also
+    /// what `VUI_RENDERER=cpu` asks for. Once the GPU has failed, later windows go straight to the CPU.
+    fn output(&mut self, view: &VuiView, transparent: bool, size: Size, scale: f32) -> Output {
+        if !self.cpu {
+            match self.gpu_output(view, transparent, size, scale) {
+                Ok(output) => return output,
+                Err(e) => {
+                    eprintln!("vui: {e}; drawing on the CPU instead");
+                    self.cpu = true;
+                }
+            }
+        }
+        let presenter = LayerPresenter::new(view);
+        Output::Cpu { renderer: CpuRenderer::new(self.res.clone()), show: Box::new(move |canvas, scale| presenter.show(canvas, scale)) }
+    }
+
+    /// The surface on the view, and, for the first window, a device that can present to it.
+    fn gpu_output(&mut self, view: &VuiView, transparent: bool, size: Size, scale: f32) -> Result<Output, Error> {
         let instance = match (&self.gpu, &self.instance) {
             (Some(gpu), _) => &gpu.instance,
             (None, Some(instance)) => instance,
-            (None, None) => unreachable!("the instance moves into the GPU"),
+            (None, None) => return Err(Error::Gpu("the GPU could not be set up".into())),
         };
-        let handle = AppKitWindowHandle::new(NonNull::from(&*view).cast());
+        let handle = AppKitWindowHandle::new(NonNull::from(view).cast());
         let target = wgpu::SurfaceTargetUnsafe::RawHandle {
             raw_display_handle: Some(RawDisplayHandle::AppKit(AppKitDisplayHandle::new())),
             raw_window_handle: RawWindowHandle::AppKit(handle),
@@ -924,31 +968,12 @@ impl Application {
             self.gpu = Some(Gpu::for_surface(instance, &surface).map_err(|e| Error::Gpu(e.to_string()))?);
         }
         let gpu = self.gpu.as_ref().expect("made above");
-        let format = Window::<A::Msg>::pick_format(&surface, &gpu.adapter);
+        let format = Window::<()>::pick_format(&surface, &gpu.adapter);
         let mut renderer = Renderer::new(gpu.device.clone(), gpu.queue.clone(), format, self.res.clone());
         for (name, make) in &self.passes {
             renderer.add_pass(name, make(&gpu.device, format));
         }
-
-        let n = self.windows.len();
-        let path = self.snapshot.as_ref().map(|p| if n == 0 { p.clone() } else { numbered(p, n) });
-        if path.is_some() {
-            self.snapshots.set(self.snapshots.get() + 1);
-        }
-        let snapshot = Snapshot { path, pending: self.snapshots.clone(), quit: self.snapshot_quit };
-        let (tx, inbox) = mpsc::channel();
-        let host = Window::new(ui, surface, &gpu.adapter, renderer, inbox, snapshot);
-        view.ivars().host.replace(Some(Box::new(host)));
-        view.resized();
-
-        let id = VIEWS.with(|views| {
-            let mut views = views.borrow_mut();
-            views.push(Weak::from_retained(&view));
-            views.len() - 1
-        });
-        view.with_host(|h| h.set_waker(std::sync::Arc::new(move || wake(id))));
-        self.windows.push((window, view, delegate));
-        Ok(Proxy { tx, window: id })
+        Ok(Output::gpu(surface, &gpu.adapter, renderer, transparent, size, scale))
     }
 
     /// Brings the app forward and runs until it quits.
