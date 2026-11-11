@@ -109,6 +109,9 @@ mod guides {
         };
     }
 
+    #[doc = include_str!("../../../README.md")]
+    mod readme {}
+
     guides! {
         getting_started => "getting-started.md",
         app_model => "app-model.md",

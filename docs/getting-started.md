@@ -9,7 +9,7 @@ vui is not on crates.io yet. Depend on it by path or git:
 
 ```toml
 [dependencies]
-vui = { git = "https://github.com/<you>/vui" }   # or: { path = "../vui/crates/vui" }
+vui = { git = "https://github.com/harshevo/vui" }   # or: { path = "../vui/crates/vui" }
 ```
 
 The `vui` crate is the front door. It re-exports every part of the framework, and
