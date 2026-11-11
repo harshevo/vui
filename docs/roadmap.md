@@ -24,7 +24,7 @@ importance. Each item says what exists today.
 | Data | charts (line, step, area, grouped and stacked bars, volume, scatter, candles), pies and donuts, bar lists, sparklines, force-directed graphs |
 | Motion and effects | springs, transitions, appear animations, transforms (scale, rotate, translate) drawn as layers, built-in control motion, glow, shimmer; a shading pass for gradients (linear, radial, conic, borders), aurora, border beam, spotlight and grain |
 | Theming | light, dark and island themes; every colour, radius, type size and spring is data |
-| Platform | macOS: windows, overlays, input method, clipboard, cursors, file drops, display-link frames, a thread-safe `Proxy`, app menus and shortcuts, open and save sheets, notifications, a menu-bar item, full screen, Reduce Motion and Increase Contrast |
+| Platform | macOS: windows, overlays, input method, clipboard, cursors, file drops, display-link frames, a thread-safe `Proxy`, app menus and shortcuts, open and save sheets, notifications with action buttons (`UNUserNotificationCenter`), a menu-bar item, full screen, Reduce Motion and Increase Contrast |
 | Testing | `TestUi` for input and time; golden images on the GPU or CPU; accessibility-tree assertions |
 
 ## Next, in order
@@ -93,12 +93,11 @@ scales with `text_scale`; see [Accessibility](accessibility.md#system-settings).
 ### 7. Platform features
 
 **Today.** App menus with shortcuts, ticks and disabled items from state; open and save sheets;
-notifications; a menu-bar item; full screen. See
+notifications through `UNUserNotificationCenter` with action buttons, answered as app messages
+(`cx.notify_then`) and playable in `TestUi`; a menu-bar item; full screen. See
 [The app model](app-model.md#menus-shortcuts-and-the-menu-bar). **Next:**
 
 - drag out of the app (as a drag source);
-- notifications through `UNUserNotificationCenter`, with actions. This needs the
-  `objc2-user-notifications` crate, so it needs a decision;
 - submenus, and icons in menus and the menu-bar item.
 
 ### 8. Developer experience

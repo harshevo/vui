@@ -157,7 +157,7 @@ Every Rust snippet in the guides runs as a doctest, so they stay true to the API
 | [`vui-icons`](crates/vui-icons) | 157 line icons on a 24-point grid, rasterised at any size and weight |
 | [`vui-viz`](crates/vui-viz) | scales, charts, pies, bar lists, sparklines and force-directed graphs |
 | [`vui-render`](crates/vui-render) | the wgpu renderer, the CPU renderer, custom passes, headless rendering and golden-image tests |
-| [`vui-macos`](crates/vui-macos) | the macOS backend: windows, overlays, input method, clipboard, cursors, display-link frames, `Proxy` |
+| [`vui-macos`](crates/vui-macos) | the macOS backend: windows, overlays, input method, clipboard, cursors, display-link frames, notifications with actions, `Proxy` |
 | [`vui-fonts`](crates/vui-fonts) | Inter and JetBrains Mono, bundled (SIL OFL 1.1) |
 | [`examples/gallery`](examples/gallery) | every widget as an app; its pages are golden images |
 
@@ -167,7 +167,7 @@ Each crate is split by feature, and no source file is over 500 lines.
 
 | | Status |
 | --- | --- |
-| macOS | windows, overlays and everything above |
+| macOS | windows, overlays, menus, sheets, notifications with actions, and everything above |
 | Windows, Linux | the runtime, widgets and both renderers build and run headless (tests, CI, screenshots); the window backend is on the [roadmap](docs/roadmap.md) |
 
 ## Tests

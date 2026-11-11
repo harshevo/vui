@@ -20,8 +20,9 @@ pub enum Effect {
     Open { id: u64, dialog: FileDialog },
     /// Ask where to save; answer with `Ui::answer(id, paths)`, one path or none if cancelled.
     Save { id: u64, dialog: FileDialog },
-    /// Show a notification.
-    Notify(Notification),
+    /// Show a notification. Answer with `Ui::answer(id, NotificationResponse::..)` when the person
+    /// clicks it, presses one of its actions or dismisses it.
+    Notify { id: u64, notification: Notification },
     /// Go full screen (true), leave it (false), or switch (None).
     FullScreen(Option<bool>),
     /// The app's own menus, to put in the menu bar in place of the ones before. Report choices

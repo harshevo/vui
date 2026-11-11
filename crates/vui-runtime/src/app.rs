@@ -13,7 +13,7 @@ use vui_core::{Mode, Size, Theme};
 
 use crate::element::{Element, IntoElement};
 use crate::key::Key;
-use crate::platform::{FileDialog, Notification};
+use crate::platform::{FileDialog, Notification, NotificationResponse};
 
 /// An application: some state, a view of it, and how messages change it.
 ///
@@ -98,7 +98,7 @@ pub struct Cx<M: 'static> {
 pub(crate) enum Request<M> {
     Open(FileDialog, Box<dyn FnOnce(Vec<PathBuf>) -> M>),
     Save(FileDialog, Box<dyn FnOnce(Option<PathBuf>) -> M>),
-    Notify(Notification),
+    Notify(Notification, Option<Box<dyn FnOnce(NotificationResponse) -> M>>),
     FullScreen(Option<bool>),
 }
 
@@ -178,7 +178,25 @@ impl<M: 'static> Cx<M> {
 
     /// Shows a system notification.
     pub fn notify(&mut self, notification: Notification) {
-        self.requests.push(Request::Notify(notification));
+        self.requests.push(Request::Notify(notification, None));
+    }
+
+    /// Shows a system notification and sends `reply` with how the person answered it: clicked it,
+    /// pressed one of its actions, or dismissed it. Nothing is sent if they never do.
+    ///
+    /// ```
+    /// # use vui_runtime::{Cx, Notification, NotificationResponse};
+    /// # enum Msg { Export, Retry, Ignore }
+    /// # fn failed(cx: &mut Cx<Msg>) {
+    /// cx.notify_then(Notification::new("Export failed").action("Retry").action("Show log"), |answer| match answer {
+    ///     NotificationResponse::Action(0) => Msg::Retry,
+    ///     NotificationResponse::Action(_) | NotificationResponse::Clicked => Msg::Export,
+    ///     NotificationResponse::Dismissed => Msg::Ignore,
+    /// });
+    /// # }
+    /// ```
+    pub fn notify_then(&mut self, notification: Notification, reply: impl FnOnce(NotificationResponse) -> M + 'static) {
+        self.requests.push(Request::Notify(notification, Some(Box::new(reply))));
     }
 
     /// Takes the window full screen, or brings it back.

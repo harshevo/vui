@@ -9,6 +9,7 @@ mod pasteboard;
 pub use pasteboard::Pasteboard;
 
 mod menu;
+mod notify;
 mod system;
 use menu::main_menu;
 
@@ -102,6 +103,7 @@ impl Application {
         let app = NSApplication::sharedApplication(mtm);
         app.setActivationPolicy(NSApplicationActivationPolicy::Regular);
         app.setMainMenu(Some(&main_menu(mtm, name)));
+        notify::install();
         Ok(Application {
             mtm,
             res: Resources::new(),

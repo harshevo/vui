@@ -38,6 +38,11 @@ the API.
   Answers arrive through `Ui::answer` and `Ui::choose_menu`, and `TestUi::choose` plays the user
   in tests. The macOS backend shows sheets, installs the menus and the status item, and goes full
   screen. New `notes` example.
+- Notifications with buttons: `Notification::action`, `cx.notify_then` and
+  `NotificationResponse` (clicked, an action, dismissed), answered through `Ui::answer`, which
+  now takes an `Answer`. `TestUi::respond` and `TestUi::notification_action` play the person in
+  tests. On macOS they go through `UNUserNotificationCenter` (`objc2-user-notifications`), in
+  place of the deprecated `NSUserNotificationCenter`; `Effect::Notify` carries an id.
 - Dev tools: an inspector overlay (Cmd-Option-I) and frame stats (Cmd-Option-S) in every
   window, also through `VUI_INSPECT=1`, `VUI_STATS=1`, `Ui::set_inspector` and
   `Ui::set_frame_stats`.

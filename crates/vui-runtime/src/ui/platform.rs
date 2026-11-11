@@ -5,14 +5,20 @@ use std::path::PathBuf;
 
 use super::*;
 use crate::app::Request;
-use crate::platform::{MenuAction, MenuSpec, specs};
+use crate::platform::{Answer, MenuAction, MenuSpec, Notification, NotificationResponse, specs};
 
-type Reply<M> = Box<dyn FnOnce(Vec<PathBuf>) -> M>;
+/// What to send the app when a request is answered.
+enum Reply<M> {
+    Paths(Box<dyn FnOnce(Vec<PathBuf>) -> M>),
+    Notification(Box<dyn FnOnce(NotificationResponse) -> M>),
+}
 
 pub(crate) struct Platform<M> {
     next: u64,
-    /// Dialogs shown and not yet answered, by id.
+    /// Dialogs and notifications shown and not yet answered, by id.
     replies: HashMap<u64, Reply<M>>,
+    /// Notifications waiting for an answer, oldest first.
+    notifications: Vec<(u64, Notification)>,
     menus: Vec<MenuSpec>,
     status: Option<MenuSpec>,
     actions: HashMap<u64, MenuAction<M>>,
@@ -20,7 +26,7 @@ pub(crate) struct Platform<M> {
 
 impl<M> Default for Platform<M> {
     fn default() -> Platform<M> {
-        Platform { next: 0, replies: HashMap::new(), menus: Vec::new(), status: None, actions: HashMap::new() }
+        Platform { next: 0, replies: HashMap::new(), notifications: Vec::new(), menus: Vec::new(), status: None, actions: HashMap::new() }
     }
 }
 
@@ -31,15 +37,22 @@ impl<M: 'static> Ui<M> {
             let effect = match request {
                 Request::Open(dialog, reply) => {
                     p.next += 1;
-                    p.replies.insert(p.next, reply);
+                    p.replies.insert(p.next, Reply::Paths(reply));
                     Effect::Open { id: p.next, dialog }
                 }
                 Request::Save(dialog, reply) => {
                     p.next += 1;
-                    p.replies.insert(p.next, Box::new(move |paths: Vec<PathBuf>| reply(paths.into_iter().next())));
+                    p.replies.insert(p.next, Reply::Paths(Box::new(move |paths: Vec<PathBuf>| reply(paths.into_iter().next()))));
                     Effect::Save { id: p.next, dialog }
                 }
-                Request::Notify(n) => Effect::Notify(n),
+                Request::Notify(notification, reply) => {
+                    p.next += 1;
+                    if let Some(reply) = reply {
+                        p.replies.insert(p.next, Reply::Notification(reply));
+                        p.notifications.push((p.next, notification.clone()));
+                    }
+                    Effect::Notify { id: p.next, notification }
+                }
                 Request::FullScreen(on) => Effect::FullScreen(on),
             };
             self.core.out.effects.push(effect);
@@ -65,12 +78,30 @@ impl<M: 'static> Ui<M> {
         }
     }
 
-    /// The system's answer to the dialog `Effect::Open` or `Effect::Save` asked for with `id`:
-    /// the paths picked, none if it was cancelled. The app gets the message it asked for.
-    pub fn answer(&mut self, id: u64, paths: Vec<PathBuf>) {
-        if let Some(reply) = self.platform.replies.remove(&id) {
-            self.send(reply(paths));
-        }
+    /// The system's answer to what `Effect::Open`, `Effect::Save` or `Effect::Notify` asked with
+    /// `id`: the paths picked (none if the dialog was cancelled), or a [`NotificationResponse`].
+    /// The app gets the message it asked for, once; an answer of the wrong kind is ignored.
+    pub fn answer(&mut self, id: u64, answer: impl Into<Answer>) {
+        let p = &mut self.platform;
+        let msg = match (p.replies.remove(&id), answer.into()) {
+            (Some(Reply::Paths(reply)), Answer::Paths(paths)) => reply(paths),
+            (Some(Reply::Notification(reply)), Answer::Notification(response)) => {
+                p.notifications.retain(|(n, _)| *n != id);
+                reply(response)
+            }
+            (Some(reply), _) => {
+                p.replies.insert(id, reply);
+                return;
+            }
+            (None, _) => return,
+        };
+        self.send(msg);
+    }
+
+    /// The notifications sent with `Cx::notify_then` and not yet answered, with the ids to answer
+    /// them by, oldest first.
+    pub fn notifications(&self) -> &[(u64, Notification)] {
+        &self.platform.notifications
     }
 
     /// The person chose the menu item with `id`, from the app's menus or its menu-bar item.

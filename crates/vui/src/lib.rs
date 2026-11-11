@@ -92,7 +92,7 @@ pub mod prelude {
     pub use vui_icons::{Icon, Weight, set as icon_set};
     pub use vui_runtime::{
         AUTO, A11y, AccessAction, App, Align, Breakpoint, Builder, Click, Columns, Cx, Div, Element, FileDialog, Focus, FocusGroup, IntoChildren,
-        IntoElement, Justify, Img, Label, Menu, MenuItem, Notification, Overflow, Parent, Pose, Radius, Role, Shortcut, StatusItem, Styled, Track, VirtualList, Width, column, div, fr, grid, img,
+        IntoElement, Justify, Img, Label, Menu, MenuItem, Notification, NotificationResponse, Overflow, Parent, Pose, Radius, Role, Shortcut, StatusItem, Styled, Track, VirtualList, Width, column, div, fr, grid, img,
         label, pct, px, row, small, spacer, title, virtual_list,
     };
     pub use vui_widgets::*;

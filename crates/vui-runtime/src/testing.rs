@@ -35,6 +35,33 @@ impl<M: 'static> TestUi<M> {
         TestUi { ui: Ui::with_app(Resources::bundled_only(), size, scale, app) }
     }
 
+    /// Answers the newest unanswered notification titled `title` as the person would, through
+    /// [`Ui::answer`]. Panics if there is none.
+    pub fn respond(&mut self, title: &str, response: crate::NotificationResponse) -> &mut Self {
+        let id = self.notification(title).0;
+        self.ui.answer(id, response);
+        self
+    }
+
+    /// Presses the button titled `action` on the newest unanswered notification titled `title`.
+    /// Panics if there is no such notification or button.
+    pub fn notification_action(&mut self, title: &str, action: &str) -> &mut Self {
+        let (id, n) = self.notification(title);
+        let i = n.actions.iter().position(|a| a == action).unwrap_or_else(|| panic!("no action {action:?} on notification {title:?}"));
+        self.ui.answer(id, crate::NotificationResponse::Action(i));
+        self
+    }
+
+    fn notification(&self, title: &str) -> (u64, crate::Notification) {
+        self.ui
+            .notifications()
+            .iter()
+            .rev()
+            .find(|(_, n)| n.title == title)
+            .cloned()
+            .unwrap_or_else(|| panic!("no unanswered notification titled {title:?}"))
+    }
+
     /// The hosted app. Panics if there is none or it is another type, which is what a test wants.
     pub fn app<A: App<Msg = M>>(&self) -> &A {
         self.ui.app::<A>().expect("the window does not run an app of this type")

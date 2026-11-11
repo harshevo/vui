@@ -8,7 +8,7 @@ use std::sync::mpsc::Receiver;
 
 use vui_core::{Color, Event, Mode, Point, Size, size};
 use vui_render::{Canvas, CpuRenderer, Renderer};
-use vui_runtime::{Effect, Ui};
+use vui_runtime::{Answer, Effect, Ui};
 
 /// What a frame did, so the view knows when to ask for the next one.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -33,8 +33,9 @@ pub trait Host {
     fn set_system_mode(&mut self, mode: Mode) -> Vec<Effect>;
     /// The system's accessibility settings, as they are now.
     fn set_preferences(&mut self, prefs: vui_core::Preferences) -> Vec<Effect>;
-    /// The paths picked in the dialog the UI asked for with `id`: none if it was cancelled.
-    fn answer(&mut self, id: u64, paths: Vec<PathBuf>) -> Vec<Effect>;
+    /// The system's answer to what the UI asked for with `id`: the paths picked in a dialog (none if
+    /// it was cancelled), or how a notification was answered.
+    fn answer(&mut self, id: u64, answer: Answer) -> Vec<Effect>;
     /// The app's menu item `id` was chosen.
     fn choose_menu(&mut self, id: u64) -> Vec<Effect>;
     /// The app's menus, to put back in the menu bar when the window comes to the front.
@@ -239,8 +240,8 @@ impl<M: 'static> Host for Window<M> {
         self.ui.take_effects()
     }
 
-    fn answer(&mut self, id: u64, paths: Vec<PathBuf>) -> Vec<Effect> {
-        self.ui.answer(id, paths);
+    fn answer(&mut self, id: u64, answer: Answer) -> Vec<Effect> {
+        self.ui.answer(id, answer);
         self.ui.take_effects()
     }
 

@@ -18,6 +18,7 @@ enum Msg {
     ToggleHidden,
     FullScreen,
     Ping,
+    Answered(NotificationResponse),
 }
 
 #[derive(Default)]
@@ -37,13 +38,16 @@ impl App for Notes {
             Msg::Export => cx.save_file(FileDialog::new().file_name("notes.md"), Msg::Exported),
             Msg::Exported(path) => {
                 if let Some(path) = path {
-                    cx.notify(Notification::new("Exported").body(path.display().to_string()));
+                    let note = Notification::new("Exported").body(path.display().to_string()).action("Show full paths");
+                    cx.notify_then(note, Msg::Answered);
                     self.exported = Some(path);
                 }
             }
             Msg::ToggleHidden => self.show_paths = !self.show_paths,
             Msg::FullScreen => cx.toggle_full_screen(),
             Msg::Ping => cx.notify(Notification::new("Notes").body("Still here.").sound()),
+            Msg::Answered(NotificationResponse::Action(0)) => self.show_paths = true,
+            Msg::Answered(_) => {}
         }
     }
 

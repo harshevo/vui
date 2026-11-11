@@ -70,6 +70,7 @@ Helper functions like `controls` keep views readable. They return a builder such
 | `cx.open_files(dialog, Msg::Opened)` | shows an open sheet; the paths picked come back as a message (none if cancelled) |
 | `cx.save_file(dialog, Msg::Saved)` | shows a save sheet; the path comes back as `Option<PathBuf>` |
 | `cx.notify(Notification::new("Done"))` | shows a system notification |
+| `cx.notify_then(notification, Msg::Answered)` | shows one with buttons; how it was answered comes back as a message |
 | `cx.full_screen(true)`, `cx.toggle_full_screen()` | takes the window full screen and back |
 
 Background work, the vui way:
@@ -179,12 +180,60 @@ impl App for Editor {
 On macOS, File goes after the app menu and the others between Edit and Window. Disabled and ticked
 items follow state. Each window's menus come back when the window comes to the front.
 
-Notifications use the system's older notification centre, which needs no extra crate. Unbundled
-binaries may not show them on recent macOS.
-
 In tests, play the system's part: `t.choose("File", "Open…")` picks a menu item. The dialog goes
 out as `Effect::Open { id, .. }`, and `t.ui.answer(id, paths)` answers it. The
 [`notes` example](../crates/vui/examples/notes.rs) shows all of this in a window.
+
+### Notifications with buttons
+
+`Notification::action` adds a button. Send it with `cx.notify_then`, and the answer comes back as
+your message: `NotificationResponse::Action(i)` for the button at index `i`, `Clicked` for the
+notification itself, `Dismissed` when it is closed. Nothing comes back if it is never answered.
+
+```rust
+use vui::prelude::*;
+use vui::testing::TestUi;
+
+#[derive(Clone, Debug, PartialEq)]
+enum Msg {
+    Build,
+    Built(NotificationResponse),
+}
+
+#[derive(Default)]
+struct Ci {
+    retries: u32,
+}
+
+impl App for Ci {
+    type Msg = Msg;
+
+    fn update(&mut self, msg: Msg, cx: &mut Cx<Msg>) {
+        match msg {
+            Msg::Build => cx.notify_then(Notification::new("Build failed").body("2 errors").action("Retry").action("Show log"), Msg::Built),
+            Msg::Built(NotificationResponse::Action(0)) => self.retries += 1,
+            Msg::Built(_) => {}
+        }
+    }
+
+    fn view(&self) -> impl IntoElement<Msg> {
+        button("Build").key("build").on_click(Msg::Build)
+    }
+}
+
+let mut t = TestUi::with_app(200.0, 100.0, Ci::default());
+t.click_key("build");
+t.notification_action("Build failed", "Retry");
+assert_eq!(t.app::<Ci>().retries, 1);
+```
+
+`t.respond(title, NotificationResponse::Dismissed)` answers the newest unanswered notification with
+that title; `t.ui.notifications()` lists the ones waiting.
+
+On macOS, notifications go through `UNUserNotificationCenter`. The system asks the person for
+permission the first time, and shows notifications only for an app that runs from a bundle (`.app`)
+with an identifier; under `cargo run` vui prints a warning instead. Banners show even while the app
+is in front. Each set of button titles becomes a notification category, registered on first use.
 
 ## Identity: keys
 

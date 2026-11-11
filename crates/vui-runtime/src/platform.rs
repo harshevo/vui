@@ -63,12 +63,15 @@ impl FileDialog {
     }
 }
 
-/// A notification shown by the system, outside the window.
+/// A notification shown by the system, outside the window, with buttons the person can answer it
+/// with. Send it with `Cx::notify`, or with `Cx::notify_then` to hear how it was answered.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Notification {
     pub title: String,
     pub body: String,
     pub sound: bool,
+    /// The titles of its buttons, in order: an answer names one by its index.
+    pub actions: Vec<String>,
 }
 
 impl Notification {
@@ -84,6 +87,44 @@ impl Notification {
     pub fn sound(mut self) -> Notification {
         self.sound = true;
         self
+    }
+
+    /// Adds a button: [`NotificationResponse::Action`] carries its index, counted from 0 in the
+    /// order they were added.
+    pub fn action(mut self, title: impl Into<String>) -> Notification {
+        self.actions.push(title.into());
+        self
+    }
+}
+
+/// How the person answered a notification.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum NotificationResponse {
+    /// They clicked the notification itself.
+    Clicked,
+    /// They pressed the button at this index of [`Notification::actions`].
+    Action(usize),
+    /// They closed it without choosing.
+    Dismissed,
+}
+
+/// What the system answers a request with, through [`Ui::answer`](crate::Ui::answer): the paths
+/// picked in a dialog, or how a notification was answered.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Answer {
+    Paths(Vec<PathBuf>),
+    Notification(NotificationResponse),
+}
+
+impl From<Vec<PathBuf>> for Answer {
+    fn from(paths: Vec<PathBuf>) -> Answer {
+        Answer::Paths(paths)
+    }
+}
+
+impl From<NotificationResponse> for Answer {
+    fn from(response: NotificationResponse) -> Answer {
+        Answer::Notification(response)
     }
 }
 

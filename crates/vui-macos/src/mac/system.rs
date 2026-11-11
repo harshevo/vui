@@ -1,4 +1,4 @@
-//! What an app asks of macOS beyond its window: open and save sheets, notifications, full screen,
+//! What an app asks of macOS beyond its window: open and save sheets, full screen,
 //! its menus in the menu bar with their shortcuts, and an item in the menu bar.
 
 use std::path::PathBuf;
@@ -46,7 +46,7 @@ impl VuiView {
         let done = RcBlock::new(move |response: isize| {
             let paths = if response == NSModalResponseOK { chosen(&shown, save) } else { Vec::new() };
             if let Some(view) = view.load() {
-                let effects = view.with_host(|h| h.answer(id, paths)).unwrap_or_default();
+                let effects = view.with_host(|h| h.answer(id, paths.into())).unwrap_or_default();
                 view.after_input(effects);
             }
         });
@@ -64,23 +64,6 @@ impl VuiView {
         let is = window.styleMask().contains(NSWindowStyleMask::FullScreen);
         if on.is_none_or(|on| on != is) {
             window.toggleFullScreen(None);
-        }
-    }
-
-    pub(super) fn notify(&self, n: &vui_runtime::Notification) {
-        // UNUserNotificationCenter needs another crate; this older centre needs none.
-        #[allow(deprecated)]
-        {
-            use objc2_foundation::{NSUserNotification, NSUserNotificationCenter, NSUserNotificationDefaultSoundName};
-            let note = NSUserNotification::new();
-            note.setTitle(Some(&NSString::from_str(&n.title)));
-            if !n.body.is_empty() {
-                note.setInformativeText(Some(&NSString::from_str(&n.body)));
-            }
-            if n.sound {
-                note.setSoundName(Some(unsafe { NSUserNotificationDefaultSoundName }));
-            }
-            NSUserNotificationCenter::defaultUserNotificationCenter().deliverNotification(&note);
         }
     }
 

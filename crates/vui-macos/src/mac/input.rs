@@ -81,7 +81,7 @@ impl VuiView {
                 }
                 Effect::Open { id, dialog } => self.open_dialog(id, &dialog, false),
                 Effect::Save { id, dialog } => self.open_dialog(id, &dialog, true),
-                Effect::Notify(n) => self.notify(&n),
+                Effect::Notify { id, notification } => self.notify(id, &notification),
                 Effect::FullScreen(on) => self.set_full_screen(on),
                 Effect::Menus(menus) => self.set_menus(&menus),
                 Effect::StatusItem(item) => self.set_status_item(item.as_ref()),
