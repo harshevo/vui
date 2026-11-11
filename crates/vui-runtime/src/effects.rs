@@ -4,6 +4,8 @@ use std::cell::RefCell;
 
 use vui_core::{CursorIcon, Rect};
 
+use crate::platform::{FileDialog, MenuSpec, Notification};
+
 /// Something the runtime wants the window system to do. The backend drains these after every event
 /// and frame with `Ui::take_effects`.
 #[derive(Clone, Debug, PartialEq)]
@@ -14,6 +16,19 @@ pub enum Effect {
     /// Where the text caret is, in window coordinates, so the input method can place its candidate
     /// window. `None` means no text input has focus and the input method should stand down.
     ImeArea(Option<Rect>),
+    /// Ask for files or folders to open; answer with `Ui::answer(id, paths)`, empty if cancelled.
+    Open { id: u64, dialog: FileDialog },
+    /// Ask where to save; answer with `Ui::answer(id, paths)`, one path or none if cancelled.
+    Save { id: u64, dialog: FileDialog },
+    /// Show a notification.
+    Notify(Notification),
+    /// Go full screen (true), leave it (false), or switch (None).
+    FullScreen(Option<bool>),
+    /// The app's own menus, to put in the menu bar in place of the ones before. Report choices
+    /// with `Ui::choose_menu(id)`.
+    Menus(Vec<MenuSpec>),
+    /// The app's menu-bar item, or none.
+    StatusItem(Option<MenuSpec>),
 }
 
 /// Clipboard access: text both ways, and a picture to paste. The backend installs the system

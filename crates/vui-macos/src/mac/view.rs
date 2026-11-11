@@ -19,6 +19,8 @@ pub struct ViewIvars {
     pub(super) marked: RefCell<String>,
     /// Where the caret is, in view coordinates, for placing the candidate window.
     pub(super) caret: Cell<Option<Rect>>,
+    /// The app's item in the menu bar, while it has one.
+    pub(super) status: RefCell<Option<Retained<objc2_app_kit::NSStatusItem>>>,
 }
 
 define_class!(
@@ -50,6 +52,11 @@ define_class!(
         fn set_frame_size(&self, new_size: NSSize) {
             let _: () = unsafe { msg_send![super(self), setFrameSize: new_size] };
             self.resized();
+        }
+
+        #[unsafe(method(vuiMenuChosen:))]
+        fn vui_menu_chosen(&self, item: &NSMenuItem) {
+            self.menu_chosen(item.tag() as u64);
         }
 
         #[unsafe(method(viewDidChangeBackingProperties))]
@@ -329,6 +336,7 @@ impl VuiView {
             last_frame: Cell::new(None),
             timer: RefCell::new(None),
             pending: RefCell::new(None),
+            status: RefCell::new(None),
             marked: RefCell::new(String::new()),
             caret: Cell::new(None),
         });

@@ -59,6 +59,25 @@ impl<M: 'static> TestUi<M> {
         self.ui.take_effects()
     }
 
+    /// Chooses `item` from the app's menu titled `menu`, or from its menu-bar item when `menu` is
+    /// its title. Panics if there is no such item.
+    pub fn choose(&mut self, menu: &str, item: &str) -> &mut Self {
+        let id = self
+            .ui
+            .menus()
+            .iter()
+            .chain(self.ui.status_item())
+            .filter(|m| m.title == menu)
+            .flat_map(|m| &m.items)
+            .find_map(|i| match i {
+                crate::platform::ItemSpec::Item { id, title, .. } if title == item => Some(*id),
+                _ => None,
+            })
+            .unwrap_or_else(|| panic!("no item {item:?} in menu {menu:?}"));
+        self.ui.choose_menu(id);
+        self
+    }
+
     pub fn scene(&mut self) -> Scene {
         self.ui.paint()
     }

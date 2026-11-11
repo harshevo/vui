@@ -33,6 +33,11 @@ the API.
 - Accessibility settings: `Preferences` (reduce motion, high contrast, text scale),
   `Ui::set_preferences`, and `Theme::adapted`. macOS windows follow Reduce Motion and Increase
   Contrast. Widgets get `TickCx::step`, `TickCx::still` and `PaintCx::effect_time`.
+- Platform: `App::menus` and `App::status_item` with `Menu`, `MenuItem` and `Shortcut`;
+  `cx.open_files`, `cx.save_file`, `cx.notify`, `cx.full_screen` and `cx.toggle_full_screen`.
+  Answers arrive through `Ui::answer` and `Ui::choose_menu`, and `TestUi::choose` plays the user
+  in tests. The macOS backend shows sheets, installs the menus and the status item, and goes full
+  screen. New `notes` example.
 - Project files: workspace metadata and lints, CI on macOS and Linux, a frame benchmark, this
   changelog and contributor notes.
 

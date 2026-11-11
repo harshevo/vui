@@ -10,6 +10,7 @@ pub(crate) use query::find_id;
 pub(crate) use tree::*;
 use view::*;
 mod clock;
+mod platform;
 mod preferences;
 mod query;
 mod tree;
@@ -129,6 +130,8 @@ pub struct Ui<M: 'static> {
     flagged: HashSet<NodeId>,
     /// Messages waiting for their time (`Cx::after`), as (UI time due, message), in the order set.
     timers: Vec<(f32, M)>,
+    /// Dialogs waiting for answers, the app's menus and their actions.
+    platform: platform::Platform<M>,
 }
 
 /// A timer counts as due this close to its time, so a clock summed from frame steps still fires it.
@@ -178,6 +181,7 @@ impl<M: 'static> Ui<M> {
             inbox,
             flagged: HashSet::new(),
             timers: Vec::new(),
+            platform: platform::Platform::default(),
         }
     }
 
@@ -199,9 +203,10 @@ impl<M: 'static> Ui<M> {
     fn show(&mut self, driver: &dyn Driver<M>) {
         self.set_view(driver.view());
         let theme = driver.theme(self.system);
-        if theme != *self.core.env.theme {
+        if theme != *self.core.env.designed {
             self.set_theme(theme);
         }
+        self.refresh_menus(driver);
     }
 
     /// Hands the hosted app the messages widgets have sent and shows its new view, until nothing more
@@ -229,6 +234,7 @@ impl<M: 'static> Ui<M> {
             if let Some(key) = cx.focus {
                 self.focus_key(key);
             }
+            self.request(cx.requests);
         }
         self.driver = Some(driver);
     }

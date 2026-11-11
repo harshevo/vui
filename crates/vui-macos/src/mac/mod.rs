@@ -9,6 +9,7 @@ mod pasteboard;
 pub use pasteboard::Pasteboard;
 
 mod menu;
+mod system;
 use menu::main_menu;
 
 mod frames;

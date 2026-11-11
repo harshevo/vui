@@ -39,6 +39,7 @@ define_class!(
         fn did_become_key(&self, _notification: &NSNotification) {
             if let Some(view) = self.ivars().view.load() {
                 view.refresh_preferences();
+                view.reinstall_menus();
                 view.send(Event::WindowFocus(true));
             }
         }

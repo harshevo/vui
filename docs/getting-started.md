@@ -76,6 +76,7 @@ The repository has three example apps. Each is also driven headless in `crates/v
 cargo run -p vui --example hello       # the counter
 cargo run -p vui --example todo        # text input, a list built from data, filters
 cargo run -p vui --example dashboard   # sidebar, stat cards, a chart and a table; resize it
+cargo run -p vui --example notes       # app menus and shortcuts, open and save sheets, a menu-bar item
 ```
 
 The gallery shows every widget in light and dark:

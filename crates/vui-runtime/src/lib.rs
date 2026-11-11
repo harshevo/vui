@@ -9,6 +9,7 @@ pub mod builtin;
 pub mod effects;
 pub mod element;
 pub mod key;
+pub mod platform;
 pub mod layout;
 mod node;
 mod paint;
@@ -27,6 +28,7 @@ pub use element::{
     spacer, virtual_list,
 };
 pub use key::Key;
+pub use platform::{FileDialog, Menu, MenuItem, Notification, Shortcut, StatusItem};
 pub use responsive::{Breakpoint, Restyle, Width};
 pub use style::{
     AUTO, Align, Axis, Columns, Direction, Edges, Grid, Justify, Len, Overflow, Position, Sides, Style, Styled, Thumb, Track, fr, pct, px,

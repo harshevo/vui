@@ -85,14 +85,14 @@ pub mod testing {
 /// element `Key` of `vui_runtime`. Spell them `core::Key` and `runtime::Key`.
 pub mod prelude {
     pub use vui_core::{
-        Color, Corners, CursorIcon, Easing, Fill, Insets, Keyframes, Mode, NamedKey, Point, Preferences, Rect, Repeat, Shadow, Size, Spring, Theme, Tone,
+        Color, Corners, CursorIcon, Easing, Fill, Insets, Keyframes, Mode, Modifiers, NamedKey, Point, Preferences, Rect, Repeat, Shadow, Size, Spring, Theme, Tone,
         pt, rect, size,
         shading::Gradient,
     };
     pub use vui_icons::{Icon, Weight, set as icon_set};
     pub use vui_runtime::{
-        AUTO, A11y, AccessAction, App, Align, Breakpoint, Builder, Click, Columns, Cx, Div, Element, Focus, FocusGroup, IntoChildren,
-        IntoElement, Justify, Img, Label, Overflow, Parent, Pose, Radius, Role, Styled, Track, VirtualList, Width, column, div, fr, grid, img,
+        AUTO, A11y, AccessAction, App, Align, Breakpoint, Builder, Click, Columns, Cx, Div, Element, FileDialog, Focus, FocusGroup, IntoChildren,
+        IntoElement, Justify, Img, Label, Menu, MenuItem, Notification, Overflow, Parent, Pose, Radius, Role, Shortcut, StatusItem, Styled, Track, VirtualList, Width, column, div, fr, grid, img,
         label, pct, px, row, small, spacer, title, virtual_list,
     };
     pub use vui_widgets::*;

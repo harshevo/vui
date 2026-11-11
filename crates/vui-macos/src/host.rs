@@ -33,6 +33,12 @@ pub trait Host {
     fn set_system_mode(&mut self, mode: Mode) -> Vec<Effect>;
     /// The system's accessibility settings, as they are now.
     fn set_preferences(&mut self, prefs: vui_core::Preferences) -> Vec<Effect>;
+    /// The paths picked in the dialog the UI asked for with `id`: none if it was cancelled.
+    fn answer(&mut self, id: u64, paths: Vec<PathBuf>) -> Vec<Effect>;
+    /// The app's menu item `id` was chosen.
+    fn choose_menu(&mut self, id: u64) -> Vec<Effect>;
+    /// The app's menus, to put back in the menu bar when the window comes to the front.
+    fn menu_effects(&self) -> Vec<Effect>;
     /// Advances time by `dt` and draws if anything changed.
     fn frame(&mut self, dt: f32) -> (FrameResult, Vec<Effect>);
     /// Draws now, without moving time: after a resize.
@@ -231,6 +237,20 @@ impl<M: 'static> Host for Window<M> {
     fn set_preferences(&mut self, prefs: vui_core::Preferences) -> Vec<Effect> {
         self.ui.set_preferences(prefs);
         self.ui.take_effects()
+    }
+
+    fn answer(&mut self, id: u64, paths: Vec<PathBuf>) -> Vec<Effect> {
+        self.ui.answer(id, paths);
+        self.ui.take_effects()
+    }
+
+    fn choose_menu(&mut self, id: u64) -> Vec<Effect> {
+        self.ui.choose_menu(id);
+        self.ui.take_effects()
+    }
+
+    fn menu_effects(&self) -> Vec<Effect> {
+        vec![Effect::Menus(self.ui.menus().to_vec())]
     }
 
     fn frame(&mut self, dt: f32) -> (FrameResult, Vec<Effect>) {

@@ -3,6 +3,7 @@
 
 use std::any::Any;
 use std::cell::Cell;
+use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::mpsc::Sender;
@@ -12,6 +13,7 @@ use vui_core::{Mode, Size, Theme};
 
 use crate::element::{Element, IntoElement};
 use crate::key::Key;
+use crate::platform::{FileDialog, Notification};
 
 /// An application: some state, a view of it, and how messages change it.
 ///
@@ -62,6 +64,18 @@ pub trait App: 'static {
         let _ = size;
         None
     }
+
+    /// The app's own menus in the menu bar, with their shortcuts: "File" after the app menu, the
+    /// rest between Edit and Window. Asked
+    /// again after every update, so items can be enabled, ticked or renamed from state.
+    fn menus(&self) -> Vec<crate::Menu<Self::Msg>> {
+        Vec::new()
+    }
+
+    /// An item in the system menu bar for as long as the app wants one.
+    fn status_item(&self) -> Option<crate::StatusItem<Self::Msg>> {
+        None
+    }
 }
 
 /// Wakes the window's event loop from another thread, so it collects what background tasks sent.
@@ -77,6 +91,15 @@ pub struct Cx<M: 'static> {
     pub(crate) then: Vec<M>,
     pub(crate) timers: Vec<(f32, M)>,
     pub(crate) tasks: Tasks<M>,
+    pub(crate) requests: Vec<Request<M>>,
+}
+
+/// What `update` asked of the system, waiting to go out as effects.
+pub(crate) enum Request<M> {
+    Open(FileDialog, Box<dyn FnOnce(Vec<PathBuf>) -> M>),
+    Save(FileDialog, Box<dyn FnOnce(Option<PathBuf>) -> M>),
+    Notify(Notification),
+    FullScreen(Option<bool>),
 }
 
 /// Where background tasks send their answers.
@@ -95,7 +118,7 @@ impl<M> Clone for Tasks<M> {
 
 impl<M: 'static> Cx<M> {
     pub(crate) fn new(tasks: Tasks<M>) -> Cx<M> {
-        Cx { focus: None, quit: false, pass_clicks: None, take_keys: None, then: Vec::new(), timers: Vec::new(), tasks }
+        Cx { focus: None, quit: false, pass_clicks: None, take_keys: None, then: Vec::new(), timers: Vec::new(), tasks, requests: Vec::new() }
     }
 
     /// Moves focus to the keyed element once the new view is in place.
@@ -132,6 +155,39 @@ impl<M: 'static> Cx<M> {
     /// it is in front. The backend reads [`Ui::takes_keys`](crate::Ui::takes_keys).
     pub fn take_keys(&mut self, take: bool) {
         self.take_keys = Some(take);
+    }
+
+    /// Shows an open dialog and sends `reply` with what was picked: no paths if it was cancelled.
+    ///
+    /// ```
+    /// # use std::path::PathBuf;
+    /// # use vui_runtime::{Cx, FileDialog};
+    /// # enum Msg { Opened(Vec<PathBuf>) }
+    /// # fn open(cx: &mut Cx<Msg>) {
+    /// cx.open_files(FileDialog::new().extensions(["md", "txt"]).multiple(), Msg::Opened);
+    /// # }
+    /// ```
+    pub fn open_files(&mut self, dialog: FileDialog, reply: impl FnOnce(Vec<PathBuf>) -> M + 'static) {
+        self.requests.push(Request::Open(dialog, Box::new(reply)));
+    }
+
+    /// Shows a save dialog and sends `reply` with the path chosen, or `None` if it was cancelled.
+    pub fn save_file(&mut self, dialog: FileDialog, reply: impl FnOnce(Option<PathBuf>) -> M + 'static) {
+        self.requests.push(Request::Save(dialog, Box::new(reply)));
+    }
+
+    /// Shows a system notification.
+    pub fn notify(&mut self, notification: Notification) {
+        self.requests.push(Request::Notify(notification));
+    }
+
+    /// Takes the window full screen, or brings it back.
+    pub fn full_screen(&mut self, on: bool) {
+        self.requests.push(Request::FullScreen(Some(on)));
+    }
+
+    pub fn toggle_full_screen(&mut self) {
+        self.requests.push(Request::FullScreen(None));
     }
 }
 
@@ -201,6 +257,8 @@ pub(crate) trait Driver<M> {
     fn view(&self) -> Element<M>;
     fn theme(&self, system: Mode) -> Theme;
     fn resized(&self, size: Size) -> Option<M>;
+    fn menus(&self) -> Vec<crate::Menu<M>>;
+    fn status_item(&self) -> Option<crate::StatusItem<M>>;
     fn as_any(&self) -> &dyn Any;
     fn as_any_mut(&mut self) -> &mut dyn Any;
 }
@@ -220,6 +278,14 @@ impl<A: App> Driver<A::Msg> for A {
 
     fn resized(&self, size: Size) -> Option<A::Msg> {
         App::resized(self, size)
+    }
+
+    fn menus(&self) -> Vec<crate::Menu<A::Msg>> {
+        App::menus(self)
+    }
+
+    fn status_item(&self) -> Option<crate::StatusItem<A::Msg>> {
+        App::status_item(self)
     }
 
     fn as_any(&self) -> &dyn Any {

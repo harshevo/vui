@@ -67,6 +67,10 @@ Helper functions like `controls` keep views readable. They return a builder such
 | `cx.spawn(\|\| work())` | runs blocking work on another thread; its return value comes back as a message |
 | `cx.sender()` | an `AppSender` that sends messages from any thread for as long as the window lives |
 | `cx.quit()` | closes the app |
+| `cx.open_files(dialog, Msg::Opened)` | shows an open sheet; the paths picked come back as a message (none if cancelled) |
+| `cx.save_file(dialog, Msg::Saved)` | shows a save sheet; the path comes back as `Option<PathBuf>` |
+| `cx.notify(Notification::new("Done"))` | shows a system notification |
+| `cx.full_screen(true)`, `cx.toggle_full_screen()` | takes the window full screen and back |
 
 Background work, the vui way:
 
@@ -119,6 +123,68 @@ impl App for Reader {
 
 The UI stays responsive while the thread runs. Show progress from state you set before spawning
 (`loading` above).
+
+## Menus, shortcuts and the menu bar
+
+An app describes its menus the way it describes its view: from state, asked again after every
+update. Items send plain messages, so a shortcut and a button can share one.
+
+```rust
+use std::path::PathBuf;
+use vui::prelude::*;
+
+#[derive(Clone)]
+enum Msg {
+    Open,
+    Opened(Vec<PathBuf>),
+    ToggleGrid,
+    Ping,
+}
+
+#[derive(Default)]
+struct Editor {
+    files: Vec<PathBuf>,
+    grid: bool,
+}
+
+impl App for Editor {
+    type Msg = Msg;
+
+    fn update(&mut self, msg: Msg, cx: &mut Cx<Msg>) {
+        match msg {
+            Msg::Open => cx.open_files(FileDialog::new().extensions(["md"]).multiple(), Msg::Opened),
+            Msg::Opened(files) => self.files.extend(files),
+            Msg::ToggleGrid => self.grid = !self.grid,
+            Msg::Ping => cx.notify(Notification::new("Editor").body("Still here")),
+        }
+    }
+
+    fn view(&self) -> impl IntoElement<Msg> {
+        label(format!("{} files", self.files.len()))
+    }
+
+    fn menus(&self) -> Vec<Menu<Msg>> {
+        vec![
+            Menu::new("File", [MenuItem::new("Open…", Msg::Open).shortcut(Shortcut::cmd('o'))]),
+            Menu::new("View", [MenuItem::new("Grid", Msg::ToggleGrid).checked(self.grid)]),
+        ]
+    }
+
+    fn status_item(&self) -> Option<StatusItem<Msg>> {
+        Some(StatusItem::new("Ed", [MenuItem::new("Ping", Msg::Ping)]))
+    }
+}
+```
+
+On macOS, File goes after the app menu and the others between Edit and Window. Disabled and ticked
+items follow state. Each window's menus come back when the window comes to the front.
+
+Notifications use the system's older notification centre, which needs no extra crate. Unbundled
+binaries may not show them on recent macOS.
+
+In tests, play the system's part: `t.choose("File", "Open…")` picks a menu item. The dialog goes
+out as `Effect::Open { id, .. }`, and `t.ui.answer(id, paths)` answers it. The
+[`notes` example](../crates/vui/examples/notes.rs) shows all of this in a window.
 
 ## Identity: keys
 
