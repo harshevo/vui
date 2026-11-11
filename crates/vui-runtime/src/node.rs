@@ -14,7 +14,7 @@ use crate::element::{Base, Decor, Element, Input};
 use crate::key::{Key, NodeId};
 use crate::layout::{Avail, LayoutCache, LayoutNode, NodeLayout, Pair};
 use crate::responsive::{self, Rule};
-use crate::style::{Axis, Len, Overflow, Style, Thumb};
+use crate::style::{Axis, Len, Overflow, Position, Style, Thumb};
 use crate::widget::{Dirty, Env, Erased, Focus, TickCx};
 
 /// Hover, press, focus and drop fades: critically damped, so they never overshoot a 0 to 1 amount.
@@ -519,6 +519,11 @@ impl<M: 'static> Node<M> {
         let off = self.scroll.offset();
         let base = pt(self.rect.x - off.x, self.rect.y - off.y);
         for child in &mut self.children {
+            if child.eff.position == Position::Fixed {
+                // Placed against the window, whatever it sits in.
+                child.arrange(Point::ZERO, None);
+                continue;
+            }
             // A floating element is above everything, so nothing it sits in cuts it off.
             child.arrange(base, if child.eff.float { None } else { child_clip });
         }

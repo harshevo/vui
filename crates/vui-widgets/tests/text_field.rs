@@ -31,7 +31,7 @@ struct Form {
 impl App for Form {
     type Msg = Msg;
 
-    fn update(&mut self, msg: Msg, _cx: &mut Cx) {
+    fn update(&mut self, msg: Msg, _cx: &mut Cx<Msg>) {
         match msg {
             Msg::Text(t) => {
                 if !self.digits_only || t.chars().all(|c| c.is_ascii_digit()) {

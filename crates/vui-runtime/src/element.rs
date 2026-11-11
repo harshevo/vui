@@ -27,6 +27,7 @@
 //! ```
 
 use std::path::PathBuf;
+use std::rc::Rc;
 
 use vui_core::theme::PILL;
 use vui_core::{Corners, CursorIcon, Fill, KeyEvent, Modifiers, Point, PointerButton, Spring, Theme};
@@ -35,7 +36,7 @@ use crate::access::{A11y, Role};
 use crate::key::Key;
 use crate::responsive::{Restyle, Rule, Width};
 use crate::style::{Axis, Style, Styled};
-use crate::widget::{Dirty, Erased, Focus, Widget};
+use crate::widget::{Dirty, Erased, Focus, Mapped, Plain, Widget};
 
 /// How round an element's corners are. Tokens follow the theme, so restyling the theme restyles every
 /// card at once.
@@ -183,6 +184,12 @@ pub(crate) struct Input<M> {
     pub disabled: bool,
     pub pointer_events: bool,
     pub window_drag: bool,
+    /// Sent when a press lands outside the element, or Escape goes unanswered while it shows.
+    pub dismiss: Option<Box<dyn Fn() -> M>>,
+    /// Takes focus when it first appears.
+    pub autofocus: bool,
+    /// Keeps Tab inside the element while it shows: a dialog.
+    pub trap_focus: bool,
 }
 
 impl<M> Default for Input<M> {
@@ -202,6 +209,51 @@ impl<M> Default for Input<M> {
             disabled: false,
             pointer_events: true,
             window_drag: false,
+            dismiss: None,
+            autofocus: false,
+            trap_focus: false,
+        }
+    }
+}
+
+impl<M: 'static> Input<M> {
+    fn map<N: 'static>(self, f: &Rc<dyn Fn(M) -> N>) -> Input<N> {
+        let click = |h: Option<Handler<M>>| -> Option<Handler<N>> {
+            h.map(|h| {
+                let f = f.clone();
+                Box::new(move |c: &Click| f(h(c))) as Handler<N>
+            })
+        };
+        Input {
+            click: click(self.click),
+            press: click(self.press),
+            double_click: click(self.double_click),
+            secondary: click(self.secondary),
+            hover: self.hover.map(|h| {
+                let f = f.clone();
+                Box::new(move |on: bool| f(h(on))) as Box<dyn Fn(bool) -> N>
+            }),
+            key: self.key.map(|h| {
+                let f = f.clone();
+                Box::new(move |k: &KeyEvent| h(k).map(|m| f(m))) as KeyHandler<N>
+            }),
+            drop: self.drop.map(|h| {
+                let f = f.clone();
+                Box::new(move |paths: Vec<PathBuf>| f(h(paths))) as Box<dyn Fn(Vec<PathBuf>) -> N>
+            }),
+            dismiss: self.dismiss.map(|h| {
+                let f = f.clone();
+                Box::new(move || f(h())) as Box<dyn Fn() -> N>
+            }),
+            focus: self.focus,
+            group: self.group,
+            tab_default: self.tab_default,
+            cursor: self.cursor,
+            disabled: self.disabled,
+            pointer_events: self.pointer_events,
+            window_drag: self.window_drag,
+            autofocus: self.autofocus,
+            trap_focus: self.trap_focus,
         }
     }
 }
@@ -260,7 +312,35 @@ pub struct Element<M: 'static> {
 
 impl<M: 'static> Element<M> {
     pub fn new<W: Widget<M>>(widget: W, base: Base<M>, children: Vec<Element<M>>) -> Element<M> {
-        Element { base, widget: Box::new(widget), children }
+        Element { base, widget: Box::new(Plain(widget)), children }
+    }
+
+    /// Turns every message this element and its children send into another type, so a component
+    /// with messages of its own sits inside a bigger app:
+    ///
+    /// ```
+    /// use vui_runtime::{Builder, Element, IntoElement, Parent, column, label};
+    ///
+    /// #[derive(Clone)]
+    /// enum CounterMsg { Add }
+    /// fn counter(n: u32) -> Element<CounterMsg> {
+    ///     column().on_click(CounterMsg::Add).child(label(n.to_string())).into_element()
+    /// }
+    ///
+    /// enum Msg { Left(CounterMsg), Right(CounterMsg) }
+    /// let both: Element<Msg> = column().children((counter(1).map(Msg::Left), counter(2).map(Msg::Right))).into_element();
+    /// ```
+    pub fn map<N: 'static>(self, f: impl Fn(M) -> N + 'static) -> Element<N> {
+        let f: Rc<dyn Fn(M) -> N> = Rc::new(f);
+        self.map_rc(&f)
+    }
+
+    fn map_rc<N: 'static>(self, f: &Rc<dyn Fn(M) -> N>) -> Element<N> {
+        let Element { base, widget, children } = self;
+        let Base { style, rules, decor, input, a11y, key, transition, appear } = base;
+        let base = Base { style, rules, decor, input: input.map(f), a11y, key, transition, appear };
+        let widget: Box<dyn Erased<N>> = Box::new(Mapped { inner: widget, f: f.clone() });
+        Element { base, widget, children: children.into_iter().map(|c| c.map_rc(f)).collect() }
     }
 }
 
@@ -272,6 +352,17 @@ pub trait IntoElement<M: 'static> {
 impl<M: 'static> IntoElement<M> for Element<M> {
     fn into_element(self) -> Element<M> {
         self
+    }
+}
+
+/// A child that is only sometimes there, inside a tuple of children: `(title, editing.then(|| field))`.
+/// When absent it is a hidden, empty element, so the children after it keep their places and state.
+impl<M: 'static, E: IntoElement<M>> IntoElement<M> for Option<E> {
+    fn into_element(self) -> Element<M> {
+        match self {
+            Some(e) => e.into_element(),
+            None => div().hidden(true).a11y_hidden(true).into_element(),
+        }
     }
 }
 
@@ -501,6 +592,30 @@ pub trait Builder<M: 'static>: Styled {
     /// Accepts files dropped on the element.
     fn on_drop(mut self, f: impl Fn(Vec<PathBuf>) -> M + 'static) -> Self {
         self.base_mut().input.drop = Some(Box::new(f));
+        self
+    }
+
+    /// Sends `message` when a press lands outside the element, or Escape is pressed and nothing
+    /// focused answers it: how menus, popovers and dialogs close. The press that dismisses goes no
+    /// further. With several open, Escape closes the topmost first.
+    fn on_dismiss(mut self, message: M) -> Self
+    where
+        M: Clone,
+    {
+        self.base_mut().input.dismiss = Some(Box::new(move || message.clone()));
+        self
+    }
+
+    /// Takes keyboard focus when the element first appears: the field of a dialog, a menu's first item.
+    fn autofocus(mut self) -> Self {
+        self.base_mut().input.autofocus = true;
+        self
+    }
+
+    /// Keeps Tab going round the focusable elements inside this one while it shows, and moves focus
+    /// into it when it appears: a dialog.
+    fn trap_focus(mut self) -> Self {
+        self.base_mut().input.trap_focus = true;
         self
     }
 

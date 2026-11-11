@@ -134,7 +134,11 @@ impl<M: 'static> Run<'_, M> {
             return;
         }
         self.update_hover(Some(pos));
-        let Some(path) = hit(self.root, pos) else {
+        let path = hit(self.root, pos);
+        if self.dismiss_outside(path.as_deref()) {
+            return;
+        }
+        let Some(path) = path else {
             self.set_focus_by(None, false, FocusBy::Pointer);
             return;
         };
@@ -172,6 +176,32 @@ impl<M: 'static> Run<'_, M> {
                 _ => {}
             }
         }
+    }
+
+    /// A press outside elements that close on one (`on_dismiss`) closes them, and goes no further:
+    /// the click that closes a menu does not also press what is under it.
+    fn dismiss_outside(&mut self, hit: Option<&[usize]>) -> bool {
+        let mut dismissed = false;
+        for path in dismissible(self.root) {
+            if hit.is_some_and(|h| h.starts_with(&path)) {
+                continue;
+            }
+            if let Some(h) = &node_at(self.root, &path).input.dismiss {
+                let message = h();
+                self.core.out.messages.push(message);
+                dismissed = true;
+            }
+        }
+        dismissed
+    }
+
+    /// Escape that nothing focused answered closes the topmost element that closes on it.
+    fn dismiss_top(&mut self) -> bool {
+        let Some(path) = dismissible(self.root).pop() else { return false };
+        let Some(h) = &node_at(self.root, &path).input.dismiss else { return false };
+        let message = h();
+        self.core.out.messages.push(message);
+        true
     }
 
     fn begin_press(&mut self, path: &[usize], press: Press) {
@@ -508,6 +538,9 @@ impl<M: 'static> Run<'_, M> {
         if !key.pressed {
             return;
         }
+        if key.key == vui_core::Key::Named(NamedKey::Escape) && !key.mods.any() && self.dismiss_top() {
+            return;
+        }
         match key.key {
             vui_core::Key::Named(NamedKey::Tab) if !key.mods.cmd && !key.mods.ctrl && !key.mods.alt => {
                 self.tab(key.mods.shift);
@@ -526,7 +559,11 @@ impl<M: 'static> Run<'_, M> {
 
     /// Moves focus to the next (or previous) Tab stop, wrapping around. A focus group is one stop.
     fn tab(&mut self, backwards: bool) {
-        let stops = collect_stops(self.root);
+        // Inside a focus trap, Tab goes round its stops only.
+        let stops = match focus_trap(self.root) {
+            Some(path) => collect_stops(node_at(self.root, &path)),
+            None => collect_stops(self.root),
+        };
         let n = stops.len();
         if n == 0 {
             return;

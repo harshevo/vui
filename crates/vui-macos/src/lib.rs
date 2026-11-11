@@ -5,7 +5,7 @@
 //! # struct Hello;
 //! # impl App for Hello {
 //! #     type Msg = ();
-//! #     fn update(&mut self, _: (), _: &mut Cx) {}
+//! #     fn update(&mut self, _: (), _: &mut Cx<()>) {}
 //! #     fn view(&self) -> impl IntoElement<()> { label("Hello") }
 //! # }
 //! vui_macos::run(vui_macos::WindowOptions::new("Hello"), |_resources| Hello).unwrap();

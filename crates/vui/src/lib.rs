@@ -16,7 +16,7 @@
 //! impl App for Notes {
 //!     type Msg = Msg;
 //!
-//!     fn update(&mut self, msg: Msg, _cx: &mut Cx) {
+//!     fn update(&mut self, msg: Msg, _cx: &mut Cx<Msg>) {
 //!         match msg {
 //!             Msg::Save => self.saved = true,
 //!         }

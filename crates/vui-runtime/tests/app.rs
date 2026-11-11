@@ -23,7 +23,7 @@ struct Counter {
 impl App for Counter {
     type Msg = Msg;
 
-    fn update(&mut self, msg: Msg, cx: &mut Cx) {
+    fn update(&mut self, msg: Msg, cx: &mut Cx<Msg>) {
         match msg {
             Msg::Add => self.n += 1,
             Msg::Show => self.shown = true,
@@ -158,7 +158,7 @@ fn asking_for_the_wrong_app_type_is_none() {
     struct Other;
     impl App for Other {
         type Msg = Msg;
-        fn update(&mut self, _: Msg, _: &mut Cx) {}
+        fn update(&mut self, _: Msg, _: &mut Cx<Msg>) {}
         fn view(&self) -> impl IntoElement<Msg> {
             div()
         }
@@ -173,7 +173,7 @@ struct Follower;
 impl App for Follower {
     type Msg = Msg;
 
-    fn update(&mut self, _msg: Msg, _cx: &mut Cx) {}
+    fn update(&mut self, _msg: Msg, _cx: &mut Cx<Msg>) {}
 
     fn view(&self) -> impl IntoElement<Msg> {
         column().child(label("hi"))
@@ -224,7 +224,7 @@ struct Gate;
 impl App for Gate {
     type Msg = bool;
 
-    fn update(&mut self, through: bool, cx: &mut Cx) {
+    fn update(&mut self, through: bool, cx: &mut Cx<bool>) {
         cx.pass_clicks(through);
         cx.take_keys(!through);
     }

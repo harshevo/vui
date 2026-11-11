@@ -18,7 +18,7 @@ pub mod testing;
 pub mod ui;
 pub mod widget;
 
-pub use app::{App, Cx};
+pub use app::{App, AppSender, Cx, Waker};
 pub use access::{A11y, AccessAction, AccessActionKind, AccessInfo, AccessNode, AccessRange, AccessTree, Role};
 pub use builtin::{Img, Label, img, label, small, title};
 pub use effects::{Clipboard, Effect, MemoryClipboard};

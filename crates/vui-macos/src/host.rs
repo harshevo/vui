@@ -44,8 +44,12 @@ pub trait Host {
     /// The colour around the content: what the window shows behind the view. None for a see-through
     /// window.
     fn canvas(&self) -> Option<Color>;
-    /// Hands the app the messages its `Proxy` has queued.
+    /// Hands the app the messages its `Proxy`, background tasks and timers have queued.
     fn deliver(&mut self) -> Vec<Effect>;
+    /// Seconds until the UI wants a tick though nothing moves: a caret blink or an app timer.
+    fn next_wake(&self) -> Option<f32>;
+    /// What background tasks call to wake the window once they have sent something.
+    fn set_waker(&mut self, waker: vui_runtime::Waker);
 }
 
 /// Writing a window's first settled frame to a file, for checking windows from scripts.
@@ -244,6 +248,15 @@ impl<M: 'static> Host for Window<M> {
         while let Ok(msg) = self.inbox.try_recv() {
             self.ui.send(msg);
         }
+        self.ui.poll();
         self.ui.take_effects()
+    }
+
+    fn next_wake(&self) -> Option<f32> {
+        self.ui.next_wake()
+    }
+
+    fn set_waker(&mut self, waker: vui_runtime::Waker) {
+        self.ui.set_waker(waker);
     }
 }

@@ -5,22 +5,24 @@
 mod events;
 
 use std::collections::{HashMap, HashSet};
+use std::cell::Cell;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::mpsc::{self, Receiver};
 
 use vui_core::{
     Color, CursorIcon, Event, ImeEvent, KeyEvent, Mode, Modifiers, NamedKey, Point, PointerButton, Rect, Resources, Size,
     Theme, Vec2, vec2,
 };
 
-use crate::app::{App, Cx, Driver};
+use crate::app::{App, Cx, Driver, Tasks, Waker};
 use crate::effects::{Clipboard, Effect, MemoryClipboard};
 use crate::element::{Click, IntoElement};
 use crate::key::{Key, NodeId};
-use crate::layout::layout_root;
+use crate::layout::{layout_root, place_fixed};
 use crate::node::{Ids, Node, TickState, chain, node_at, node_at_mut, path_of};
 use crate::paint::{PaintEnv, paint};
-use crate::style::{Axis, Overflow};
+use crate::style::{Axis, Overflow, Position};
 use crate::widget::{Env, EventCx, Focus, FocusBy, Output, WidgetEvent};
 use vui_core::Scene;
 
@@ -108,13 +110,25 @@ pub struct Ui<M: 'static> {
     take_keys: Option<bool>,
     /// Clear to nothing instead of the theme's background: for overlays the desktop shows through.
     transparent: bool,
+    /// Where background tasks and `AppSender`s deliver, and what they send it on.
+    tasks: Tasks<M>,
+    inbox: Receiver<M>,
+    /// The `autofocus` and `trap_focus` elements showing after the last view: focus moves only
+    /// into ones that were not.
+    flagged: HashSet<NodeId>,
+    /// Messages waiting for their time (`Cx::after`), as (UI time due, message), in the order set.
+    timers: Vec<(f32, M)>,
 }
+
+/// A timer counts as due this close to its time, so a clock summed from frame steps still fires it.
+const TIMER_SLACK: f32 = 1e-4;
 
 /// How many times in a row the hosted app may answer messages that its own answers produced.
 const MAX_PUMP_ROUNDS: usize = 64;
 
 impl<M: 'static> Ui<M> {
     pub fn new(res: Resources, theme: Theme, size: Size, scale: f32) -> Ui<M> {
+        let (tx, inbox) = mpsc::channel();
         Ui {
             root: None,
             core: Core {
@@ -147,6 +161,10 @@ impl<M: 'static> Ui<M> {
             pass_clicks: None,
             take_keys: None,
             transparent: false,
+            tasks: Tasks { tx, waker: None, pending: Rc::new(Cell::new(0)) },
+            inbox,
+            flagged: HashSet::new(),
+            timers: Vec::new(),
         }
     }
 
@@ -184,11 +202,14 @@ impl<M: 'static> Ui<M> {
             if messages.is_empty() {
                 break;
             }
-            let mut cx = Cx::default();
+            let mut cx = Cx::new(self.tasks.clone());
             for message in messages {
                 driver.update(message, &mut cx);
             }
             self.show(&*driver);
+            let now = self.core.time;
+            self.timers.extend(cx.timers.into_iter().map(|(delay, msg)| (now + delay.max(0.0), msg)));
+            self.core.out.messages.extend(cx.then);
             self.quit |= cx.quit;
             self.pass_clicks = cx.pass_clicks.or(self.pass_clicks);
             self.take_keys = cx.take_keys.or(self.take_keys);
@@ -272,6 +293,44 @@ impl<M: 'static> Ui<M> {
     /// Installs the tree the app wants on screen. Nodes that match keep their state.
     pub fn set_view(&mut self, view: impl IntoElement<M>) {
         let el = view.into_element();
+        self.set_view_inner(el);
+        self.focus_arrivals();
+    }
+
+    /// Focus moves to an element marked `autofocus` that has just appeared, or into a focus trap
+    /// that has just appeared and holds no focus yet.
+    fn focus_arrivals(&mut self) {
+        let Some(root) = self.root.as_ref() else { return };
+        let mut showing = Vec::new();
+        find_flagged(root, &mut showing);
+        let before = std::mem::replace(&mut self.flagged, showing.iter().map(|(id, _)| *id).collect());
+        let arrived = showing.into_iter().filter(|(id, _)| !before.contains(id));
+        let (mut auto, mut trap) = (None, None);
+        for (id, autofocus) in arrived {
+            if autofocus {
+                auto = auto.or(Some(id));
+            } else {
+                trap = Some(id);
+            }
+        }
+        let target = auto.or_else(|| {
+            let trap = trap?;
+            let node = find_id(root, trap)?;
+            if self.core.focus.is_some_and(|f| find_id(node, f).is_some()) {
+                return None;
+            }
+            collect_stops(node).first().map(|s| s.entry)
+        });
+        if let Some(id) = target {
+            self.sync();
+            let keyboard = self.core.keyboard;
+            if let Some(root) = self.root.as_mut() {
+                Run { root, core: &mut self.core }.set_focus(Some(id), keyboard);
+            }
+        }
+    }
+
+    fn set_view_inner(&mut self, el: crate::element::Element<M>) {
         let core = &mut self.core;
         let dirty = match self.root.as_mut() {
             Some(root) if root.widget.widget_type() == el.widget.widget_type() => root.update(el, &mut core.ids, &core.env),
@@ -393,9 +452,70 @@ impl<M: 'static> Ui<M> {
         self.core.animating
     }
 
-    /// Seconds until a widget wants a `tick` even though nothing is animating (a blinking caret).
+    /// Seconds until a widget or an app timer wants a `tick` even though nothing is animating (a
+    /// blinking caret, `Cx::after`).
     pub fn next_wake(&self) -> Option<f32> {
-        self.core.wake_at.map(|t| (t - self.core.time).max(0.0))
+        let timer = self.timers.iter().map(|(due, _)| *due).reduce(f32::min);
+        let at = match (self.core.wake_at, timer) {
+            (Some(a), Some(b)) => Some(a.min(b)),
+            (a, b) => a.or(b),
+        };
+        at.map(|t| (t - self.core.time).max(0.0))
+    }
+
+    /// Has background tasks and `AppSender`s call `waker` once they have sent something, so the
+    /// backend wakes its event loop and calls [`Ui::poll`]. Without one, messages wait for the next
+    /// `tick`.
+    pub fn set_waker(&mut self, waker: Waker) {
+        self.tasks.waker = Some(waker);
+    }
+
+    /// Hands the app what background tasks and `AppSender`s have sent so far.
+    pub fn poll(&mut self) {
+        let mut any = false;
+        while let Ok(msg) = self.inbox.try_recv() {
+            let pending = &self.tasks.pending;
+            pending.set(pending.get().saturating_sub(1));
+            self.core.out.messages.push(msg);
+            any = true;
+        }
+        if any {
+            self.sync();
+            self.pump();
+            self.sync();
+        }
+    }
+
+    /// Background tasks (`Cx::spawn`) started and not yet answered.
+    pub fn pending_tasks(&self) -> usize {
+        self.tasks.pending.get()
+    }
+
+    /// Blocks until a background task or `AppSender` sends something, for at most `limit`, and
+    /// hands it to the app. False if nothing came. For tests and tools.
+    pub fn wait(&mut self, limit: std::time::Duration) -> bool {
+        match self.inbox.recv_timeout(limit) {
+            Ok(msg) => {
+                let pending = &self.tasks.pending;
+                pending.set(pending.get().saturating_sub(1));
+                self.send(msg);
+                self.poll();
+                true
+            }
+            Err(_) => false,
+        }
+    }
+
+    /// Hands the app the timers that are due.
+    fn fire_timers(&mut self) {
+        let now = self.core.time + TIMER_SLACK;
+        if !self.timers.iter().any(|(due, _)| *due <= now) {
+            return;
+        }
+        let (due, waiting): (Vec<_>, Vec<_>) = std::mem::take(&mut self.timers).into_iter().partition(|(at, _)| *at <= now);
+        self.timers = waiting;
+        self.core.out.messages.extend(due.into_iter().map(|(_, msg)| msg));
+        self.pump();
     }
 
     /// Seconds of UI time that have passed, as summed from `tick`.
@@ -435,6 +555,8 @@ impl<M: 'static> Ui<M> {
         core.arrange_dirty |= arrange;
         core.paint_dirty |= painted;
         self.sync();
+        self.fire_timers();
+        self.poll();
     }
 
     /// Lays the tree out if anything changed, and keeps hover in step with whatever moved under the
@@ -453,6 +575,7 @@ impl<M: 'static> Ui<M> {
         let core = &mut self.core;
         if core.layout_dirty {
             layout_root(root, &mut core.env, core.size);
+            lay_out_fixed(root, &mut core.env, core.size);
             core.layout_dirty = false;
             core.arrange_dirty = true;
         }
@@ -613,6 +736,77 @@ fn find_key<'a, M: 'static>(node: &'a Node<M>, key: &Key) -> Option<&'a Node<M>>
         return Some(node);
     }
     node.children.iter().find_map(|c| find_key(c, key))
+}
+
+/// Lays out every fixed element against the window, outer ones first.
+fn lay_out_fixed<M: 'static>(node: &mut Node<M>, env: &mut Env, window: Size) {
+    for child in &mut node.children {
+        if child.eff.hidden {
+            continue;
+        }
+        if child.eff.position == Position::Fixed {
+            place_fixed(child, env, window);
+        }
+        lay_out_fixed(child, env, window);
+    }
+}
+
+/// The showing elements marked `autofocus` (true) or `trap_focus` (false), in tree order.
+fn find_flagged<M: 'static>(node: &Node<M>, out: &mut Vec<(NodeId, bool)>) {
+    if node.eff.hidden {
+        return;
+    }
+    if node.input.autofocus {
+        out.push((node.id, true));
+    } else if node.input.trap_focus {
+        out.push((node.id, false));
+    }
+    for child in &node.children {
+        find_flagged(child, out);
+    }
+}
+
+/// Paths to the elements that close on an outside press or Escape (`on_dismiss`), in the order they
+/// are drawn: the last is on top.
+pub(crate) fn dismissible<M: 'static>(root: &Node<M>) -> Vec<Vec<usize>> {
+    fn walk<M: 'static>(node: &Node<M>, depth: usize, path: &mut Vec<usize>, out: &mut Vec<(usize, Vec<usize>)>) {
+        for (i, child) in node.children.iter().enumerate() {
+            if child.eff.hidden {
+                continue;
+            }
+            path.push(i);
+            let depth = depth + usize::from(child.eff.float);
+            if child.input.dismiss.is_some() {
+                out.push((depth, path.clone()));
+            }
+            walk(child, depth, path, out);
+            path.pop();
+        }
+    }
+    let mut out = Vec::new();
+    walk(root, 0, &mut Vec::new(), &mut out);
+    out.sort_by_key(|(depth, _)| *depth);
+    out.into_iter().map(|(_, p)| p).collect()
+}
+
+/// The innermost focus trap that shows, if any: Tab stays inside it.
+pub(crate) fn focus_trap<M: 'static>(root: &Node<M>) -> Option<Vec<usize>> {
+    fn walk<M: 'static>(node: &Node<M>, path: &mut Vec<usize>, best: &mut Option<Vec<usize>>) {
+        for (i, child) in node.children.iter().enumerate() {
+            if child.eff.hidden {
+                continue;
+            }
+            path.push(i);
+            if child.input.trap_focus {
+                *best = Some(path.clone());
+            }
+            walk(child, path, best);
+            path.pop();
+        }
+    }
+    let mut best = None;
+    walk(root, &mut Vec::new(), &mut best);
+    best
 }
 
 /// The child indices down to the topmost node that takes pointer input at `p`.

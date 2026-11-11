@@ -22,7 +22,7 @@ struct Page {
 impl App for Page {
     type Msg = Msg;
 
-    fn update(&mut self, msg: Msg, _cx: &mut Cx) {
+    fn update(&mut self, msg: Msg, _cx: &mut Cx<Msg>) {
         let Msg::Hover(x) = msg;
         self.seen.push(x);
     }

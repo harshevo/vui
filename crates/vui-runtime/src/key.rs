@@ -54,7 +54,7 @@ impl From<i32> for Key {
 }
 
 /// A node's identity for as long as it lives. Unlike a `Key`, the runtime assigns it.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NodeId(pub(crate) u64);
 
 #[cfg(test)]

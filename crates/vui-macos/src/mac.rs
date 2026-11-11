@@ -420,6 +420,9 @@ impl VuiView {
         self.sync_keys();
         if self.with_host(|h| h.needs_paint()).unwrap_or(false) {
             self.request_frame();
+        } else if let Some(wake) = self.with_host(|h| h.next_wake()).flatten() {
+            // An app timer set by this update, with nothing else to draw until it is due.
+            self.wake_in(wake);
         }
         self.check_quit();
     }
@@ -943,6 +946,7 @@ impl Application {
             views.push(Weak::from_retained(&view));
             views.len() - 1
         });
+        view.with_host(|h| h.set_waker(std::sync::Arc::new(move || wake(id))));
         self.windows.push((window, view, delegate));
         Ok(Proxy { tx, window: id })
     }

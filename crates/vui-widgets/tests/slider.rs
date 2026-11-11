@@ -21,7 +21,7 @@ struct Mixer {
 impl App for Mixer {
     type Msg = Msg;
 
-    fn update(&mut self, msg: Msg, _cx: &mut Cx) {
+    fn update(&mut self, msg: Msg, _cx: &mut Cx<Msg>) {
         match &msg {
             Msg::Volume(v) => self.volume = *v,
             Msg::Level(v) => self.level = *v,

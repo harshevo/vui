@@ -178,7 +178,7 @@ impl Gallery {
 impl App for Gallery {
     type Msg = Msg;
 
-    fn update(&mut self, msg: Msg, _cx: &mut Cx) {
+    fn update(&mut self, msg: Msg, _cx: &mut Cx<Msg>) {
         match msg {
             Msg::Go(page) => self.page = page,
             Msg::Dark(dark) => self.dark = dark,

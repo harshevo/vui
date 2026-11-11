@@ -35,7 +35,7 @@ impl App for Page {
         }
     }
 
-    fn update(&mut self, msg: Msg, _cx: &mut Cx) {
+    fn update(&mut self, msg: Msg, _cx: &mut Cx<Msg>) {
         if let Msg::Select(s) = &msg {
             self.selected = *s;
         }

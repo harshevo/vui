@@ -417,7 +417,8 @@ fn gather<C, N: LayoutNode<C>>(node: &mut N, cx: &mut C, style: &Style, f: &Fram
     for idx in 0..node.children_mut().len() {
         let child = &mut node.children_mut()[idx];
         let cs = *child.style();
-        if cs.hidden {
+        // A fixed child is placed against the window after the tree is laid out (see `place_fixed`).
+        if cs.hidden || cs.position == Position::Fixed {
             continue;
         }
         if cs.position == Position::Absolute {
@@ -803,6 +804,15 @@ fn flex<C, N: LayoutNode<C>>(node: &mut N, cx: &mut C, input: &LayoutInput, own:
 
     let content = size(reach.0 + pad.right, reach.1 + pad.bottom);
     LayoutOutput { size: box_size, content, baseline }
+}
+
+/// Lays out a fixed element against the window: inset from its edges, or centred without insets.
+/// Its origin is in window coordinates.
+pub fn place_fixed<C, N: LayoutNode<C>>(node: &mut N, cx: &mut C, window: Size) {
+    let mut parent = Style::default();
+    parent.justify = Justify::Center;
+    parent.align_items = Align::Center;
+    place_absolute(node, cx, window, &parent, Edges::default(), Axis::Y);
 }
 
 /// Places an absolute child against its parent's box and returns its far corner (margin included).

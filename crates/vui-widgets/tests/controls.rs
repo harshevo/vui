@@ -45,7 +45,7 @@ impl Lab {
 impl App for Lab {
     type Msg = Msg;
 
-    fn update(&mut self, msg: Msg, _cx: &mut Cx) {
+    fn update(&mut self, msg: Msg, _cx: &mut Cx<Msg>) {
         match &msg {
             Msg::Wifi(on) => self.wifi = *on,
             Msg::Agree(on) => self.agree = (*on).into(),

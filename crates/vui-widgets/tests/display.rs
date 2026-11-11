@@ -68,7 +68,7 @@ struct Board {
 impl App for Board {
     type Msg = Msg;
 
-    fn update(&mut self, msg: Msg, _cx: &mut Cx) {
+    fn update(&mut self, msg: Msg, _cx: &mut Cx<Msg>) {
         let Msg::Mode(mode) = msg;
         self.mode = mode;
         self.log.push(mode);

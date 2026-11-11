@@ -186,6 +186,9 @@ pub enum Position {
     Flow,
     /// Leaves the flow and is placed against the parent's box with `top`, `left`, `right`, `bottom`.
     Absolute,
+    /// Leaves the flow and is placed against the window, above everything: dialogs, toasts, scrims.
+    /// With no insets it is centred.
+    Fixed,
 }
 
 /// How children sit across the container's main axis.
@@ -522,23 +525,23 @@ pub trait Styled: Sized {
         self
     }
 
-    fn top(mut self, v: f32) -> Self {
-        self.style_mut().inset.top = Len::Px(v);
+    fn top(mut self, v: impl Into<Len>) -> Self {
+        self.style_mut().inset.top = v.into();
         self
     }
 
-    fn left(mut self, v: f32) -> Self {
-        self.style_mut().inset.left = Len::Px(v);
+    fn left(mut self, v: impl Into<Len>) -> Self {
+        self.style_mut().inset.left = v.into();
         self
     }
 
-    fn right(mut self, v: f32) -> Self {
-        self.style_mut().inset.right = Len::Px(v);
+    fn right(mut self, v: impl Into<Len>) -> Self {
+        self.style_mut().inset.right = v.into();
         self
     }
 
-    fn bottom(mut self, v: f32) -> Self {
-        self.style_mut().inset.bottom = Len::Px(v);
+    fn bottom(mut self, v: impl Into<Len>) -> Self {
+        self.style_mut().inset.bottom = v.into();
         self
     }
 
@@ -548,6 +551,15 @@ pub trait Styled: Sized {
     fn float(mut self) -> Self {
         self.style_mut().float = true;
         self.absolute()
+    }
+
+    /// Places the element against the window instead of its parent, above everything else, wherever
+    /// it is declared: a dialog, a toast, a scrim behind a sheet. `top`, `left`, `right` and `bottom`
+    /// are measured from the window's edges; with none set it is centred in the window.
+    fn fixed(mut self) -> Self {
+        self.style_mut().float = true;
+        self.style_mut().position = Position::Fixed;
+        self
     }
 
     /// Pins all four edges to the parent's, inset by `v`.
