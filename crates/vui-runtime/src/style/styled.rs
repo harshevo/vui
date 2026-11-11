@@ -171,6 +171,18 @@ pub trait Styled: Sized {
         self
     }
 
+    /// The gap between things side by side: items in a row, columns of a grid.
+    fn gap_x(mut self, g: f32) -> Self {
+        self.style_mut().gap.x = g;
+        self
+    }
+
+    /// The gap between things one above the other: items in a column, rows of a grid, wrapped lines.
+    fn gap_y(mut self, g: f32) -> Self {
+        self.style_mut().gap.y = g;
+        self
+    }
+
     /// Lays children out left to right.
     fn row(mut self) -> Self {
         self.style_mut().direction = Direction::Row;
@@ -311,6 +323,29 @@ pub trait Styled: Sized {
     /// the content's length, instead of one that shrinks and grows with it.
     fn fixed_thumb(mut self, fraction: f32) -> Self {
         self.style_mut().thumb = Thumb::Fixed(fraction.clamp(0.0, 1.0));
+        self
+    }
+
+    /// Lays the children out in a grid with these columns: a count (`3`), a list of tracks
+    /// (`[px(200.0), fr(1.0)]` via [`Columns::tracks`]), or [`Columns::fill`] for as many as fit.
+    /// Children fill the cells left to right, top to bottom; the gaps come from `gap`, `gap_x` and
+    /// `gap_y`.
+    fn grid(mut self, columns: impl Into<Columns>) -> Self {
+        let row = self.style_mut().grid.and_then(|g| g.row);
+        self.style_mut().grid = Some(Grid { columns: columns.into(), row });
+        self
+    }
+
+    /// Makes every row of a grid this tall instead of as tall as its tallest cell.
+    fn grid_rows(mut self, height: f32) -> Self {
+        let grid = self.style_mut().grid.get_or_insert(Grid { columns: Columns::equal(1), row: None });
+        grid.row = Some(height.max(0.0));
+        self
+    }
+
+    /// Takes `columns` columns of the grid it sits in.
+    fn span(mut self, columns: u16) -> Self {
+        self.style_mut().span = columns.max(1);
         self
     }
 }

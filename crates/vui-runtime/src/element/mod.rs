@@ -41,9 +41,12 @@ use crate::widget::{Dirty, Erased, Focus, Mapped, Plain, Widget};
 mod builder;
 mod container;
 mod input;
+mod lazy;
 
 pub use builder::Builder;
-pub use container::{Container, Div, column, div, row, spacer};
+pub use container::{Container, Div, column, div, grid, row, spacer};
+pub(crate) use lazy::Lazy;
+pub use lazy::{VirtualList, virtual_list};
 pub(crate) use input::*;
 
 /// How round an element's corners are. Tokens follow the theme, so restyling the theme restyles every
@@ -222,11 +225,13 @@ pub struct Element<M: 'static> {
     pub(crate) base: Base<M>,
     pub(crate) widget: Box<dyn Erased<M>>,
     pub(crate) children: Vec<Element<M>>,
+    /// Rows the UI builds as they scroll into view, in place of `children` (see [`virtual_list`]).
+    pub(crate) lazy: Option<Lazy<M>>,
 }
 
 impl<M: 'static> Element<M> {
     pub fn new<W: Widget<M>>(widget: W, base: Base<M>, children: Vec<Element<M>>) -> Element<M> {
-        Element { base, widget: Box::new(Plain(widget)), children }
+        Element { base, widget: Box::new(Plain(widget)), children, lazy: None }
     }
 
     /// Turns every message this element and its children send into another type, so a component
@@ -269,11 +274,12 @@ impl<M: 'static> Element<M> {
     }
 
     fn map_rc<N: 'static>(self, f: &Rc<dyn Fn(M) -> N>) -> Element<N> {
-        let Element { base, widget, children } = self;
+        let Element { base, widget, children, lazy } = self;
         let Base { style, rules, decor, input, a11y, key, transition, appear } = base;
         let base = Base { style, rules, decor, input: input.map(f), a11y, key, transition, appear };
         let widget: Box<dyn Erased<N>> = Box::new(Mapped { inner: widget, f: f.clone() });
-        Element { base, widget, children: children.into_iter().map(|c| c.map_rc(f)).collect() }
+        let lazy = lazy.map(|l| l.map(f));
+        Element { base, widget, children: children.into_iter().map(|c| c.map_rc(f)).collect(), lazy }
     }
 }
 

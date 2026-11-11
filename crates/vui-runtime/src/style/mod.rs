@@ -6,8 +6,10 @@
 
 use vui_core::{Insets, Vec2};
 
+mod grid;
 mod styled;
 
+pub use grid::{Columns, Grid, MAX_TRACKS, Track, fr};
 pub use styled::Styled;
 
 /// A row of items runs along x, a column along y.
@@ -282,6 +284,11 @@ pub struct Style {
     /// Drawn and clicked above everything else in the window, and not cut off by scrolling or
     /// clipping ancestors: menus and popovers.
     pub float: bool,
+    /// Lays the children out in a grid of rows and columns instead of a row or column; `direction`
+    /// and `wrap` are then ignored. See [`Grid`].
+    pub grid: Option<Grid>,
+    /// How many grid columns the element takes inside a grid. 1 by default.
+    pub span: u16,
 }
 
 impl Default for Style {
@@ -312,6 +319,8 @@ impl Default for Style {
             follow_end: false,
             thumb: Thumb::Proportional,
             float: false,
+            grid: None,
+            span: 1,
         }
     }
 }

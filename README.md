@@ -187,7 +187,7 @@ docs on every push. See [CONTRIBUTING.md](CONTRIBUTING.md) for the house rules a
 
 vui is young but solid: the renderer, runtime, widgets and macOS backend are used every day by
 vmac, its first app (a voice-first Mac assistant), and are covered by tests. The next steps are the
-VoiceOver bridge, Windows and Linux backends, virtualised lists, grid layout and more widgets. See
+VoiceOver bridge, Windows and Linux backends and more widgets. See
 the [roadmap](docs/roadmap.md).
 
 **Licence:** none has been chosen yet. The bundled fonts are under the SIL Open Font License 1.1.

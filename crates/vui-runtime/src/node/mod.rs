@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use vui_core::{Color, Insets, Palette, Point, Rect, Spring, SpringValue, Vec2, pt, rect, vec2};
 
 use crate::access::A11y;
-use crate::element::{Base, Decor, Element, Input};
+use crate::element::{Base, Decor, Element, Input, Lazy};
 use crate::key::{Key, NodeId};
 use crate::layout::{Avail, LayoutCache, LayoutNode, NodeLayout, Pair};
 use crate::responsive::{self, Rule};
@@ -211,6 +211,10 @@ pub(crate) struct Node<M: 'static> {
     pub anim: Anim,
     /// For a focus group: the item inside it that had focus last.
     pub memory: Option<NodeId>,
+    /// The width of the box the node was last laid out in, which container rules match against.
+    pub room: Option<f32>,
+    /// A virtual list's rows, and which of them are built as children.
+    pub lazy: Option<(Lazy<M>, std::ops::Range<usize>)>,
 }
 
 impl<M: 'static> LayoutNode<Env> for Node<M> {

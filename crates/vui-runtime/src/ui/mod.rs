@@ -387,6 +387,12 @@ impl<M: 'static> Ui<M> {
     /// pointer.
     pub(crate) fn sync(&mut self) {
         for _ in 0..4 {
+            // Virtual lists build the rows that the last layout or scroll brought into view.
+            if let Some(root) = self.root.as_mut()
+                && root.refill_lazy(&mut self.core.ids, &self.core.env)
+            {
+                self.core.layout_dirty = true;
+            }
             if !self.ensure_layout() {
                 break;
             }
@@ -398,8 +404,16 @@ impl<M: 'static> Ui<M> {
         let Some(root) = self.root.as_mut() else { return false };
         let core = &mut self.core;
         if core.layout_dirty {
-            layout_root(root, &mut core.env, core.size);
-            lay_out_fixed(root, &mut core.env, core.size);
+            // Container rules are matched against the layout they are in, so a rule that starts or
+            // stops matching lays the tree out again, in the same frame. Three rounds settle any
+            // sensible set of rules; one that keeps flipping is left where the third round put it.
+            for _ in 0..3 {
+                layout_root(root, &mut core.env, core.size);
+                lay_out_fixed(root, &mut core.env, core.size);
+                if !root.respond_rooms(core.env.window) {
+                    break;
+                }
+            }
             core.layout_dirty = false;
             core.arrange_dirty = true;
         }

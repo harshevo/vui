@@ -90,8 +90,9 @@ pub mod prelude {
     };
     pub use vui_icons::{Icon, Weight, set as icon_set};
     pub use vui_runtime::{
-        AUTO, A11y, AccessAction, App, Align, Breakpoint, Builder, Click, Cx, Div, Element, Focus, FocusGroup, IntoChildren, IntoElement, Justify,
-        Img, Label, Overflow, Parent, Radius, Role, Styled, Width, column, div, img, label, pct, px, row, small, spacer, title,
+        AUTO, A11y, AccessAction, App, Align, Breakpoint, Builder, Click, Columns, Cx, Div, Element, Focus, FocusGroup, IntoChildren,
+        IntoElement, Justify, Img, Label, Overflow, Parent, Radius, Role, Styled, Track, VirtualList, Width, column, div, fr, grid, img,
+        label, pct, px, row, small, spacer, title, virtual_list,
     };
     pub use vui_widgets::*;
     #[cfg(target_os = "macos")]

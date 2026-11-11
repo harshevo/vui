@@ -41,11 +41,48 @@ fn rows(g: &Gallery) -> Div<Msg> {
     )
 }
 
+/// Ten thousand rows, of which only the ones in view are built.
+fn long_list() -> VirtualList<Msg> {
+    virtual_list(10_000, 36.0, |i| {
+        row().gap(10.0).padding_x(12.0).align_items(Align::Center).children((
+            label(format!("Message {}", i + 1)).grow(1.0),
+            small(format!("#{:05}", (i * 7919) % 100_000)).color(Tone::Text3),
+        ))
+    })
+    .key("long-list")
+    .width(360.0)
+    .height(220.0)
+    .border(1.0, Tone::Line)
+    .rounded(Radius::Card)
+}
+
+/// Cards in as many columns as fit, at least 150 wide.
+fn cards() -> Div<Msg> {
+    let stats = [("Revenue", "$48.2k"), ("Orders", "1,284"), ("Refunds", "12"), ("Visitors", "38.9k"), ("Conversion", "3.3%")];
+    grid(Columns::fill(150.0)).key("cards").gap(12.0).children(
+        stats
+            .iter()
+            .enumerate()
+            .map(|(i, (name, value))| {
+                column()
+                    .gap(4.0)
+                    .padding(14.0)
+                    .border(1.0, Tone::Line)
+                    .rounded(Radius::Card)
+                    .span(if i == 0 { 2 } else { 1 })
+                    .children((small(*name).color(Tone::Text2), title(*value)))
+            })
+            .collect::<Vec<_>>(),
+    )
+}
+
 pub fn view(g: &Gallery) -> Div<Msg> {
     page(
         "Lists",
         (
             section("Sidebar", row().gap(32.0).align_items(Align::Start).children((nav(), rows(g)))),
+            section("Grid", cards()),
+            section("Virtual list", long_list()),
             section(
                 "Badges",
                 flow().gap(16.0).children((

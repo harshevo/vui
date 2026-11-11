@@ -56,21 +56,18 @@ decision.
 
 ### 3. Large data
 
-**Today.** Missing. **Plan:**
+**Today.** `virtual_list(count, row_height, |i| row)` builds only the rows in view; see
+[Layout](layout.md#long-lists). **Next:**
 
-- **Virtualised lists and tables.** Lay out and paint only the visible rows, so lists of 100,000
-  items scroll smoothly. Rows are keyed already; this needs a `virtual_list(count, row_height, |i| row)`
-  with variable heights measured on demand.
+- **Variable row heights**, measured as rows come into view.
 - **Incremental tree building**, for very long documents.
 
 ### 4. Layout
 
-**Today.** Missing. **Plan:**
+**Today.** Grids with pixel, `fr`, auto and filling columns, spans and auto rows; container queries
+with `.when_container`. See [Layout](layout.md#grids). **Next:**
 
-- **Grid layout.** Rows and columns with tracks (`fr`, fixed, auto, minmax) and spans, for dashboards,
-  galleries and forms. Wrapping flex rows cover many cases today.
-- **Container queries.** `.when` follows the window's width. Components should also adapt to
-  their own width (a card that changes layout in a narrow column).
+- **Grid areas and row spans.** Named areas and cells taller than one row.
 - **Right-to-left.** Mirrored layout and RTL text direction for Arabic and Hebrew. Shaping
   already handles the scripts.
 

@@ -1,7 +1,8 @@
 //! Layout.
 //!
 //! Our own flexbox engine: rows and columns that grow, shrink and wrap, with gaps, margins,
-//! percentages, aspect ratios, absolute children, baseline alignment and content-measured leaves.
+//! percentages, aspect ratios, absolute children, baseline alignment and content-measured leaves;
+//! and a grid engine (see `grid.rs`) for children in rows and columns.
 //! It is written against [`LayoutNode`], so it runs on any tree and knows nothing about widgets.
 //!
 //! It follows CSS flexbox where that is where people's intuition comes from, with these deliberate
@@ -28,10 +29,12 @@ use vui_core::{Point, Size, pt, size};
 use crate::style::{Align, Axis, Edges, Justify, Len, Overflow, Position, Sides, Style};
 
 mod flex;
+mod grid;
 mod lines;
 mod positioned;
 
 use flex::*;
+use grid::grid;
 use lines::*;
 pub use positioned::place_fixed;
 use positioned::*;
@@ -259,7 +262,13 @@ fn compute_uncached<C, N: LayoutNode<C>>(node: &mut N, cx: &mut C, input: &Layou
         return LayoutOutput::default();
     }
     let own = Own::resolve(style, input);
-    if node.children_mut().is_empty() { leaf(node, cx, input, &own) } else { flex(node, cx, input, &own) }
+    if node.children_mut().is_empty() {
+        leaf(node, cx, input, &own)
+    } else if style.grid.is_some() {
+        grid(node, cx, input, &own)
+    } else {
+        flex(node, cx, input, &own)
+    }
 }
 
 fn along(s: Size, axis: Axis) -> f32 {

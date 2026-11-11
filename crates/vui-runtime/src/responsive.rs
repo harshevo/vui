@@ -10,6 +10,16 @@
 //! let timeline = column::<()>().when(Breakpoint::Wide, |s| s.margin_x(pct(15.0)));
 //! ```
 //!
+//! Container queries match the width an element is given instead of the window's, so a card restyles
+//! itself in a narrow sidebar column even in a wide window:
+//!
+//! ```
+//! use vui_runtime::{Builder, Styled, Width, row};
+//!
+//! // Side by side when the card has room, stacked when it does not.
+//! let card = row::<()>().gap(12.0).when_container(Width::below(360.0), |s| s.column());
+//! ```
+//!
 //! The UI resolves the rules itself, when the element is built and whenever the window is resized,
 //! so the app does not track the window's size or rebuild its view for it. A rule only touches the
 //! style properties it sets; everything else comes from the element's own style, whatever order the
@@ -115,6 +125,9 @@ impl Styled for Restyle {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Rule {
     pub when: Width,
+    /// Matched against the width the element is laid out in (its parent's content box) instead of
+    /// the window's: a container query.
+    pub container: bool,
     set: u32,
     values: Style,
 }
@@ -134,7 +147,7 @@ macro_rules! properties {
                     bit <<= 1;
                 )+
                 let _ = bit;
-                (set != 0).then_some(Rule { when, set, values: after })
+                (set != 0).then_some(Rule { when, container: false, set, values: after })
             }
 
             /// Writes the rule's properties into `style`.
@@ -154,13 +167,22 @@ macro_rules! properties {
 
 properties!(
     direction, hidden, position, width, height, min_width, min_height, max_width, max_height, aspect_ratio, padding, margin, inset, gap,
-    wrap, align_items, align_self, justify, grow, shrink, basis, overflow, follow_end, thumb, float,
+    wrap, align_items, align_self, justify, grow, shrink, basis, overflow, follow_end, thumb, float, grid, span,
 );
 
-/// An element's own style with the rules that match a window `width` wide applied over it.
+/// An element's own style with the rules that match a window `width` wide applied over it. Container
+/// rules are skipped; see [`resolve_in`].
 pub fn resolve(style: Style, rules: &[Rule], width: f32) -> Style {
+    resolve_in(style, rules, width, None)
+}
+
+/// An element's own style with the rules that match applied over it: window rules against the
+/// window's `width`, container rules against `room`, the width of the box the element sits in (none
+/// of them before the first layout).
+pub fn resolve_in(style: Style, rules: &[Rule], width: f32, room: Option<f32>) -> Style {
     let mut out = style;
-    for rule in rules.iter().filter(|r| r.when.contains(width)) {
+    let matches = |r: &&Rule| if r.container { room.is_some_and(|room| r.when.contains(room)) } else { r.when.contains(width) };
+    for rule in rules.iter().filter(matches) {
         rule.apply(&mut out);
     }
     out
@@ -170,6 +192,12 @@ pub fn resolve(style: Style, rules: &[Rule], width: f32) -> Style {
 pub(crate) fn record(rules: &mut Vec<Rule>, style: &Style, when: Width, f: impl FnOnce(Restyle) -> Restyle) {
     let after = f(Restyle(*style)).0;
     rules.extend(Rule::between(when, style, after));
+}
+
+/// Records a container rule: like [`record`], matched against the room the element is laid out in.
+pub(crate) fn record_container(rules: &mut Vec<Rule>, style: &Style, when: Width, f: impl FnOnce(Restyle) -> Restyle) {
+    let after = f(Restyle(*style)).0;
+    rules.extend(Rule::between(when, style, after).map(|r| Rule { container: true, ..r }));
 }
 
 #[cfg(test)]

@@ -76,9 +76,60 @@ fn page(body: Div<()>) -> Div<()> {
 }
 ```
 
+### Long lists
+
+`virtual_list(count, row_height, |i| row)` is a scrolling column that builds only the rows in view,
+plus a few either side. A list of 100,000 rows costs what the twenty on screen do, and rows keep
+their state while they stay in view.
+
+```rust
+use vui::prelude::*;
+
+fn inbox(subjects: std::rc::Rc<Vec<String>>) -> VirtualList<()> {
+    virtual_list(subjects.len(), 32.0, move |i| label(subjects[i].clone()).padding_x(12.0))
+        .grow(1.0)
+        .min_height(0.0)
+}
+```
+
+Every row is `row_height` tall. Put the spacing inside the rows: the list's own gap isn't used.
+
 - **Following the end.** `.follow_end()` keeps a scroller pinned to the bottom while content
   arrives (a chat log), until the person scrolls up.
 - **Keeping things visible.** Scrolling keeps the focused element in view when Tab moves to it.
+
+## Grids
+
+`grid(columns)` places its children into cells, left to right and top to bottom. Each row is as
+tall as its tallest cell.
+
+| Columns | Means |
+| --- | --- |
+| `grid(3)` | three equal columns |
+| `grid([Track::Px(240.0), fr(1.0), fr(2.0)])` | a 240-point column, then the rest split one to two |
+| `grid([Track::Auto, fr(1.0)])` | a column as wide as its widest cell, then the rest |
+| `grid(Columns::fill(200.0))` | as many columns at least 200 wide as fit, and at least one |
+
+```rust
+use vui::prelude::*;
+
+let gallery: Div<()> = grid(Columns::fill(180.0)).gap(12.0).children((
+    column().span(2).height(120.0).bg(Tone::Wash), // a wide feature tile
+    column().height(120.0).bg(Tone::Wash),
+    column().height(120.0).bg(Tone::Wash),
+));
+
+let form: Div<()> = grid([Track::Auto, fr(1.0)]).gap_x(12.0).gap_y(8.0).align_items(Align::Center).children((
+    label("Name"), text_field(""),
+    label("Email"), text_field(""),
+));
+```
+
+- `.span(n)` takes `n` columns. A span that doesn't fit the rest of a row starts the next one.
+- `.gap_x` and `.gap_y` set the space between columns and between rows; `.gap` sets both.
+- `align_items` and `align_self` place a cell in its row's height. The default is to stretch.
+- `.grid_rows(h)` makes every row `h` tall.
+- The columns can change at a breakpoint: `grid(1).when(Breakpoint::Medium.up(), |s| s.grid(3))`.
 
 ## Layers: absolute, fixed and floating
 
@@ -126,6 +177,26 @@ fn shell(sidebar: Div<()>, content: Div<()>) -> Div<()> {
 The closure gets the style vocabulary: sizes, spacing, direction, alignment, wrapping and
 `hidden`. A rule changes only what it sets; later rules win where they overlap. vui re-applies the
 rules on every resize without calling `view`.
+
+### Container queries
+
+`.when` follows the window. `.when_container` follows the width the element itself is laid out in,
+so a component fits wherever it is put: a wide main pane, a narrow sidebar, a dialog.
+
+```rust
+use vui::prelude::*;
+
+// Picture beside the text when the card has room, above it when it doesn't.
+fn card() -> Div<()> {
+    row().gap(12.0).when_container(Width::below(320.0), |s| s.column()).children((
+        div().size(80.0, 80.0).bg(Tone::Wash).rounded(8.0),
+        column().grow(1.0).children((title("Lisbon"), small("Flights, hotel and a table for two"))),
+    ))
+}
+```
+
+The rules are matched against the last layout. When one starts or stops matching, the tree is laid
+out again in the same frame, so nothing flickers.
 
 ### Patterns that adapt on their own
 

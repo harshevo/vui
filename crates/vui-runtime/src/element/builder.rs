@@ -266,6 +266,16 @@ pub trait Builder<M: 'static>: Styled {
         self
     }
 
+    /// Restyles the element while the width it is laid out in (its parent's content box) is in
+    /// `when`: a container query. A component restyled this way fits wherever it is put, in a wide
+    /// main pane or a narrow sidebar, whatever the window's width. The rules are matched after
+    /// layout and the tree is laid out again in the same frame when one starts or stops matching.
+    fn when_container(mut self, when: impl Into<Width>, f: impl FnOnce(Restyle) -> Restyle) -> Self {
+        let base = self.base_mut();
+        crate::responsive::record_container(&mut base.rules, &base.style, when.into(), f);
+        self
+    }
+
     /// What the element is, to assistive technology.
     fn role(mut self, role: Role) -> Self {
         self.base_mut().a11y.role = Some(role);

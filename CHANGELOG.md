@@ -16,6 +16,8 @@ the API.
 - Sliders: `range_slider`, upright sliders, tick marks and a value bubble.
 - High-density screens: windows follow display moves, and goldens are kept at 1x, 2x and 3x.
 - Theme fonts: `Theme` chooses the interface and monospace families.
+- Layout: `grid` with pixel, `fr`, auto and filling columns, spans and auto rows; `gap_x` and
+  `gap_y`; container queries with `.when_container`; `virtual_list` for lists of any length.
 - Project files: workspace metadata and lints, CI on macOS and Linux, a frame benchmark, this
   changelog and contributor notes.
 

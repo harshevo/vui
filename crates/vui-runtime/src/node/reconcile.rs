@@ -5,7 +5,12 @@ use super::*;
 
 impl<M: 'static> Node<M> {
     pub fn build(el: Element<M>, ids: &mut Ids, env: &Env) -> Node<M> {
-        let Element { base, widget, children } = el;
+        let Element { base, widget, mut children, lazy } = el;
+        let lazy = lazy.map(|lazy| {
+            let range = lazy.first();
+            children = lazy.children(range.clone());
+            (lazy, range)
+        });
         let Base { style: asked, rules, decor, input, a11y, key, transition, appear } = base;
         let style = responsive::resolve(asked, &rules, env.window);
         let opacity = decor.opacity;
@@ -35,13 +40,21 @@ impl<M: 'static> Node<M> {
             scroll: Scroll::new(),
             anim,
             memory: None,
+            room: None,
+            lazy,
         }
     }
 
     /// Brings the node in line with a new element for the same place in the tree and says how much
     /// has to be redone.
     pub fn update(&mut self, el: Element<M>, ids: &mut Ids, env: &Env) -> Dirty {
-        let Element { base, widget, children } = el;
+        let Element { base, widget, mut children, lazy } = el;
+        // A virtual list rebuilds the rows it has built, from the new view's rows.
+        self.lazy = lazy.map(|lazy| {
+            let shown = self.lazy.as_ref().map_or_else(|| lazy.first(), |(_, r)| r.start.min(lazy.count)..r.end.min(lazy.count));
+            children = lazy.children(shown.clone());
+            (lazy, shown)
+        });
         let Base { style: asked, rules, decor, input, a11y, key: _, transition, appear: _ } = base;
 
         let mut dirty = widget.update(&*self.widget, &mut *self.state);
@@ -75,7 +88,7 @@ impl<M: 'static> Node<M> {
     /// Resolves the element's style for a window `width` wide and moves towards it, animating sizes
     /// that have a transition. Says whether what layout reads changed.
     pub(crate) fn retarget_style(&mut self, width: f32) -> bool {
-        let style = responsive::resolve(self.asked, &self.rules, width);
+        let style = responsive::resolve_in(self.asked, &self.rules, width, self.room);
         let transition = self.transition;
         if style != self.target {
             self.anim.width = retarget(self.anim.width.take(), self.target.width, style.width, transition);
@@ -100,6 +113,51 @@ impl<M: 'static> Node<M> {
         }
         if !self.rules.is_empty() {
             changed |= self.retarget_style(width);
+        }
+        if changed {
+            self.cache.clear();
+        }
+        changed
+    }
+
+    /// Container rules match the width each node was laid out in: re-resolves them now the tree has
+    /// been laid out at a `window` this wide, clearing the layout of whatever changed and of its
+    /// ancestors. Says whether anything changed, in which case the tree needs laying out again.
+    pub fn respond_rooms(&mut self, window: f32) -> bool {
+        let room = (self.layout.size.w - self.eff.padding.horizontal()).max(0.0);
+        let mut changed = false;
+        for child in &mut self.children {
+            if child.rules.iter().any(|r| r.container) && child.room != Some(room) {
+                child.room = Some(room);
+                if child.retarget_style(window) {
+                    child.cache.clear();
+                    changed = true;
+                }
+            }
+            changed |= child.respond_rooms(window);
+        }
+        if changed {
+            self.cache.clear();
+        }
+        changed
+    }
+
+    /// Builds the rows of every virtual list that have scrolled into view and drops the ones that
+    /// have left it, clearing the layout of what changed and of its ancestors. Says whether anything
+    /// changed.
+    pub fn refill_lazy(&mut self, ids: &mut Ids, env: &Env) -> bool {
+        let mut changed = false;
+        for child in &mut self.children {
+            changed |= child.refill_lazy(ids, env);
+        }
+        if let Some((lazy, shown)) = &self.lazy {
+            let view = (self.layout.size.h - self.eff.padding.vertical()).max(0.0);
+            if let Some(range) = lazy.wanted(shown, self.scroll.y.value(), view) {
+                let children = lazy.children(range.clone());
+                reconcile(&mut self.children, children, ids, env);
+                self.lazy.as_mut().expect("checked above").1 = range;
+                changed = true;
+            }
         }
         if changed {
             self.cache.clear();

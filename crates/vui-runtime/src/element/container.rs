@@ -143,6 +143,12 @@ pub fn column<M: 'static>() -> Div<M> {
     div()
 }
 
+/// A box whose children fill the cells of a grid, left to right and top to bottom:
+/// `grid(3)`, `grid([px(240.0), fr(1.0)])` or `grid(Columns::fill(220.0))` for as many columns as fit.
+pub fn grid<M: 'static>(columns: impl Into<crate::style::Columns>) -> Div<M> {
+    div().grid(columns)
+}
+
 /// An empty box that takes the room left over in its row or column.
 pub fn spacer<M: 'static>() -> Div<M> {
     div().grow(1.0)

@@ -23,13 +23,13 @@ pub use access::{A11y, AccessAction, AccessActionKind, AccessInfo, AccessNode, A
 pub use builtin::{Img, Label, img, label, small, title};
 pub use effects::{Clipboard, Effect, MemoryClipboard};
 pub use element::{
-    Base, Builder, Click, Container, Decor, Div, Element, FocusGroup, IntoChildren, IntoElement, Parent, Radius, column, div, row,
-    spacer,
+    Base, Builder, Click, Container, Decor, Div, Element, FocusGroup, IntoChildren, IntoElement, Parent, Radius, VirtualList, column, div, grid, row,
+    spacer, virtual_list,
 };
 pub use key::Key;
 pub use responsive::{Breakpoint, Restyle, Width};
 pub use style::{
-    AUTO, Align, Axis, Direction, Edges, Justify, Len, Overflow, Position, Sides, Style, Styled, Thumb, pct, px,
+    AUTO, Align, Axis, Columns, Direction, Edges, Grid, Justify, Len, Overflow, Position, Sides, Style, Styled, Thumb, Track, fr, pct, px,
 };
 pub use ui::{Inspect, Ui};
 pub use widget::{Dirty, Env, EventCx, Focus, FocusBy, PaintCx, TickCx, Widget, WidgetEvent};
