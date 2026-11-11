@@ -99,6 +99,20 @@ impl<M: 'static> TextField<M> {
         self
     }
 
+    /// Leaves Up, Down and Enter, and Backspace while the field is empty, to the elements around it,
+    /// for a field that steers a list: a combobox, a command palette, a tag input.
+    pub fn pass_keys(mut self) -> Self {
+        self.widget.spec.pass_keys = true;
+        self
+    }
+
+    /// Draws no background, outline or focus halo: for a field inside a box that draws its own, such
+    /// as a tag input.
+    pub fn bare(mut self) -> Self {
+        self.widget.spec.bare = true;
+        self.bg(Fill::NONE)
+    }
+
     /// Selects everything when focus arrives by anything but a click.
     pub fn select_on_focus(mut self) -> Self {
         self.widget.spec.select_on_focus = true;
@@ -114,6 +128,8 @@ pub(crate) const FIELD: Spec = Spec {
     read_only: false,
     search: false,
     clearable: false,
+    pass_keys: false,
+    bare: false,
     mono: false,
     large: false,
     select_on_focus: false,

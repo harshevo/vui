@@ -58,6 +58,11 @@ struct Spec {
     read_only: bool,
     search: bool,
     clearable: bool,
+    /// Up, Down and Enter, and Backspace in an empty field, are left to whoever is around the
+    /// field: a combobox, a command palette, a tag input.
+    pass_keys: bool,
+    /// No outline or focus halo, for a field inside a box that draws its own.
+    bare: bool,
     mono: bool,
     large: bool,
     select_on_focus: bool,

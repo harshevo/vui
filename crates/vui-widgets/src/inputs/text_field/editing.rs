@@ -72,6 +72,14 @@ impl<M: 'static> TextFieldWidget<M> {
             let Key::Character(c) = key.key else { return false };
             return self.character(state, cx, key, c);
         };
+        if self.spec.pass_keys && !multi {
+            let empty = state.editor.text().is_empty();
+            match named {
+                NamedKey::ArrowUp | NamedKey::ArrowDown | NamedKey::Enter => return false,
+                NamedKey::Backspace if empty => return false,
+                _ => {}
+            }
+        }
         match named {
             NamedKey::ArrowLeft | NamedKey::ArrowRight => {
                 let dir = if named == NamedKey::ArrowLeft { Dir::Back } else { Dir::Forward };

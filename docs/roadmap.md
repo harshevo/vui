@@ -73,20 +73,12 @@ with `.when_container`. See [Layout](layout.md#grids). **Next:**
 
 ### 5. Widgets
 
-**Today.** Missing. Wanted, from what modern design systems ship:
+**Today.** Combobox, command palette, calendar, date picker, time field, colour picker, tag input,
+drawer and sheet, hover card, stepper, toolbar and carousel; see [Widgets](widgets.md). **Next:**
 
-- combobox and autocomplete;
-- command palette (⌘K);
-- date picker, calendar and time picker;
-- colour picker;
-- tag input;
-- drawer and sheet (side and bottom);
-- hover card;
-- stepper and wizard;
-- toolbar;
 - resizable panel groups with minimum sizes and collapse;
-- carousel;
-- a code editor with syntax highlighting (on top of the existing editor).
+- a code editor with syntax highlighting (on top of the existing editor);
+- a rich-text editor.
 
 ### 6. Motion and preferences
 

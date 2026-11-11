@@ -16,7 +16,10 @@ mod images;
 mod inputs;
 mod lists;
 mod overlays;
+mod pickers;
 mod settings;
+
+pub use pickers::{PickMsg, Pickers};
 
 /// The page that is open.
 pub fn view(g: &Gallery) -> Div<Msg> {
@@ -29,6 +32,7 @@ pub fn view(g: &Gallery) -> Div<Msg> {
         Page::Images => images::view(g),
         Page::Icons => icons::view(g),
         Page::Overlays => overlays::view(g),
+        Page::Pickers => pickers::view(g),
         Page::Data => data::view(g),
         Page::Charts => charts::view(g),
         Page::Feedback => feedback::view(g),

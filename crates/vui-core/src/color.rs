@@ -114,6 +114,47 @@ impl Color {
         let q = |v: f32| (v.clamp(0.0, 1.0) * 255.0).round() as u8;
         [q(self.r), q(self.g), q(self.b), q(self.a)]
     }
+
+    /// `#rrggbb`, or `#rrggbbaa` when it is not opaque.
+    pub fn to_hex(self) -> String {
+        let [r, g, b, a] = self.to_rgba8();
+        if a == 255 { format!("#{r:02x}{g:02x}{b:02x}") } else { format!("#{r:02x}{g:02x}{b:02x}{a:02x}") }
+    }
+
+    /// Hue in degrees (0 to 360), saturation and value (0 to 1), of the encoded sRGB values: what a
+    /// colour picker's square and strip show.
+    pub fn to_hsv(self) -> [f32; 3] {
+        let (r, g, b) = (self.r.clamp(0.0, 1.0), self.g.clamp(0.0, 1.0), self.b.clamp(0.0, 1.0));
+        let max = r.max(g).max(b);
+        let delta = max - r.min(g).min(b);
+        let hue = if delta <= 1e-6 {
+            0.0
+        } else if max == r {
+            60.0 * ((g - b) / delta).rem_euclid(6.0)
+        } else if max == g {
+            60.0 * ((b - r) / delta + 2.0)
+        } else {
+            60.0 * ((r - g) / delta + 4.0)
+        };
+        [hue, if max <= 1e-6 { 0.0 } else { delta / max }, max]
+    }
+
+    /// The opaque colour with this hue (degrees), saturation and value (0 to 1).
+    pub fn from_hsv(hue: f32, saturation: f32, value: f32) -> Color {
+        let (h, s, v) = (hue.rem_euclid(360.0) / 60.0, saturation.clamp(0.0, 1.0), value.clamp(0.0, 1.0));
+        let c = v * s;
+        let x = c * (1.0 - (h.rem_euclid(2.0) - 1.0).abs());
+        let (r, g, b) = match h as u32 {
+            0 => (c, x, 0.0),
+            1 => (x, c, 0.0),
+            2 => (0.0, c, x),
+            3 => (0.0, x, c),
+            4 => (x, 0.0, c),
+            _ => (c, 0.0, x),
+        };
+        let m = v - c;
+        Color::rgb(r + m, g + m, b + m)
+    }
 }
 
 impl Default for Color {
@@ -181,5 +222,20 @@ mod tests {
         assert!(close(m.r, 0.25));
         assert!(close(Color::WHITE.mul_alpha(0.5).a, 0.5));
         assert_eq!(Color::WHITE.mul_alpha(4.0).a, 1.0);
+    }
+}
+
+#[cfg(test)]
+mod hsv_tests {
+    use super::Color;
+
+    #[test]
+    fn hsv_round_trips() {
+        for c in [Color::hex(0x4f5bd5), Color::hex(0xec4899), Color::hex(0x14b8a6), Color::WHITE, Color::BLACK, Color::hex(0x808080)] {
+            let [h, s, v] = c.to_hsv();
+            assert_eq!(Color::from_hsv(h, s, v).to_hex(), c.to_hex());
+        }
+        assert_eq!(Color::from_hsv(120.0, 1.0, 1.0).to_hex(), "#00ff00");
+        assert_eq!(Color::hex(0xff0000).with_alpha(0.5).to_hex(), "#ff000080");
     }
 }

@@ -76,8 +76,10 @@ impl<M: 'static> Widget<M> for TextFieldWidget<M> {
         // The border goes over to the accent as the field gains focus, and a faint halo grows around it.
         let edge = palette.line.lerp(palette.text_3, cx.hover * 0.7).lerp(palette.accent, focus);
         let (outline, radii, smooth) = (cx.rect, cx.radii, cx.smooth);
-        cx.quad(Quad::new(outline).radii(radii).smooth(smooth).border(1.0, edge.mul_alpha(alpha)));
-        if focus > 0.01 {
+        if !self.spec.bare {
+            cx.quad(Quad::new(outline).radii(radii).smooth(smooth).border(1.0, edge.mul_alpha(alpha)));
+        }
+        if focus > 0.01 && !self.spec.bare {
             let halo = Quad::new(outline.inflate(3.0, 3.0))
                 .radii(Corners::all(radii.max() + 3.0))
                 .smooth(smooth)

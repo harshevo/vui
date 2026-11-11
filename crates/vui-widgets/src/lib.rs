@@ -12,13 +12,13 @@
 //! | --- | --- |
 //! | `buttons` | `button`, `icon_button`, `segmented` |
 //! | `controls` | `checkbox`, `radio`, `radio_group`, `toggle`, `slider`, `range_slider` |
-//! | `inputs` | `text_field`, `search_field`, `password_field`, `text_area`, `number_input` |
+//! | `inputs` | `text_field`, `search_field`, `password_field`, `text_area`, `number_input`, `combobox`, `tag_input`, `calendar`, `date_picker`, `time_field`, `color_picker` |
 //! | `display` | `icon`, `card`, `badge`, `avatar`, `kbd`, `separator`, `chip`, `image_tile`, `markdown`, `rich_text`, `glow`, `shimmer`, `aurora`, `border_beam`, `spotlight` |
 //! | `data` | `item`, `data_table`, `tree`, `lasso` |
 //! | `feedback` | `progress`, `spinner`, `alert`, `skeleton`, `empty_state` |
 //! | `layout` | `field`, `setting`, `splitter`, `disclosure`, `accordion` |
-//! | `navigation` | `sidebar`, `nav_item`, `list`, `list_row`, `tabs`, `breadcrumbs`, `pagination` |
-//! | `overlay` | `popover`, `dropdown`, `menu`, `select`, `context_menu`, `dialog`, `toasts` |
+//! | `navigation` | `sidebar`, `nav_item`, `list`, `list_row`, `tabs`, `breadcrumbs`, `pagination`, `stepper`, `toolbar`, `carousel` |
+//! | `overlay` | `popover`, `dropdown`, `menu`, `select`, `context_menu`, `dialog`, `toasts`, `command_palette`, `drawer`, `sheet`, `hover_card` |
 
 mod buttons;
 mod controls;
@@ -39,6 +39,6 @@ pub use inputs::*;
 pub use layout::*;
 pub use navigation::*;
 pub use overlay::{
-    Popover, Side, context_menu, dialog, dialog_actions, dropdown, menu, menu_check, menu_heading, menu_item, menu_separator, panel, popover,
+    Command, Edge, Popover, Side, command, command_palette, context_menu, drawer, hover_card, sheet, dialog, dialog_actions, dropdown, menu, menu_check, menu_heading, menu_item, menu_separator, panel, popover,
     select, toast, toasts,
 };

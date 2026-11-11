@@ -21,6 +21,7 @@ pub enum Page {
     Images,
     Icons,
     Overlays,
+    Pickers,
     Data,
     Charts,
     Feedback,
@@ -29,7 +30,7 @@ pub enum Page {
 }
 
 impl Page {
-    pub const ALL: [Page; 13] = [
+    pub const ALL: [Page; 14] = [
         Page::Foundations,
         Page::Buttons,
         Page::Controls,
@@ -38,6 +39,7 @@ impl Page {
         Page::Images,
         Page::Icons,
         Page::Overlays,
+        Page::Pickers,
         Page::Data,
         Page::Charts,
         Page::Feedback,
@@ -55,6 +57,7 @@ impl Page {
             Page::Images => "Images",
             Page::Icons => "Icons",
             Page::Overlays => "Overlays",
+            Page::Pickers => "Pickers",
             Page::Data => "Data",
             Page::Charts => "Charts",
             Page::Feedback => "Feedback",
@@ -73,6 +76,7 @@ impl Page {
             Page::Images => icon_set::IMAGE,
             Page::Icons => icon_set::STAR,
             Page::Overlays => icon_set::COPY,
+            Page::Pickers => icon_set::CALENDAR,
             Page::Data => icon_set::GRID,
             Page::Charts => icon_set::BAR_CHART,
             Page::Feedback => icon_set::BELL,
@@ -160,6 +164,8 @@ pub enum Msg {
     PageTo(usize),
     /// Opens or closes the page menu of a narrow window.
     Nav(bool),
+    /// The pickers page's own messages.
+    Pickers(pages::PickMsg),
 }
 
 /// The overlay the overlays page has open.
@@ -227,6 +233,7 @@ pub struct Gallery {
     pub filters: Vec<&'static str>,
     pub page_no: usize,
     pub nav_open: bool,
+    pub pickers: pages::Pickers,
     /// Hold everything that moves by itself still: set for screenshots, so they match from run to run.
     pub still: bool,
     pub pictures: Pictures,
@@ -275,6 +282,7 @@ impl Gallery {
             filters: vec!["Design", "Due this week", "Assigned to me"],
             page_no: 6,
             nav_open: false,
+            pickers: pages::Pickers::default(),
             still: false,
             pictures: Pictures { scenes, detail, disc, hash },
         }
@@ -350,6 +358,7 @@ impl App for Gallery {
                 }
             }
             Msg::PageTo(p) => self.page_no = p,
+            Msg::Pickers(m) => self.pickers.update(m),
         }
     }
 

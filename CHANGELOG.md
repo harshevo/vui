@@ -18,6 +18,10 @@ the API.
 - Theme fonts: `Theme` chooses the interface and monospace families.
 - Layout: `grid` with pixel, `fr`, auto and filling columns, spans and auto rows; `gap_x` and
   `gap_y`; container queries with `.when_container`; `virtual_list` for lists of any length.
+- Widgets: `combobox` and `tag_input`; `command_palette`; `calendar`, `date_picker` and
+  `time_field` over a new `Date`; `color_picker`; `drawer` and `sheet`; `hover_card`; `stepper`;
+  `toolbar`; `carousel`. Fields gain `.pass_keys()` and `.bare()`, popovers `.keep_focus()`, and
+  `Color` gains `to_hsv`, `from_hsv` and `to_hex`.
 - Project files: workspace metadata and lints, CI on macOS and Linux, a frame benchmark, this
   changelog and contributor notes.
 

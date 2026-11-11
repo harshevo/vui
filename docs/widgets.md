@@ -67,6 +67,47 @@ your back, and every state can be reproduced in a test.
 | `text_area(&value)` | several lines: `.rows(4)`, `.max_rows(12)`; `.mono()` for code |
 | `search_field(&value)` | a field with a search glyph and a clear button |
 | `password_field(&value)` | hidden characters; copying is refused |
+| `combobox(&picker, &options, Msg::City)` | a field with suggestions, filtered by fuzzy matching; Up, Down and Return pick |
+| `tag_input(&tags, &draft, Msg::Tags)` | chips plus a field; Return or a comma adds, Backspace removes the last |
+| `.pass_keys()`, `.bare()` on a field | leave Up, Down and Return to the parent; draw no outline (for fields inside your own widgets) |
+
+### Pickers
+
+| Widget | Notes |
+| --- | --- |
+| `calendar(month)` | `.selected(day)`, `.range(a, b)`, `.today(Date::today())`, `.min`, `.max`, `.on_pick`, `.on_month` |
+| `date_picker(value, &state, Msg::Due)` | a field that opens a calendar; keep a `DatePicker` |
+| `time_field(hour, minute, step, Msg::Time)` | hours and minutes, stepped by buttons or arrow keys |
+| `color_picker(color, Msg::Color)` | saturation square, hue strip, hex field and swatches (`.swatches(…)`) |
+
+`Date` is a calendar day with the arithmetic these need: `add_days`, `add_months`, `weekday`,
+`iso`, `parse_iso`. A combobox and the command palette share `Picker`, the state of a list that is
+filtered by typing:
+
+```rust
+use vui::prelude::*;
+
+#[derive(Clone)]
+enum Msg { City(PickerEvent) }
+
+struct Trip { city: Picker, chosen: Option<usize> }
+
+const CITIES: [&str; 3] = ["Lisbon", "London", "Lyon"];
+
+impl Trip {
+    fn update(&mut self, msg: Msg) {
+        match msg {
+            // `apply` returns the option's index when one is picked.
+            Msg::City(e) => self.chosen = self.city.apply(e).or(self.chosen),
+        }
+    }
+
+    fn view(&self) -> impl IntoElement<Msg> {
+        let options: Vec<String> = CITIES.map(String::from).to_vec();
+        combobox(&self.city, &options, Msg::City).placeholder("City")
+    }
+}
+```
 
 The editor behind them handles the following:
 
@@ -110,6 +151,9 @@ The editor behind them handles the following:
 | `breadcrumbs(steps)` | a path whose earlier steps are links |
 | `pagination(page, pages, Msg::Page)` | page numbers with gaps |
 | `accordion(sections)`, `disclosure(title, open, Msg::Toggle, content)` | collapsible sections |
+| `stepper(steps, current)` | progress through a task of several steps; `.on_select` to go back |
+| `toolbar(tools)` + `toolbar_separator()` | one Tab stop; Left and Right move between tools |
+| `carousel(index, slides, Msg::Slide)` | one slide at a time with arrows, dots and the arrow keys |
 
 ### Overlays
 
@@ -122,6 +166,10 @@ The editor behind them handles the following:
 | `context_menu(target, at, Msg::OpenAt, Msg::Close, items)` | right-click menus |
 | `dialog(Msg::Close, content)` + `dialog_actions(buttons)` | modal; traps focus and returns it on close |
 | `toasts(items)` + `toast("Saved", Some(icon_set::CHECK))` | stacked notifications; hide them with `cx.after` |
+| `command_palette(&picker, &commands, Msg::Palette)` | ⌘K: every `command("New file").group("File").shortcut("⌘N")`, filtered as you type |
+| `drawer(Edge::Right, Msg::Close, content)`, `sheet(Msg::Close, content)` | panels from an edge; full width on a phone-sized window |
+| `hover_card(anchor, open, Msg::Peek, card, Side::Below)` | rich detail while the pointer rests on something |
+| `.keep_focus()` on a popover | leaves focus where it was: a card of suggestions under a field |
 
 ### Feedback
 

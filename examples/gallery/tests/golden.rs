@@ -49,6 +49,7 @@ pages! {
     images => Images,
     icons => Icons,
     overlays => Overlays,
+    pickers => Pickers,
     data => Data,
     charts => Charts,
     feedback => Feedback,

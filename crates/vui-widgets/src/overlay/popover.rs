@@ -49,7 +49,7 @@ pub fn panel<M: 'static>() -> Div<M> {
 /// );
 /// ```
 pub fn popover<M: Clone + 'static>(anchor: impl IntoElement<M>, open: bool, on_close: M, content: impl IntoElement<M>) -> Popover<M> {
-    Popover { anchor: anchor.into_element(), content: content.into_element(), open, on_close, side: Side::Below, match_width: false, key: None }
+    Popover { anchor: anchor.into_element(), content: content.into_element(), open, on_close, side: Side::Below, match_width: false, keep_focus: false, key: None }
 }
 
 /// A button-like `trigger` that opens a [`menu`] of `items` under it.
@@ -65,6 +65,7 @@ pub struct Popover<M: 'static> {
     on_close: M,
     side: Side,
     match_width: bool,
+    keep_focus: bool,
     key: Option<Key>,
 }
 
@@ -78,6 +79,13 @@ impl<M: Clone + 'static> Popover<M> {
     /// Which side of the anchor it opens on.
     pub fn side(mut self, side: Side) -> Self {
         self.side = side;
+        self
+    }
+
+    /// Leaves focus where it is when the card opens, instead of moving it into the card: for a card
+    /// under a field that is still being typed in, such as a combobox's suggestions.
+    pub fn keep_focus(mut self) -> Self {
+        self.keep_focus = true;
         self
     }
 
@@ -107,9 +115,10 @@ impl<M: Clone + 'static> IntoChildren<M> for Popover<M> {
 
 impl<M: Clone + 'static> IntoElement<M> for Popover<M> {
     fn into_element(self) -> Element<M> {
-        let Popover { anchor, content, open, on_close, side, match_width, key } = self;
+        let Popover { anchor, content, open, on_close, side, match_width, keep_focus, key } = self;
         let card = open.then(|| {
-            let layer = div::<M>().key("vui-popover").float().on_dismiss(on_close).autofocus();
+            let layer = div::<M>().key("vui-popover").float().on_dismiss(on_close);
+            let layer = if keep_focus { layer } else { layer.autofocus() };
             let layer = match side {
                 Side::Below => layer.top(pct(100.0)).left(0.0).margin_y(GAP),
                 Side::BelowEnd => layer.top(pct(100.0)).right(0.0).margin_y(GAP),
