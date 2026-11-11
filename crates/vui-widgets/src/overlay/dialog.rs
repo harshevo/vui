@@ -2,7 +2,7 @@
 //! closes.
 
 use vui_core::{Shadow, Spring, Tone};
-use vui_runtime::{Align, Builder, Div, IntoChildren, Justify, Parent, Radius, Role, Styled, column, div, pct, row};
+use vui_runtime::{Align, Breakpoint, Builder, Div, IntoChildren, Justify, Parent, Radius, Role, Styled, column, div, pct, row};
 
 /// How wide a dialog is, at most.
 const WIDTH: f32 = 440.0;
@@ -14,6 +14,8 @@ pub fn dialog<M: Clone + 'static>(on_close: M, content: impl IntoChildren<M>) ->
     let card = column::<M>()
         .width(WIDTH)
         .max_width(pct(92.0))
+        // On a phone-sized window it becomes a sheet across the bottom.
+        .when(Breakpoint::Compact, |s| s.width(pct(100.0)).max_width(pct(100.0)).padding(20.0))
         .padding(24.0)
         .gap(16.0)
         .bg(Tone::Bg)
@@ -37,10 +39,11 @@ pub fn dialog<M: Clone + 'static>(on_close: M, content: impl IntoChildren<M>) ->
         .appear()
         .align_items(Align::Center)
         .justify(Justify::Center)
+        .when(Breakpoint::Compact, |s| s.justify(Justify::End).padding(8.0))
         .child(card)
 }
 
 /// The buttons along the bottom of a dialog, at the right: the safe choice first, the main one last.
 pub fn dialog_actions<M: 'static>(buttons: impl IntoChildren<M>) -> Div<M> {
-    row().gap(8.0).justify(Justify::End).margin_top(8.0).children(buttons)
+    row().gap(8.0).wrap().justify(Justify::End).margin_top(8.0).children(buttons)
 }

@@ -376,6 +376,11 @@ pub trait IntoChildren<M: 'static> {
     fn append_to(self, out: &mut Vec<Element<M>>);
 }
 
+/// No children.
+impl<M: 'static> IntoChildren<M> for () {
+    fn append_to(self, _out: &mut Vec<Element<M>>) {}
+}
+
 impl<M: 'static, E: IntoElement<M>> IntoChildren<M> for Vec<E> {
     fn append_to(self, out: &mut Vec<Element<M>>) {
         out.extend(self.into_iter().map(IntoElement::into_element));

@@ -8,7 +8,12 @@
 
 mod button;
 mod control;
+mod data;
 mod display;
+mod feedback;
+mod inputs;
+mod layout;
+mod navigation;
 pub mod editor;
 mod form;
 mod icon;
@@ -30,7 +35,13 @@ pub use control::{CheckState, Checkbox, ControlWidget, Radio, Toggle, checkbox, 
 pub use display::{
     Badge, BadgeTint, avatar, avatar_image, avatar_sized, badge, card, dot, kbd, section_title, separator, separator_vertical,
 };
+pub use data::{ColWidth, SortDir, TableColumn, TableRow, TreeRow, data_table, table_column, table_row, tree, tree_row};
+pub use display::chip;
+pub use feedback::{AlertKind, alert, alert_with, empty_state, skeleton, skeleton_text};
 pub use form::{field, setting};
+pub use inputs::number_input;
+pub use layout::{accordion, disclosure};
+pub use navigation::{breadcrumbs, pagination, tab_panel, tabs, tabs_keyed};
 pub use icon::{ICON_SIZE, IconEl, IconWidget, SPINNER_PERIOD, icon, paint_icon, paint_spinner};
 pub use item::{Item, ItemWidget, item};
 pub use markdown::{Markdown, RichText, markdown, rich_text};

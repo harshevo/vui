@@ -6,6 +6,8 @@ use crate::{Gallery, Msg, Page};
 
 mod buttons;
 mod controls;
+mod data;
+mod feedback;
 mod foundations;
 mod icons;
 mod images;
@@ -25,6 +27,8 @@ pub fn view(g: &Gallery) -> Div<Msg> {
         Page::Images => images::view(g),
         Page::Icons => icons::view(g),
         Page::Overlays => overlays::view(g),
+        Page::Data => data::view(g),
+        Page::Feedback => feedback::view(g),
         Page::Settings => settings::view(g),
     }
 }
@@ -32,7 +36,12 @@ pub fn view(g: &Gallery) -> Div<Msg> {
 /// A page: its title, 48 points of air, then sections 32 points apart, in a column no wider than the
 /// eye likes. The column is keyed `page` so a screenshot can ask how tall the page is.
 pub fn page(name: &str, sections: impl IntoChildren<Msg>) -> Div<Msg> {
-    column().key("page").padding(32.0).gap(48.0).max_width(768.0).children((title(name), column().gap(32.0).children(sections)))
+    column()
+        .key("page")
+        .padding(32.0)
+        .gap(48.0)
+        .max_width(768.0)
+        .when(Breakpoint::Compact, |s| s.padding(16.0).gap(32.0)).children((title(name), column().gap(32.0).children(sections)))
 }
 
 /// A small grey heading over what it names.

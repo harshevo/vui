@@ -25,12 +25,17 @@ pub struct Headless {
 
 impl Headless {
     pub fn new(page: Page, dark: bool, scale: f32) -> Headless {
+        Headless::with_width(page, dark, scale, WINDOW_WIDTH)
+    }
+
+    /// The gallery in a window `width` wide: below 600 it is laid out for a phone-sized window.
+    pub fn with_width(page: Page, dark: bool, scale: f32, width: f32) -> Headless {
         let res = Resources::bundled_only();
         let gallery = Gallery::new(&res, page, dark);
-        let mut ui = TestUi { ui: Ui::with_app(res.clone(), size(WINDOW_WIDTH, PROBE_HEIGHT), scale, gallery) };
+        let mut ui = TestUi { ui: Ui::with_app(res.clone(), size(width, PROBE_HEIGHT), scale, gallery) };
         // A page is as tall as what is on it, so ask the page and cut the window to fit.
         let height = ui.rect("page").bottom().max(MIN_HEIGHT);
-        ui.ui.set_size(size(WINDOW_WIDTH, height));
+        ui.ui.set_size(size(width, height));
         // Let the first frame's springs come to rest: the screenshot is taken at a fixed time.
         ui.advance(0.6);
         Headless { ui, res }

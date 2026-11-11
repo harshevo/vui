@@ -38,6 +38,8 @@ pub enum BadgeTint {
     Neutral,
     Accent,
     Danger,
+    Success,
+    Warning,
     Orange,
     Blue,
     Purple,
@@ -61,6 +63,8 @@ impl<M: 'static> Badge<M> {
             BadgeTint::Neutral => (Tone::Text2, CHIP),
             BadgeTint::Accent => (Tone::Accent, Fill::Tone(Tone::Accent, 0.12)),
             BadgeTint::Danger => (Tone::Danger, Fill::Tone(Tone::Danger, 0.12)),
+            BadgeTint::Success => (Tone::Success, Fill::Tone(Tone::Success, 0.14)),
+            BadgeTint::Warning => (Tone::Warning, Fill::Tone(Tone::Warning, 0.16)),
             BadgeTint::Orange => (Tone::Orange, Fill::Tone(Tone::Orange, 0.14)),
             BadgeTint::Blue => (Tone::Blue, Fill::Tone(Tone::Blue, 0.12)),
             BadgeTint::Purple => (Tone::Purple, Fill::Tone(Tone::Purple, 0.12)),
@@ -76,6 +80,14 @@ impl<M: 'static> Badge<M> {
 
     pub fn danger(self) -> Self {
         self.tint(BadgeTint::Danger)
+    }
+
+    pub fn success(self) -> Self {
+        self.tint(BadgeTint::Success)
+    }
+
+    pub fn warning(self) -> Self {
+        self.tint(BadgeTint::Warning)
     }
 
     pub fn orange(self) -> Self {

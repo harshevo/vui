@@ -21,11 +21,13 @@ pub enum Page {
     Images,
     Icons,
     Overlays,
+    Data,
+    Feedback,
     Settings,
 }
 
 impl Page {
-    pub const ALL: [Page; 9] = [
+    pub const ALL: [Page; 11] = [
         Page::Foundations,
         Page::Buttons,
         Page::Controls,
@@ -34,6 +36,8 @@ impl Page {
         Page::Images,
         Page::Icons,
         Page::Overlays,
+        Page::Data,
+        Page::Feedback,
         Page::Settings,
     ];
 
@@ -47,6 +51,8 @@ impl Page {
             Page::Images => "Images",
             Page::Icons => "Icons",
             Page::Overlays => "Overlays",
+            Page::Data => "Data",
+            Page::Feedback => "Feedback",
             Page::Settings => "Settings",
         }
     }
@@ -61,6 +67,8 @@ impl Page {
             Page::Images => icon_set::IMAGE,
             Page::Icons => icon_set::STAR,
             Page::Overlays => icon_set::COPY,
+            Page::Data => icon_set::GRID,
+            Page::Feedback => icon_set::BELL,
             Page::Settings => icon_set::SETTINGS,
         }
     }
@@ -132,6 +140,16 @@ pub enum Msg {
     CloseContext,
     Toast,
     HideToast(u32),
+    Tab(usize),
+    SortBy(usize),
+    Pick(usize),
+    Fold(usize),
+    Section(usize),
+    Count(f64),
+    Unfilter(usize),
+    PageTo(usize),
+    /// Opens or closes the page menu of a narrow window.
+    Nav(bool),
 }
 
 /// The overlay the overlays page has open.
@@ -184,6 +202,17 @@ pub struct Gallery {
     /// Toasts showing, by number.
     pub toasts: Vec<u32>,
     pub toasted: u32,
+    pub tab: usize,
+    /// The data page's sort: column and whether it goes down.
+    pub sort_by: (usize, bool),
+    pub picked: usize,
+    /// Tree rows that are unfolded, by index.
+    pub unfolded: Vec<usize>,
+    pub section: Option<usize>,
+    pub count: f64,
+    pub filters: Vec<&'static str>,
+    pub page_no: usize,
+    pub nav_open: bool,
     pub pictures: Pictures,
 }
 
@@ -219,6 +248,15 @@ impl Gallery {
             context: None,
             toasts: Vec::new(),
             toasted: 0,
+            tab: 0,
+            sort_by: (0, false),
+            picked: 1,
+            unfolded: vec![0, 2],
+            section: Some(0),
+            count: 3.0,
+            filters: vec!["Design", "Due this week", "Assigned to me"],
+            page_no: 6,
+            nav_open: false,
             pictures: Pictures { scenes, detail, disc, hash },
         }
     }
@@ -229,7 +267,11 @@ impl App for Gallery {
 
     fn update(&mut self, msg: Msg, cx: &mut Cx<Msg>) {
         match msg {
-            Msg::Go(page) => self.page = page,
+            Msg::Go(page) => {
+                self.page = page;
+                self.nav_open = false;
+            }
+            Msg::Nav(open) => self.nav_open = open,
             Msg::Dark(dark) => self.dark = dark,
             Msg::Wifi(on) => self.wifi = on,
             Msg::Alerts(on) => self.alerts = on,
@@ -269,14 +311,37 @@ impl App for Gallery {
                 cx.after(std::time::Duration::from_secs(4), Msg::HideToast(self.toasted));
             }
             Msg::HideToast(n) => self.toasts.retain(|&t| t != n),
+            Msg::Tab(t) => self.tab = t,
+            Msg::SortBy(c) => self.sort_by = (c, self.sort_by.0 == c && !self.sort_by.1),
+            Msg::Pick(r) => self.picked = r,
+            Msg::Fold(i) => {
+                if let Some(at) = self.unfolded.iter().position(|&u| u == i) {
+                    self.unfolded.remove(at);
+                } else {
+                    self.unfolded.push(i);
+                }
+            }
+            Msg::Section(i) => self.section = if self.section == Some(i) { None } else { Some(i) },
+            Msg::Count(v) => self.count = v,
+            Msg::Unfilter(i) => {
+                if i < self.filters.len() {
+                    self.filters.remove(i);
+                }
+            }
+            Msg::PageTo(p) => self.page_no = p,
         }
     }
 
     fn view(&self) -> impl IntoElement<Msg> {
+        // A narrow window trades the sidebar for a bar with a menu of the pages.
+        let wide_only = |d: Div<Msg>| d.when(Breakpoint::Compact, |s| s.hidden(true));
         row().children((
-            self.sidebar(),
-            separator_vertical(),
-            column().grow(1.0).min_width(0.0).overflow(Overflow::Scroll).key("content").child(pages::view(self)),
+            wide_only(self.sidebar()),
+            wide_only(separator_vertical()),
+            column().grow(1.0).min_width(0.0).children((
+                self.top_bar(),
+                column().grow(1.0).min_height(0.0).overflow(Overflow::Scroll).key("content").child(pages::view(self)),
+            )),
         ))
     }
 
@@ -286,6 +351,34 @@ impl App for Gallery {
 }
 
 impl Gallery {
+    /// The bar a narrow window shows in place of the sidebar: the page menu and the dark switch.
+    fn top_bar(&self) -> Div<Msg> {
+        let pages: Vec<_> = Page::ALL.into_iter().map(|page| {
+                let item = menu_item(page.name()).icon(page.icon()).on_click(Msg::Go(page));
+                if self.page == page { item.text_color(Tone::Accent).icon_color(Tone::Accent) } else { item }
+            }).collect();
+        row()
+            .hidden(true)
+            .when(Breakpoint::Compact, |s| s.hidden(false))
+            .key("top-bar")
+            .height(52.0)
+            .padding_x(12.0)
+            .gap(8.0)
+            .align_items(Align::Center)
+            .bg(Tone::Side)
+            .children((
+                dropdown(
+                    button(self.page.name()).ghost().icon(icon_set::MENU).trailing(icon_set::CHEVRON_DOWN).key("nav").on_click(Msg::Nav(!self.nav_open)),
+                    self.nav_open,
+                    Msg::Nav(false),
+                    pages,
+                ),
+                spacer(),
+                icon(icon_set::MOON),
+                toggle(self.dark).name("Dark mode").on_change(Msg::Dark),
+            ))
+    }
+
     fn sidebar(&self) -> Div<Msg> {
         let brand = row().align_items(Align::Center).gap(8.0).padding_x(12.0).height(32.0).children((
             div().square(20.0).rounded(Radius::Px(6.0)).bg(Tone::Accent),

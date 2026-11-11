@@ -49,6 +49,8 @@ pages! {
     images => Images,
     icons => Icons,
     overlays => Overlays,
+    data => Data,
+    feedback => Feedback,
     settings => Settings,
 }
 
