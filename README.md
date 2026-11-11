@@ -11,9 +11,9 @@ and can be tested without a window.**
 vui draws every pixel itself, with no web view and no platform widgets underneath. Its parts are:
 
 - a wgpu renderer, with a CPU renderer that matches it;
-- a flexbox engine written for interfaces, with responsive rules;
-- springs for every motion;
-- 70+ widgets and 157 icons;
+- flexbox and grid layout written for interfaces, with responsive and container rules;
+- springs for every motion, plus transforms, exit animations and keyframes;
+- 80+ widgets and 157 icons;
 - charts and graphs;
 - an accessibility tree.
 
@@ -73,7 +73,12 @@ fn main() {
   - Wrapping rows, max-width columns, and tables that drop columns cover the rest.
 - **Testable.** `TestUi` clicks, types and moves the clock by hand. Frames compare with golden
   images on the GPU or the CPU, and the accessibility tree can be asserted on.
+- **Native where it counts.** On macOS, apps get their own menus and shortcuts, open and save
+  sheets, notifications, a menu-bar item and full screen. They also follow Reduce Motion and
+  Increase Contrast, all from plain messages that tests can play back.
 - **Idle is free.** Frames come only while something moves; a still window costs nothing.
+- **Easy to look inside.** Cmd-Option-I opens an inspector in any window, and Cmd-Option-S shows
+  frame stats.
 - **Extensible.**
   - **Custom widgets.** Implement one trait.
   - **Custom shaders.** Plug into the renderer as passes.
@@ -85,6 +90,7 @@ fn main() {
 cargo run -p vui --example hello        # the counter above
 cargo run -p vui --example todo         # text input, a list from data, filters, empty state
 cargo run -p vui --example dashboard    # sidebar, stat cards, a chart and a table: resize it
+cargo run -p vui --example notes        # app menus, shortcuts, file sheets, a menu-bar item
 cargo run -p gallery --release -- --window   # every widget, light and dark
 ```
 
