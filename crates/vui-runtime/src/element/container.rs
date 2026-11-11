@@ -55,6 +55,16 @@ macro_rules! builder {
                 $crate::Element::new(self.widget, self.base, ::std::vec::Vec::new())
             }
         }
+
+        /// One element is a list of one child, so it can be passed wherever children are.
+        impl<$m: 'static> $crate::IntoChildren<$m> for $name<$m>
+        where
+            $widget: $crate::Widget<$m>,
+        {
+            fn append_to(self, out: &mut ::std::vec::Vec<$crate::Element<$m>>) {
+                out.push($crate::IntoElement::into_element(self));
+            }
+        }
     };
     ($name:ident<$m:ident> => $widget:ty, children) => {
         impl<$m: 'static> $crate::Styled for $name<$m> {
@@ -81,6 +91,16 @@ macro_rules! builder {
         {
             fn into_element(self) -> $crate::Element<$m> {
                 $crate::Element::new(self.widget, self.base, self.children)
+            }
+        }
+
+        /// One element is a list of one child, so it can be passed wherever children are.
+        impl<$m: 'static> $crate::IntoChildren<$m> for $name<$m>
+        where
+            $widget: $crate::Widget<$m>,
+        {
+            fn append_to(self, out: &mut ::std::vec::Vec<$crate::Element<$m>>) {
+                out.push($crate::IntoElement::into_element(self));
             }
         }
     };

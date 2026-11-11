@@ -243,6 +243,25 @@ impl<M: 'static> Element<M> {
         self.map_rc(&f)
     }
 
+    /// The name assistive technology reads for the element, replacing any it had: for naming a
+    /// built element, as a form row names the trigger of a select.
+    pub fn name(mut self, name: impl Into<String>) -> Self {
+        self.base.a11y.label = Some(name.into());
+        self
+    }
+
+    /// Names the element unless it was named already; see [`Builder::default_name`].
+    pub fn default_name(mut self, name: impl Into<String>) -> Self {
+        self.base.a11y.label.get_or_insert_with(|| name.into());
+        self
+    }
+
+    /// A longer description, read after the name; see [`Builder::describe`].
+    pub fn describe(mut self, description: impl Into<String>) -> Self {
+        self.base.a11y.description = Some(description.into());
+        self
+    }
+
     fn map_rc<N: 'static>(self, f: &Rc<dyn Fn(M) -> N>) -> Element<N> {
         let Element { base, widget, children } = self;
         let Base { style, rules, decor, input, a11y, key, transition, appear } = base;
@@ -283,6 +302,12 @@ pub trait IntoChildren<M: 'static> {
 /// No children.
 impl<M: 'static> IntoChildren<M> for () {
     fn append_to(self, _out: &mut Vec<Element<M>>) {}
+}
+
+impl<M: 'static> IntoChildren<M> for Element<M> {
+    fn append_to(self, out: &mut Vec<Element<M>>) {
+        out.push(self);
+    }
 }
 
 impl<M: 'static, E: IntoElement<M>> IntoChildren<M> for Vec<E> {

@@ -88,6 +88,23 @@ impl<M: Clone + 'static> Popover<M> {
     }
 }
 
+/// In a form row, the trigger takes the row's name: a select reads as "Size", then what it shows.
+impl<M: Clone + 'static> crate::Control<M> for Popover<M> {
+    fn labelled(mut self, name: String, detail: Option<String>) -> Element<M> {
+        self.anchor = self.anchor.name(name);
+        if let Some(detail) = detail {
+            self.anchor = self.anchor.describe(detail);
+        }
+        self.into_element()
+    }
+}
+
+impl<M: Clone + 'static> IntoChildren<M> for Popover<M> {
+    fn append_to(self, out: &mut Vec<Element<M>>) {
+        out.push(self.into_element());
+    }
+}
+
 impl<M: Clone + 'static> IntoElement<M> for Popover<M> {
     fn into_element(self) -> Element<M> {
         let Popover { anchor, content, open, on_close, side, match_width, key } = self;

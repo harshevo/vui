@@ -5,5 +5,5 @@ mod form;
 mod splitter;
 
 pub use accordion::{accordion, disclosure};
-pub use form::{field, setting};
+pub use form::{Control, field, setting};
 pub use splitter::{Splitter, SplitterWidget, splitter};

@@ -10,7 +10,8 @@ pub mod spark;
 pub mod style;
 
 pub use canvas::{Canvas, HAnchor, VAnchor, paint};
-pub use chart::{Candle, Chart, Dot, Layer, Mark, Panel};
+pub use chart::{Candle, Chart, ChartView, Dot, Layer, Mark, Panel, chart};
+pub use graph::{GraphData, GraphView, graph_view};
 pub use format::Format;
 pub use scale::{Band, Linear, Log, Tick, nice_ticks, time_ticks};
 pub use spark::{Spark, draw_spark, spark};

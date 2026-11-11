@@ -10,3 +10,8 @@ vui-icons = { path = "../vui-icons" }
 vui-render = { path = "../vui-render" }
 vui-runtime = { path = "../vui-runtime" }
 vui-widgets = { path = "../vui-widgets" }
+vui-viz = { path = "../vui-viz" }
+
+# The window backend. Other platforms build everything else (and run headless) until theirs lands.
+[target.'cfg(target_os = "macos")'.dependencies]
+vui-macos = { path = "../vui-macos" }

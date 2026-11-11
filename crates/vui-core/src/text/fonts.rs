@@ -87,6 +87,22 @@ impl Fonts {
         }
     }
 
+    /// Adds a font from its file's bytes (TrueType, OpenType or a collection) and returns the family
+    /// names it brought, which text can then ask for: `label("Hi").font("Geist")`. Layouts shaped
+    /// before are dropped, since fallback may now choose the new face.
+    pub fn add_font(&self, bytes: Vec<u8>) -> Vec<String> {
+        let mut system = self.shared.system.borrow_mut();
+        let db = system.db_mut();
+        let before: std::collections::HashSet<_> = db.faces().map(|f| f.id).collect();
+        db.load_font_data(bytes);
+        let mut families: Vec<String> =
+            db.faces().filter(|f| !before.contains(&f.id)).flat_map(|f| f.families.iter().map(|(name, _)| name.clone())).collect();
+        families.dedup();
+        drop(system);
+        *self.shared.cache.borrow_mut() = TextCache::default();
+        families
+    }
+
     /// Exclusive access to the shaping engine, for the renderer.
     pub fn system(&self) -> RefMut<'_, FontSystem> {
         self.shared.system.borrow_mut()

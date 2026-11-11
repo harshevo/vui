@@ -16,6 +16,7 @@ struct TextSpec {
     size: Option<f32>,
     weight: Option<u16>,
     mono: bool,
+    family: Option<std::sync::Arc<str>>,
     align: TextAlign,
     wrap: bool,
     max_lines: Option<usize>,
@@ -34,6 +35,9 @@ impl TextSpec {
         }
         if self.mono || self.role == TextRole::Mono {
             style.family = FontFamily::Mono;
+        }
+        if let Some(family) = &self.family {
+            style.family = FontFamily::Named(family.clone());
         }
         style.align = self.align;
         if !self.wrap {
@@ -121,6 +125,7 @@ impl<M: 'static> Label<M> {
                     size: None,
                     weight: None,
                     mono: false,
+                    family: None,
                     align: TextAlign::Start,
                     wrap: true,
                     max_lines: None,
@@ -154,6 +159,13 @@ impl<M: 'static> Label<M> {
 
     pub fn mono(mut self) -> Self {
         self.widget.spec.mono = true;
+        self
+    }
+
+    /// Sets the text in a font family by name: one added with `Fonts::add_font`, or an installed one.
+    /// Characters the family lacks fall back to the others.
+    pub fn font(mut self, family: &str) -> Self {
+        self.widget.spec.family = Some(family.into());
         self
     }
 

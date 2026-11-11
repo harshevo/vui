@@ -333,3 +333,22 @@ fn flipping_a_setting_sends_the_new_state() {
     t.ui.do_action(id, AccessAction::Click);
     assert_eq!(log(&t), [Msg::Wifi(true), Msg::Wifi(false)]);
 }
+
+#[test]
+fn a_select_in_a_field_is_named_by_the_field_and_still_shows_its_choice() {
+    let mut t: TestUi<u8> = TestUi::new(400.0, 300.0);
+    let size = vui_widgets::select([(1u8, "Small".to_string()), (2, "Large".to_string())], &2, false, |_| 0u8, |v| v);
+    t.view(column().padding(16.0).child(vui_widgets::field("Size", size)));
+    let tree = t.ui.access_tree();
+    let named: Vec<_> = tree.nodes.iter().filter(|n| n.name.as_deref() == Some("Size")).map(|n| n.role).collect();
+    assert_eq!(named, [Role::Button]);
+    assert!(texts(&t.scene()).contains(&"Large".to_string()));
+}
+
+#[test]
+fn one_element_can_stand_for_a_list_of_children() {
+    let mut t: TestUi<u8> = TestUi::new(400.0, 300.0);
+    t.view(vui_widgets::dialog(0u8, column().child(vui_runtime::label("Inside"))));
+    t.advance(1.0);
+    assert!(texts(&t.scene()).contains(&"Inside".to_string()));
+}

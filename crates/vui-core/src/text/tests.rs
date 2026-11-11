@@ -219,3 +219,16 @@ fn the_title_token_is_bigger_and_heavier() {
     assert!(title.size().w > body_l.size().w * 1.5);
     assert_eq!(title.size().h, 32.0);
 }
+
+#[test]
+fn an_added_font_names_its_family_and_text_can_ask_for_it() {
+    let fonts = Fonts::bundled_only();
+    let mut families = Vec::new();
+    for bytes in vui_fonts::all() {
+        families.extend(fonts.add_font(bytes.to_vec()));
+    }
+    assert!(families.iter().any(|f| f == "JetBrains Mono"), "{families:?}");
+    let style = body().family(FontFamily::Named("JetBrains Mono".into()));
+    let layout = fonts.layout("Hello", &style, None);
+    assert_eq!(face_family(&fonts, &layout).0, "JetBrains Mono");
+}

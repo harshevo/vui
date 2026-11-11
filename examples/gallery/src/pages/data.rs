@@ -2,8 +2,10 @@
 
 use super::*;
 
-/// Files for the table: name, kind, size in KB, edited.
-const FILES: [(&str, &str, u32, &str); 5] = [
+/// A file for the table: name, kind, size in KB, edited.
+type File = (&'static str, &'static str, u32, &'static str);
+
+const FILES: [File; 5] = [
     ("Roadmap.md", "Markdown", 12, "Today"),
     ("Brand.fig", "Design", 4_820, "Yesterday"),
     ("Q3 report.pdf", "PDF", 1_204, "Mon"),
@@ -22,7 +24,7 @@ const TREE: [(&str, usize, bool, Option<usize>); 7] = [
     ("Cargo.toml", 0, false, None),
 ];
 
-fn sorted(g: &Gallery) -> Vec<(usize, (&'static str, &'static str, u32, &'static str))> {
+fn sorted(g: &Gallery) -> Vec<(usize, File)> {
     let mut rows: Vec<_> = FILES.iter().copied().enumerate().collect();
     match g.sort_by.0 {
         0 => rows.sort_by_key(|(_, f)| f.0.to_lowercase()),

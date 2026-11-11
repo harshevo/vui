@@ -1374,8 +1374,10 @@ version = "0.1.0"
 dependencies = [
  "vui-core",
  "vui-icons",
+ "vui-macos",
  "vui-render",
  "vui-runtime",
+ "vui-viz",
  "vui-widgets",
 ]
 
