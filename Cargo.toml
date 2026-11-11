@@ -24,7 +24,22 @@ glyphon = "0.12"
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.91"
 publish = false
+authors = ["Harsh Mishra"]
+repository = "https://github.com/harshevo/vui"
+keywords = ["gui", "ui", "widgets", "wgpu", "gpu"]
+categories = ["gui", "graphics", "rendering"]
+
+# One set of lints for every crate; each opts in with `[lints] workspace = true`.
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "warn"
+unused_qualifications = "warn"
+
+[workspace.lints.clippy]
+dbg_macro = "warn"
+todo = "warn"
+print_stdout = "warn"
 
 # Shaping, rasterising and image resizing are slow in an unoptimised build, so
 # dependencies are optimised even in dev and test profiles.

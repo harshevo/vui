@@ -3,6 +3,12 @@ name = "vui-widgets"
 version.workspace = true
 edition.workspace = true
 publish.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "vui's stock widgets: buttons, inputs, sliders, lists, tables, navigation, overlays and effects."
 
 [dependencies]
 vui-core = { path = "../vui-core" }
@@ -10,3 +16,6 @@ vui-runtime = { path = "../vui-runtime" }
 vui-icons = { path = "../vui-icons" }
 # Unicode's grapheme and word boundary tables: the same crate the text shaper already uses.
 unicode-segmentation = "1"
+
+[lints]
+workspace = true

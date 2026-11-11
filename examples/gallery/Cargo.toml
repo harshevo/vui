@@ -3,7 +3,15 @@ name = "gallery"
 version.workspace = true
 edition.workspace = true
 publish.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [dependencies]
 vui = { path = "../../crates/vui" }
 vui-macos = { path = "../../crates/vui-macos" }
+
+[lints]
+workspace = true

@@ -3,6 +3,12 @@ name = "vui"
 version.workspace = true
 edition.workspace = true
 publish.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "A GPU-drawn UI framework for Rust: widgets, layout, charts, effects and a macOS backend, with a CPU renderer as fallback."
 
 [dependencies]
 vui-core = { path = "../vui-core" }
@@ -15,3 +21,10 @@ vui-viz = { path = "../vui-viz" }
 # The window backend. Other platforms build everything else (and run headless) until theirs lands.
 [target.'cfg(target_os = "macos")'.dependencies]
 vui-macos = { path = "../vui-macos" }
+
+[lints]
+workspace = true
+
+[[bench]]
+name = "frame"
+harness = false

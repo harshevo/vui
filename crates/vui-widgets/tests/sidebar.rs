@@ -338,7 +338,7 @@ fn flipping_a_setting_sends_the_new_state() {
 fn a_select_in_a_field_is_named_by_the_field_and_still_shows_its_choice() {
     let mut t: TestUi<u8> = TestUi::new(400.0, 300.0);
     let size = vui_widgets::select([(1u8, "Small".to_string()), (2, "Large".to_string())], &2, false, |_| 0u8, |v| v);
-    t.view(column().padding(16.0).child(vui_widgets::field("Size", size)));
+    t.view(column().padding(16.0).child(field("Size", size)));
     let tree = t.ui.access_tree();
     let named: Vec<_> = tree.nodes.iter().filter(|n| n.name.as_deref() == Some("Size")).map(|n| n.role).collect();
     assert_eq!(named, [Role::Button]);

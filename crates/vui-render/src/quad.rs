@@ -55,7 +55,7 @@ pub(crate) struct QuadPipeline {
 }
 
 const INITIAL_CAPACITY: usize = 1024;
-const INSTANCE_SIZE: u64 = std::mem::size_of::<QuadInstance>() as u64;
+const INSTANCE_SIZE: u64 = size_of::<QuadInstance>() as u64;
 
 impl QuadPipeline {
     pub(crate) fn new(device: &wgpu::Device, format: wgpu::TextureFormat) -> QuadPipeline {
@@ -123,7 +123,7 @@ impl QuadPipeline {
         });
         let globals = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("vui globals"),
-            size: std::mem::size_of::<Globals>() as u64,
+            size: size_of::<Globals>() as u64,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });

@@ -32,7 +32,10 @@ fn main() {
             let mut gallery = Headless::new(page, dark, 2.0);
             let path = out.join(format!("{name}_{}.png", if dark { "dark" } else { "light" }));
             gallery.image().save_png(&path).expect("the screenshot could not be written");
-            println!("{}", path.display());
+            #[allow(clippy::print_stdout, reason = "the paths written are the tool's output")]
+            {
+                println!("{}", path.display());
+            }
         }
     }
 }

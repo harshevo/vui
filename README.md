@@ -175,6 +175,14 @@ VUI_BLESS=1 cargo test --workspace         # re-bless golden images after an int
 A failing golden comparison writes the frame and a highlighted diff to the crate's
 `tests/actual`. Look at both before re-blessing.
 
+```sh
+cargo bench -p vui --bench frame           # layout, paint and CPU-render timings
+```
+
+CI runs clippy, the tests on the GPU and CPU renderers, the minimum Rust version (1.91) and the
+docs on every push. See [CONTRIBUTING.md](CONTRIBUTING.md) for the house rules and
+[CHANGELOG.md](CHANGELOG.md) for what changed.
+
 ## Status
 
 vui is young but solid: the renderer, runtime, widgets and macOS backend are used every day by

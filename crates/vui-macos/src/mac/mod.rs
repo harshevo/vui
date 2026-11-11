@@ -134,7 +134,7 @@ impl Application {
 
     /// Every display's frame in points, in the coordinates screenshots use: the origin at the top left
     /// of the main display, y growing down.
-    pub fn displays(&self) -> Vec<vui_core::Rect> {
+    pub fn displays(&self) -> Vec<Rect> {
         let screens = NSScreen::screens(self.mtm);
         let main = screens.firstObject().map_or(0.0, |s| s.frame().size.height);
         screens

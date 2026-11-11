@@ -207,7 +207,7 @@ pub(crate) struct ImagePipeline {
 }
 
 const INITIAL_CAPACITY: usize = 256;
-const INSTANCE_SIZE: u64 = std::mem::size_of::<ImageInstance>() as u64;
+const INSTANCE_SIZE: u64 = size_of::<ImageInstance>() as u64;
 /// The default texture memory the cache keeps resident.
 pub(crate) const DEFAULT_BUDGET: usize = 192 * 1024 * 1024;
 
@@ -319,7 +319,7 @@ impl ImagePipeline {
         });
         let globals = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("vui image globals"),
-            size: std::mem::size_of::<Globals>() as u64,
+            size: size_of::<Globals>() as u64,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });

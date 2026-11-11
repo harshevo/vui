@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }}, ${{ matrix.renderer }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # macOS runners have a Metal device, so the GPU goldens run there.
+          - { os: macos-latest, renderer: gpu }
+          # The CPU renderer must match the same goldens.
+          - { os: macos-latest, renderer: cpu }
+          # Everything but the window backend runs headless on Linux.
+          - { os: ubuntu-latest, renderer: cpu }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets
+      - name: Tests
+        run: cargo test --workspace
+        env:
+          VUI_RENDERER: ${{ matrix.renderer == 'cpu' && 'cpu' || '' }}
+      - name: Keep failing golden frames
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: actual-${{ matrix.os }}-${{ matrix.renderer }}
+          path: "**/tests/actual/"
+
+  msrv:
+    name: Minimum Rust version
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.91
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check --workspace --all-targets
+
+  docs:
+    name: Docs
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo doc --workspace --no-deps
+        env:
+          RUSTDOCFLAGS: -D warnings

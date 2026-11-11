@@ -75,7 +75,7 @@ impl MeshPipeline {
                 entry_point: Some("vs_main"),
                 compilation_options: Default::default(),
                 buffers: &[Some(wgpu::VertexBufferLayout {
-                    array_stride: std::mem::size_of::<MeshVertex>() as u64,
+                    array_stride: size_of::<MeshVertex>() as u64,
                     step_mode: wgpu::VertexStepMode::Vertex,
                     attributes: &attributes,
                 })],
@@ -98,7 +98,7 @@ impl MeshPipeline {
         });
         let globals = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("vui mesh globals"),
-            size: std::mem::size_of::<Globals>() as u64,
+            size: size_of::<Globals>() as u64,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -114,7 +114,7 @@ impl MeshPipeline {
     fn vertex_buffer(device: &wgpu::Device, n: usize) -> wgpu::Buffer {
         device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("vui mesh vertices"),
-            size: (n * std::mem::size_of::<MeshVertex>()) as u64,
+            size: (n * size_of::<MeshVertex>()) as u64,
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         })

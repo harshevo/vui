@@ -3,6 +3,11 @@ name = "vui-macos"
 version.workspace = true
 edition.workspace = true
 publish.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
 description = "The macOS backend for vui: an AppKit window, its Metal surface, input, text input, the pasteboard and frame timing."
 
 [dependencies]
@@ -19,3 +24,6 @@ objc2-foundation = "0.3.2"
 objc2-app-kit = "0.3.2"
 objc2-quartz-core = "0.3.2"
 dispatch2 = "0.3.1"
+
+[lints]
+workspace = true

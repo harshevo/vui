@@ -1,0 +1,27 @@
+# Changelog
+
+All notable changes to vui are recorded here. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
+[Semantic Versioning](https://semver.org/) once 1.0 ships; until then a minor version may break
+the API.
+
+## [Unreleased]
+
+### Added
+
+- Shading pass on both renderers: linear, radial and conic gradients as fills and borders; the
+  `aurora`, `border_beam` and `spotlight` effects; film grain.
+- Charts: grouped and stacked bars, category axes, market candles in up and down colours, pies and
+  donuts with hover, bar lists.
+- Sliders: `range_slider`, upright sliders, tick marks and a value bubble.
+- High-density screens: windows follow display moves, and goldens are kept at 1x, 2x and 3x.
+- Theme fonts: `Theme` chooses the interface and monospace families.
+- Project files: workspace metadata and lints, CI on macOS and Linux, a frame benchmark, this
+  changelog and contributor notes.
+
+## [0.1.0] - 2026-10-26
+
+### Added
+
+- The workspace: core, runtime, widgets, icons, charts and graphs, the GPU and CPU renderers, the
+  macOS backend, bundled fonts and the gallery.

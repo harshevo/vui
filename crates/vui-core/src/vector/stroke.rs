@@ -346,7 +346,7 @@ mod tests {
         assert!((butt - 160.0).abs() < 5.0, "{butt}");
         assert!((area(Cap::Square) - butt - 64.0).abs() < 6.0, "two half-widths of 8");
         let round = area(Cap::Round) - butt;
-        assert!((round - std::f32::consts::PI * 16.0).abs() < 5.0, "a disc of radius 4: {round}");
+        assert!((round - PI * 16.0).abs() < 5.0, "a disc of radius 4: {round}");
     }
 
     #[test]
@@ -377,7 +377,7 @@ mod tests {
         let mut m = Mesh::new();
         stroke_rings(&mut m, &c, &Stroke::new(3.0).join(Join::Round), WHITE, 1.0);
         let cov = coverage(&m, 40, 40);
-        let expected = std::f32::consts::PI * (13.5f32.powi(2) - 10.5f32.powi(2));
+        let expected = PI * (13.5f32.powi(2) - 10.5f32.powi(2));
         assert!((sum(&cov) - expected).abs() < 8.0, "{} vs {expected}", sum(&cov));
         assert!(cov[20 * 40 + 20] == 0.0, "the middle is empty");
     }
@@ -404,7 +404,7 @@ mod tests {
         stroke_rings(&mut m, &[Ring { points: vec![pt(1.0, 1.0), pt(1.0, 1.0)], closed: false }], &Stroke::new(2.0), WHITE, 1.0);
         assert!(m.is_empty());
         stroke_rings(&mut m, &[Ring { points: vec![pt(5.0, 5.0)], closed: false }], &Stroke::new(6.0).cap(Cap::Round), WHITE, 1.0);
-        assert!((sum(&coverage(&m, 12, 12)) - std::f32::consts::PI * 9.0).abs() < 4.0, "a round dot");
+        assert!((sum(&coverage(&m, 12, 12)) - PI * 9.0).abs() < 4.0, "a round dot");
         stroke_rings(&mut m, &line(pt(0.0, 0.0), pt(1.0, 0.0)), &Stroke::new(0.0), WHITE, 1.0);
         stroke_rings(&mut m, &line(pt(0.0, 0.0), pt(10.0, 0.0)), &Stroke::new(2.0), [0.0; 4], 1.0);
     }

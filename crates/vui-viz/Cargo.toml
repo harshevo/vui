@@ -3,6 +3,11 @@ name = "vui-viz"
 version.workspace = true
 edition.workspace = true
 publish.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
 description = "Charts, graphs and other data pictures for vui: scales, axes, marks, layouts and the widgets that show them."
 
 [dependencies]
@@ -12,3 +17,6 @@ vui-runtime = { path = "../vui-runtime" }
 [dev-dependencies]
 vui-render = { path = "../vui-render" }
 vui-widgets = { path = "../vui-widgets" }
+
+[lints]
+workspace = true

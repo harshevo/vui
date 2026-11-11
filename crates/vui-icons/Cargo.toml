@@ -3,9 +3,18 @@ name = "vui-icons"
 version.workspace = true
 edition.workspace = true
 publish.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "Line icons for vui on a 24 by 24 grid, rasterised by vui's own vector engine at any size and weight."
 
 [dependencies]
 vui-core = { path = "../vui-core" }
 
 [dev-dependencies]
 vui-render = { path = "../vui-render" }
+
+[lints]
+workspace = true

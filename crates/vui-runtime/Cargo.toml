@@ -3,7 +3,15 @@ name = "vui-runtime"
 version.workspace = true
 edition.workspace = true
 publish.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
 description = "The vui widget runtime: elements, reconciliation, layout, input routing, focus, scrolling, animation and accessibility."
 
 [dependencies]
 vui-core = { path = "../vui-core" }
+
+[lints]
+workspace = true

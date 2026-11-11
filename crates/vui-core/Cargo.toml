@@ -3,6 +3,12 @@ name = "vui-core"
 version.workspace = true
 edition.workspace = true
 publish.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "The core of vui: geometry, colour, theme tokens, animation, input events, text shaping, images, vector paths and the scene."
 
 [dependencies]
 vui-fonts = { path = "../vui-fonts" }
@@ -10,3 +16,6 @@ cosmic-text.workspace = true
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp", "tiff"] }
 fast_image_resize = "6.1"
 thumbhash = "0.1"
+
+[lints]
+workspace = true

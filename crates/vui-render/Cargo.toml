@@ -3,6 +3,12 @@ name = "vui-render"
 version.workspace = true
 edition.workspace = true
 publish.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "vui's renderers: a wgpu GPU renderer and a CPU renderer that draws the same scenes to the same pixels."
 
 [dependencies]
 vui-core = { path = "../vui-core" }
@@ -11,3 +17,6 @@ bytemuck.workspace = true
 glyphon.workspace = true
 pollster.workspace = true
 png.workspace = true
+
+[lints]
+workspace = true
