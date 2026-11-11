@@ -55,6 +55,22 @@ impl Canvas {
         }
     }
 
+    /// Clears the pixels of `span`, which must be inside, to transparent.
+    pub(crate) fn clear_span(&mut self, span: Span) {
+        for y in span.y0..span.y1 {
+            let row = y as usize * self.width as usize;
+            self.data[(row + span.x0 as usize) * 4..(row + span.x1 as usize) * 4].fill(0);
+        }
+    }
+
+    /// Pixel `(x, y)`, which must be inside, as premultiplied floats.
+    #[inline]
+    pub(crate) fn texel(&self, x: i32, y: i32) -> [f32; 4] {
+        let i = (y as usize * self.width as usize + x as usize) * 4;
+        let p = &self.data[i..i + 4];
+        [p[0] as f32 / 255.0, p[1] as f32 / 255.0, p[2] as f32 / 255.0, p[3] as f32 / 255.0]
+    }
+
     /// The premultiplied RGBA8 pixels.
     pub fn pixels(&self) -> &[u8] {
         &self.data

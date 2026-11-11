@@ -217,6 +217,23 @@ pub enum Command {
     Text(TextCmd),
     Custom(CustomCmd),
     Mesh(MeshCmd),
+    /// Commands drawn on their own, then laid over the frame transformed and faded as one.
+    Layer(Box<LayerCmd>),
+}
+
+/// A group of commands drawn into a layer of their own and then composited over what is below:
+/// moved, scaled or turned by `transform`, and faded by `opacity` as a whole, so overlapping parts
+/// do not show through each other. The commands are in window coordinates, like any others.
+#[derive(Clone, Debug)]
+pub struct LayerCmd {
+    /// What of the layer is kept, before the transform: the element and the room its shadow and
+    /// ring take.
+    pub bounds: Rect,
+    pub transform: crate::Affine,
+    pub opacity: f32,
+    /// Anything outside this rect (logical pixels, after the transform) is cut away.
+    pub clip: Option<Rect>,
+    pub commands: Vec<Command>,
 }
 
 #[derive(Clone, Debug)]
@@ -262,6 +279,23 @@ impl Scene {
         self.commands.push(Command::Text(TextCmd { layout, origin, color, clip }));
     }
 
+    /// Every command in paint order, the ones inside layers included (in place of the layer).
+    pub fn walk(&self) -> impl Iterator<Item = &Command> {
+        let mut stack = vec![self.commands.iter()];
+        std::iter::from_fn(move || {
+            loop {
+                let next = stack.last_mut()?.next();
+                match next {
+                    Some(Command::Layer(l)) => stack.push(l.commands.iter()),
+                    Some(c) => return Some(c),
+                    None => {
+                        stack.pop();
+                    }
+                }
+            }
+        })
+    }
+
     /// Frame size in device pixels, rounded up.
     pub fn pixel_size(&self) -> (u32, u32) {
         ((self.size.w * self.scale).ceil() as u32, (self.size.h * self.scale).ceil() as u32)
@@ -276,6 +310,18 @@ impl Scene {
 mod tests {
     use super::*;
     use crate::geom::{rect, size};
+
+    #[test]
+    fn walk_goes_into_layers() {
+        let mut s = Scene::new(size(10.0, 10.0), 1.0);
+        let q = |x| Command::Quad(Quad::new(rect(x, 0.0, 1.0, 1.0)));
+        s.push(q(0.0));
+        let inner = LayerCmd { bounds: rect(0.0, 0.0, 10.0, 10.0), transform: crate::Affine::IDENTITY, opacity: 1.0, clip: None, commands: vec![q(1.0), q(2.0)] };
+        s.push(Command::Layer(Box::new(inner)));
+        s.push(q(3.0));
+        let xs: Vec<f32> = s.walk().filter_map(|c| if let Command::Quad(q) = c { Some(q.rect.x) } else { None }).collect();
+        assert_eq!(xs, [0.0, 1.0, 2.0, 3.0]);
+    }
 
     #[test]
     fn quad_builder_sets_fields() {

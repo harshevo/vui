@@ -90,8 +90,8 @@ fn hero() -> Element<()> {
 
 vui animates with springs, so motion is interruptible and never ends abruptly.
 
-- **`.animated()`** animates changes to an element's size, insets, fill and opacity with the
-  theme's spring. `.transition(spring)` uses another.
+- **`.animated()`** animates changes to an element's size, insets, fill, opacity and transform
+  with the theme's spring. `.transition(spring)` uses another.
 - **`.appear()`** fades an element in and lifts it into place when it first shows up. Key it by
   what it shows.
 - **Built-in motion.** Controls animate on their own: switches slide, checkboxes draw their tick,
@@ -99,6 +99,43 @@ vui animates with springs, so motion is interruptible and never ends abruptly.
 - **Effects.** `glow(on)` draws an animated ring around an element, `shimmer(on)` sweeps a sheen
   across it, `skeleton(…)` gives a loading placeholder, and the shaded effects above drift, run
   and follow the pointer.
+
+### Transforms
+
+`.scale(f)`, `.scale_xy(x, y)`, `.rotate(degrees)` and `.translate(x, y)` draw an element and
+everything in it scaled, turned or moved, about its centre or about `.transform_origin(x, y)`
+(fractions of its box). As with CSS `transform`, layout ignores them, so a card that grows on hover
+does not push its neighbours. With `.animated()` the change springs.
+
+```rust
+use vui::prelude::*;
+
+#[derive(Clone)]
+enum Msg {
+    Hover(bool),
+}
+
+fn card(hovered: bool) -> impl IntoElement<Msg> {
+    column()
+        .padding(16.0)
+        .rounded(14.0)
+        .bg(Tone::Bg)
+        .shadow(Shadow::RAISED)
+        .scale(if hovered { 1.04 } else { 1.0 })
+        .rotate(if hovered { -1.5 } else { 0.0 })
+        .animated()
+        .on_hover(Msg::Hover)
+        .child(label("Hover me"))
+}
+```
+
+A transformed element is drawn into a layer of its own and composited by the renderer, on the GPU
+and the CPU alike. Some things to know:
+
+- Pointer input still lands on the untransformed box.
+- Children that float (menus, popovers) are drawn above everything and do not follow the
+  transform.
+- Opacity still applies element by element, as it does without a transform.
 
 ## The theme
 

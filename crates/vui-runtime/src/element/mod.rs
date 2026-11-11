@@ -42,11 +42,13 @@ mod builder;
 mod container;
 mod input;
 mod lazy;
+mod transform;
 
 pub use builder::Builder;
 pub use container::{Container, Div, column, div, grid, row, spacer};
 pub(crate) use lazy::Lazy;
 pub use lazy::{VirtualList, virtual_list};
+pub use transform::Transform;
 pub(crate) use input::*;
 
 /// How round an element's corners are. Tokens follow the theme, so restyling the theme restyles every
@@ -121,6 +123,8 @@ pub struct Decor {
     pub opacity: f32,
     /// Draw the focus ring when the element has keyboard focus.
     pub focus_ring: bool,
+    /// Scales, turns and moves the element as it is drawn; layout ignores it.
+    pub transform: Transform,
 }
 
 impl Default for Decor {
@@ -137,6 +141,7 @@ impl Default for Decor {
             radius: Radius::None,
             opacity: 1.0,
             focus_ring: true,
+            transform: Transform::IDENTITY,
         }
     }
 }

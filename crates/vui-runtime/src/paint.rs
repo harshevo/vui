@@ -3,7 +3,7 @@
 //! Each node paints its own box first (fill, hover and press fades, border), then its widget, then its
 //! children, then whatever the widget wants over them, and last the focus ring and scrollbars.
 
-use vui_core::{Border, Corners, Quad, Rect, Scene};
+use vui_core::{Border, Command, Corners, LayerCmd, Quad, Rect, Scene};
 
 use crate::key::NodeId;
 use crate::node::Node;
@@ -77,6 +77,9 @@ pub(crate) fn paint<M: 'static>(root: &Node<M>, scene: &mut Scene, pe: &PaintEnv
     }
 }
 
+/// Room around a transformed element's box that its layer keeps, for its shadow and focus ring.
+const LAYER_MARGIN: f32 = 40.0;
+
 fn paint_node<'a, M: 'static>(
     node: &'a Node<M>,
     scene: &mut Scene,
@@ -87,6 +90,46 @@ fn paint_node<'a, M: 'static>(
     if node.eff.hidden {
         return;
     }
+    let transform = node.transform();
+    if transform.is_identity() {
+        return paint_box(node, scene, pe, inherited, floats);
+    }
+    // Drawn into a layer of its own and laid over the frame transformed. What floats inside it is
+    // drawn later, above everything, and does not follow.
+    let start = scene.commands.len();
+    paint_box(node, scene, pe, inherited, floats);
+    let commands = scene.commands.split_off(start);
+    if !commands.is_empty() {
+        let rect = node.rect.snap(pe.env.scale);
+        scene.push(Command::Layer(Box::new(LayerCmd {
+            bounds: extent(node).inflate(LAYER_MARGIN, LAYER_MARGIN),
+            transform: transform.affine(rect),
+            opacity: 1.0,
+            clip: node.clip,
+            commands,
+        })));
+    }
+}
+
+/// Where a node and what it draws inside can reach: its box, and its children's unless it clips
+/// them.
+fn extent<M: 'static>(node: &Node<M>) -> Rect {
+    let mut r = node.rect;
+    if node.eff.overflow == Overflow::Visible {
+        for child in node.children.iter().filter(|c| !c.eff.hidden && !c.eff.float) {
+            r = r.union(extent(child));
+        }
+    }
+    r
+}
+
+fn paint_box<'a, M: 'static>(
+    node: &'a Node<M>,
+    scene: &mut Scene,
+    pe: &PaintEnv,
+    inherited: f32,
+    floats: &mut Vec<(&'a Node<M>, f32)>,
+) {
     let env = pe.env;
     let theme = &*env.theme;
     let palette = &theme.palette;
@@ -145,7 +188,7 @@ fn paint_node<'a, M: 'static>(
             let mut cmd = vui_core::effects::shadow(rect, radii.tl.max(radii.br), shadow.times(k));
             cmd.clip = node.clip;
             cmd.opacity = alpha;
-            scene.push(vui_core::Command::Custom(cmd));
+            scene.push(Command::Custom(cmd));
         }
         let border = node.decor.border.map(|(width, color)| Border { width, color: color.resolve(palette).mul_alpha(alpha) });
         if fill.a > 0.0 || border.is_some_and(|b| b.width > 0.0 && b.color.a > 0.0) {
@@ -156,7 +199,7 @@ fn paint_node<'a, M: 'static>(
             let mut cmd = vui_core::shading::fill(rect, radius, gradient, palette);
             cmd.clip = node.clip;
             cmd.opacity = alpha;
-            scene.push(vui_core::Command::Custom(cmd));
+            scene.push(Command::Custom(cmd));
             let tint = tint.mul_alpha(alpha);
             if tint.a > 0.0 {
                 scene.quad(Quad { rect, radii, smooth, fill: tint, border: None, clip: node.clip });
@@ -166,7 +209,7 @@ fn paint_node<'a, M: 'static>(
             let mut cmd = vui_core::shading::border(rect, radius, *width, gradient, palette);
             cmd.clip = node.clip;
             cmd.opacity = alpha;
-            scene.push(vui_core::Command::Custom(cmd));
+            scene.push(Command::Custom(cmd));
         }
         node.widget.paint(&*node.state, &mut look.cx(scene, pe));
     }

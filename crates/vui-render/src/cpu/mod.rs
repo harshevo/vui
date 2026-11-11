@@ -11,6 +11,7 @@
 
 mod canvas;
 mod glyphs;
+mod layers;
 mod pictures;
 mod shading;
 mod shapes;
@@ -19,22 +20,25 @@ mod triangles;
 pub use canvas::Canvas;
 
 use vui_core::scene::{Command, Scene};
-use vui_core::{Fonts, Resources};
+use vui_core::{Fonts, LayerCmd, Resources};
 
 use crate::image::Image;
+use crate::layer;
 
 pub struct CpuRenderer {
     resources: Resources,
     canvas: Canvas,
     glyphs: glyphs::Glyphs,
     pictures: pictures::Pictures,
+    /// One canvas per depth that layers are drawn into.
+    layers: Vec<Canvas>,
 }
 
 impl CpuRenderer {
     /// `resources` must be the same `Resources` that shaped the text and registered the images in the
     /// scenes you render.
     pub fn new(resources: Resources) -> CpuRenderer {
-        CpuRenderer { resources, canvas: Canvas::new(0, 0), glyphs: Default::default(), pictures: Default::default() }
+        CpuRenderer { resources, canvas: Canvas::new(0, 0), glyphs: Default::default(), pictures: Default::default(), layers: Vec::new() }
     }
 
     pub fn fonts(&self) -> &Fonts {
@@ -49,20 +53,45 @@ impl CpuRenderer {
         if let Some(c) = scene.clear {
             self.canvas.clear(c.premultiplied());
         }
-        let scale = scene.scale;
-        for command in &scene.commands {
-            match command {
-                Command::Quad(q) => shapes::quad(&mut self.canvas, q, scale),
-                Command::Image(i) => self.pictures.draw(&mut self.canvas, &self.resources.images, i, scale),
-                Command::Text(t) => self.glyphs.draw(&mut self.canvas, &self.resources.fonts, t, scale),
-                Command::Mesh(m) => triangles::mesh(&mut self.canvas, m, scale),
-                Command::Custom(c) if c.pass == vui_core::effects::PASS => shapes::effect(&mut self.canvas, c, scale),
-                Command::Custom(c) if c.pass == vui_core::shading::PASS => shading::shade(&mut self.canvas, c, scale),
-                Command::Custom(_) => {}
-            }
-        }
+        let mut canvas = std::mem::replace(&mut self.canvas, Canvas::new(0, 0));
+        self.draw(&mut canvas, &scene.commands, scene.scale, 0);
+        self.canvas = canvas;
         self.pictures.end_frame();
         &self.canvas
+    }
+
+    fn draw(&mut self, canvas: &mut Canvas, commands: &[Command], scale: f32, depth: usize) {
+        for command in commands {
+            match command {
+                Command::Quad(q) => shapes::quad(canvas, q, scale),
+                Command::Image(i) => self.pictures.draw(canvas, &self.resources.images, i, scale),
+                Command::Text(t) => self.glyphs.draw(canvas, &self.resources.fonts, t, scale),
+                Command::Mesh(m) => triangles::mesh(canvas, m, scale),
+                Command::Custom(c) if c.pass == vui_core::effects::PASS => shapes::effect(canvas, c, scale),
+                Command::Custom(c) if c.pass == vui_core::shading::PASS => shading::shade(canvas, c, scale),
+                Command::Custom(_) => {}
+                Command::Layer(l) => self.layer(canvas, l, scale, depth),
+            }
+        }
+    }
+
+    /// Draws a layer's commands into the canvas for `depth`, then composites them over `canvas`.
+    fn layer(&mut self, canvas: &mut Canvas, l: &LayerCmd, scale: f32, depth: usize) {
+        let size = (canvas.width, canvas.height);
+        let Some(region) = layer::region(l.bounds, scale, size) else { return };
+        if depth >= layer::MAX_DEPTH || layer::device_inverse(&l.transform, scale).is_none() {
+            return;
+        }
+        while self.layers.len() <= depth {
+            self.layers.push(Canvas::new(0, 0));
+        }
+        let mut sub = std::mem::replace(&mut self.layers[depth], Canvas::new(0, 0));
+        sub.resize(size.0, size.1);
+        let [x, y, w, h] = region.map(|v| v as i32);
+        sub.clear_span(canvas::Span { x0: x, y0: y, x1: x + w, y1: y + h });
+        self.draw(&mut sub, &l.commands, scale, depth + 1);
+        layers::composite(canvas, &sub, l, scale, region);
+        self.layers[depth] = sub;
     }
 
     /// Renders `scene` and returns it as a straight-alpha image, like the GPU renderer's read-back.

@@ -24,6 +24,7 @@ drawing commands that two renderers can draw:
 | **Meshes**: vector paths, strokes and fills from the vector engine (icons, charts) | triangles | triangles rasterised at pixel centres, top-left rule |
 | **Effects**: shadows, glows, shimmers | a built-in pass (`shaders/effects.wgsl`) | the same formulas |
 | **Shading**: gradients (linear, radial, conic, as fills or rings), aurora, border beam, spotlight, grain | a built-in pass (`shaders/shading.wgsl`), stops mixed in Oklab | the same formulas, including the grain's integer hash |
+| **Layers**: a group of commands drawn on its own, then laid over the frame moved, scaled, turned and faded as one (`.scale`, `.rotate`, `.translate`) | drawn into a window-sized target, copied into a texture of its own and composited by `shaders/layer.wgsl`, which filters by hand | drawn into a canvas of its own and composited with the same filter, in the same order |
 | **Custom passes** | your wgpu code; see [Custom widgets](custom-widgets.md#custom-gpu-passes) | skipped |
 
 Colours are blended premultiplied, in the encoded sRGB the display expects, so the two renderers

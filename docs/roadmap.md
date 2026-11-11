@@ -22,7 +22,7 @@ importance. Each item says what exists today.
 | Text | shaping, wrapping, ellipsis, fallback for every script, custom fonts, a full editor with IME, undo and the clipboard |
 | Icons | 157 line icons, four weights, `icon!` for your own |
 | Data | charts (line, step, area, grouped and stacked bars, volume, scatter, candles), pies and donuts, bar lists, sparklines, force-directed graphs |
-| Motion and effects | springs, transitions, appear animations, built-in control motion, glow, shimmer; a shading pass for gradients (linear, radial, conic, borders), aurora, border beam, spotlight and grain |
+| Motion and effects | springs, transitions, appear animations, transforms (scale, rotate, translate) drawn as layers, built-in control motion, glow, shimmer; a shading pass for gradients (linear, radial, conic, borders), aurora, border beam, spotlight and grain |
 | Theming | light, dark and island themes; every colour, radius, type size and spring is data |
 | Platform | macOS: windows, overlays, input method, clipboard, cursors, file drops, display-link frames, a thread-safe `Proxy` |
 | Testing | `TestUi` for input and time; golden images on the GPU or CPU; accessibility-tree assertions |
@@ -82,7 +82,8 @@ drawer and sheet, hover card, stepper, toolbar and carousel; see [Widgets](widge
 
 ### 6. Motion and preferences
 
-**Today.** Missing. **Plan:**
+**Today.** Transforms: `.scale`, `.rotate` and `.translate`, sprung with `.animated()`, drawn as
+layers on both renderers; see [Styling](styling.md#transforms). **Next:**
 
 - **Exit animations.** Elements fade out before they're removed (`.disappear()`), to pair with
   `.appear()`.

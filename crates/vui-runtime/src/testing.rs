@@ -240,11 +240,10 @@ impl<M: 'static> TestUi<M> {
     }
 }
 
-/// Everything the scene draws as text, in paint order.
+/// Everything the scene draws as text, in paint order, inside layers too.
 pub fn texts(scene: &Scene) -> Vec<String> {
     scene
-        .commands
-        .iter()
+        .walk()
         .filter_map(|c| match c {
             Command::Text(t) => Some(t.layout.text().to_string()),
             _ => None,
@@ -255,8 +254,7 @@ pub fn texts(scene: &Scene) -> Vec<String> {
 /// The filled quads, in paint order.
 pub fn quads(scene: &Scene) -> Vec<&vui_core::Quad> {
     scene
-        .commands
-        .iter()
+        .walk()
         .filter_map(|c| match c {
             Command::Quad(q) => Some(q),
             _ => None,

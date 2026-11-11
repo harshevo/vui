@@ -15,6 +15,7 @@ impl<M: 'static> Node<M> {
             || a.inset.iter().any(Option::is_some)
             || a.rise.is_some()
             || a.fill.is_some()
+            || a.transform.is_some()
             || self.widget.animating(&*self.state)
             || self.children.iter().any(Node::animating)
     }
@@ -33,6 +34,16 @@ impl<M: 'static> Node<M> {
             advance(&mut fill.t, dt, ts);
             if fill.t.is_settled() {
                 self.anim.fill = None;
+            }
+        }
+
+        if let Some(springs) = self.anim.transform.as_mut() {
+            for s in springs.iter_mut() {
+                advance(s, dt, ts);
+            }
+            if springs.iter().all(SpringValue::is_settled) {
+                self.anim.transform = None;
+                ts.paint = true;
             }
         }
 

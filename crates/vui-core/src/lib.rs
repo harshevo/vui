@@ -16,6 +16,7 @@ pub mod scene;
 pub mod shading;
 pub mod text;
 pub mod theme;
+pub mod transform;
 pub mod vector;
 
 pub use anim::{Easing, Lerp, Spring, SpringValue, Tween};
@@ -25,6 +26,7 @@ pub use geom::{Corners, Insets, Point, Rect, Size, Vec2, pt, rect, size, vec2};
 pub use image::{Fit, ImageData, ImageError, ImageId, Images, fit_image};
 pub use input::{CursorIcon, Event, ImeEvent, Key, KeyEvent, Modifiers, NamedKey, PointerButton, ScrollPhase};
 pub use resources::Resources;
-pub use scene::{Border, Command, CustomCmd, ImageCmd, ImageMode, MeshCmd, Quad, Sampling, Scene, TextCmd};
+pub use scene::{Border, Command, CustomCmd, ImageCmd, ImageMode, LayerCmd, MeshCmd, Quad, Sampling, Scene, TextCmd};
 pub use text::{FontFamily, Fonts, Span, TextAlign, TextLayout, TextStyle, TextWrap};
+pub use transform::Affine;
 pub use theme::{Fill, Mode, Palette, TextRole, Theme, Tone, space};

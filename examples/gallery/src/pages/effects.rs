@@ -24,6 +24,20 @@ fn tier(name: &str, price: &str, lit: Option<(f32, f32)>) -> Element<Msg> {
     }
 }
 
+/// A playing-card-sized panel for the transforms section.
+fn panel(name: &str, note: &str, tone: Tone) -> Div<Msg> {
+    column()
+        .width(132.0)
+        .height(92.0)
+        .padding(14.0)
+        .gap(6.0)
+        .rounded(14.0)
+        .bg(Tone::Bg)
+        .border(1.0, Tone::Line)
+        .shadow(Shadow::RAISED)
+        .children((div().width(28.0).height(6.0).rounded(Radius::Pill).bg(tone), label(name), small(note).color(Tone::Text3)))
+}
+
 pub fn view(g: &Gallery) -> Div<Msg> {
     let held = |seconds: f32| g.still.then_some(seconds);
     page(
@@ -67,6 +81,15 @@ pub fn view(g: &Gallery) -> Div<Msg> {
                 )),
             ),
             section("Spotlight", row().wrap().gap(12.0).children((tier("Starter", "$8", Some((70.0, 30.0))), tier("Team", "$16", None), tier("Business", "$32", None)))),
+            section(
+                "Transforms",
+                row().gap(28.0).padding((12.0, 8.0)).children((
+                    panel("Turned", "rotate(-6)", Tone::Accent).rotate(-6.0),
+                    panel("Scaled", "scale(0.9)", Tone::Purple).scale(0.9),
+                    panel("Moved", "translate(0, 8)", Tone::Success).translate(0.0, 8.0),
+                    panel("Corner", "rotate(4) at top left", Tone::Orange).rotate(4.0).transform_origin(0.0, 0.0),
+                )),
+            ),
             section(
                 "Glow and shimmer",
                 flow().children((

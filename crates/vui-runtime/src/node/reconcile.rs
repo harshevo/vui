@@ -189,6 +189,17 @@ impl<M: 'static> Node<M> {
                 FillAnim { from: self.base_fill(&env.theme.palette), t }
             });
         }
+        if new.transform != self.decor.transform {
+            let from = self.transform().values();
+            let to = new.transform.values();
+            self.anim.transform = self.transition.filter(|_| from != to).map(|spring| {
+                std::array::from_fn(|i| {
+                    let mut s = SpringValue::new(from[i], spring);
+                    s.set_target(to[i]);
+                    s
+                })
+            });
+        }
         if new.opacity != self.anim.opacity.target() {
             match self.transition {
                 Some(spring) => {

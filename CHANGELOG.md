@@ -22,6 +22,10 @@ the API.
   `time_field` over a new `Date`; `color_picker`; `drawer` and `sheet`; `hover_card`; `stepper`;
   `toolbar`; `carousel`. Fields gain `.pass_keys()` and `.bare()`, popovers `.keep_focus()`, and
   `Color` gains `to_hsv`, `from_hsv` and `to_hex`.
+- Transforms: `.scale`, `.scale_xy`, `.rotate`, `.translate` and `.transform_origin`, sprung
+  with `.animated()`. They are drawn as a new `Command::Layer` (an `Affine` and the commands
+  inside it) that both renderers composite the same way. `Scene::walk` visits commands inside
+  layers.
 - Project files: workspace metadata and lints, CI on macOS and Linux, a frame benchmark, this
   changelog and contributor notes.
 

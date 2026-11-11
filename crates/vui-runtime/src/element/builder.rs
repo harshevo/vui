@@ -77,13 +77,44 @@ pub trait Builder<M: 'static>: Styled {
         self
     }
 
+    /// Draws the element and everything in it `factor` times its size, about its centre (or the
+    /// [`transform_origin`](Builder::transform_origin)). Layout is unchanged: a card that grows on
+    /// hover does not push its neighbours.
+    fn scale(self, factor: f32) -> Self {
+        self.scale_xy(factor, factor)
+    }
+
+    fn scale_xy(mut self, x: f32, y: f32) -> Self {
+        self.base_mut().decor.transform.scale = [x, y];
+        self
+    }
+
+    /// Turns the element `degrees` clockwise about its centre (or the transform origin).
+    fn rotate(mut self, degrees: f32) -> Self {
+        self.base_mut().decor.transform.rotate = degrees;
+        self
+    }
+
+    /// Draws the element moved by `(x, y)` points, without moving it in the layout.
+    fn translate(mut self, x: f32, y: f32) -> Self {
+        self.base_mut().decor.transform.translate = [x, y];
+        self
+    }
+
+    /// The point scaling and turning happen about, as fractions of the box: `(0.0, 0.0)` is the top
+    /// left corner, `(0.5, 0.5)` the centre (the default).
+    fn transform_origin(mut self, x: f32, y: f32) -> Self {
+        self.base_mut().decor.transform.origin = [x, y];
+        self
+    }
+
     /// Turns the keyboard focus ring off, for widgets that show focus themselves.
     fn focus_ring(mut self, on: bool) -> Self {
         self.base_mut().decor.focus_ring = on;
         self
     }
 
-    /// Animates changes to the element's size, insets, fill and opacity with `spring`. Insets make an
+    /// Animates changes to the element's size, insets, fill, opacity and transform with `spring`. Insets make an
     /// absolute element slide: a selection marker whose `top` follows the selected row.
     fn transition(mut self, spring: Spring) -> Self {
         self.base_mut().transition = Some(spring);

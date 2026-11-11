@@ -70,6 +70,8 @@ pub(crate) struct Anim {
     /// How far below its place an appearing element still is.
     rise: Option<SpringValue>,
     fill: Option<FillAnim>,
+    /// The transform's scale, rotation and translation while they spring to new values.
+    pub transform: Option<[SpringValue; 5]>,
 }
 
 impl Anim {
@@ -85,6 +87,7 @@ impl Anim {
             inset: [None, None, None, None],
             rise: None,
             fill: None,
+            transform: None,
         }
     }
 
@@ -266,6 +269,14 @@ impl<M: 'static> Node<M> {
         match &self.anim.fill {
             Some(a) => mix(a.from, to, a.t.value().clamp(0.0, 1.0)),
             None => to,
+        }
+    }
+
+    /// The transform as drawn right now, part way through a transition or at rest.
+    pub fn transform(&self) -> crate::element::Transform {
+        match &self.anim.transform {
+            Some(springs) => self.decor.transform.with_values(springs.each_ref().map(SpringValue::value)),
+            None => self.decor.transform,
         }
     }
 

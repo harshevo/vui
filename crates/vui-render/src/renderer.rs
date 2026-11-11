@@ -4,12 +4,13 @@ use std::ops::Range;
 
 use glyphon::{TextArea, TextBounds};
 use vui_core::scene::{Command, Scene, TextCmd};
-use vui_core::{CustomCmd, Fonts, ImageId, Resources};
+use vui_core::{Color, CustomCmd, Fonts, ImageId, Resources};
 
 use crate::context::{Gpu, GpuError};
 use crate::custom::CustomPass;
 use crate::image::Image;
 use crate::image_pipeline::{ImageInstance, ImagePipeline, ImageStats};
+use crate::layer::{self, LayerInstance, LayerPipeline};
 use crate::mesh::{MeshDraw, MeshPipeline, MeshVertex};
 use crate::quad::{QuadInstance, QuadPipeline};
 use crate::text::TextPipeline;
@@ -23,6 +24,8 @@ enum Batch {
     /// The `index`-th command of this frame for custom pass `pass`.
     Custom { pass: usize, index: usize },
     Mesh(MeshDraw),
+    /// A layer drawn earlier this frame into texture `target`, composited by instance `instance`.
+    Layer { target: usize, instance: u32 },
 }
 
 struct Pass {
@@ -41,9 +44,11 @@ pub struct Renderer {
     images: ImagePipeline,
     text: TextPipeline,
     meshes: MeshPipeline,
+    layers: LayerPipeline,
     scratch_meshes: (Vec<MeshVertex>, Vec<u32>),
     scratch_quads: Vec<QuadInstance>,
     scratch_images: Vec<ImageInstance>,
+    scratch_layers: Vec<LayerInstance>,
     batches: Vec<Batch>,
     passes: Vec<Pass>,
 }
@@ -57,6 +62,7 @@ impl Renderer {
         let images = ImagePipeline::new(&device, format);
         let text = TextPipeline::new(&device, &queue, format);
         let meshes = MeshPipeline::new(&device, format);
+        let layers = LayerPipeline::new(&device, format);
         let effects = Pass { name: vui_core::effects::PASS, pass: Box::new(crate::effects::pass(&device, format)), commands: Vec::new() };
         let shading = Pass { name: vui_core::shading::PASS, pass: Box::new(crate::shading::pass(&device, format)), commands: Vec::new() };
         Renderer {
@@ -68,9 +74,11 @@ impl Renderer {
             images,
             text,
             meshes,
+            layers,
             scratch_meshes: (Vec::new(), Vec::new()),
             scratch_quads: Vec::new(),
             scratch_images: Vec::new(),
+            scratch_layers: Vec::new(),
             batches: Vec::new(),
             passes: vec![effects, shading],
         }
@@ -121,18 +129,46 @@ impl Renderer {
 
     /// Draws `scene` into `view`, which must be `size_px` pixels and of the renderer's format.
     pub fn render(&mut self, scene: &Scene, view: &wgpu::TextureView, size_px: (u32, u32)) {
-        self.plan(scene);
+        self.draw(&scene.commands, scene.scale, scene.clear, view, size_px, 0);
+        self.text.end_frame();
+        self.images.end_frame();
+        self.layers.end_frame();
+    }
+
+    /// Draws `commands` into `view`. Their layers are drawn first, each into a texture of its own,
+    /// so the commands here can composite them in order.
+    fn draw(&mut self, commands: &[Command], scale: f32, clear: Option<Color>, view: &wgpu::TextureView, size_px: (u32, u32), depth: usize) {
+        let mut targets = Vec::new();
+        for command in commands {
+            let Command::Layer(l) = command else { continue };
+            let region = layer::region(l.bounds, scale, size_px);
+            let target = match region {
+                Some(region) if depth < layer::MAX_DEPTH && layer::device_inverse(&l.transform, scale).is_some() => {
+                    let scratch = self.layers.scratch(&self.device, depth, size_px);
+                    self.draw(&l.commands, scale, Some(Color::TRANSPARENT), &scratch, size_px, depth + 1);
+                    let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("vui layer copy") });
+                    let target = self.layers.keep(&self.device, &mut encoder, depth, region);
+                    self.queue.submit([encoder.finish()]);
+                    Some((target, region))
+                }
+                _ => None,
+            };
+            targets.push(target);
+        }
+
+        self.plan(commands, scale, size_px, &targets);
         let viewport = [size_px.0 as f32, size_px.1 as f32];
         self.quads.upload(&self.device, &self.queue, &self.scratch_quads, viewport);
         self.images.upload(&self.device, &self.queue, &self.scratch_images, viewport);
         self.meshes.upload(&self.device, &self.queue, &self.scratch_meshes.0, &self.scratch_meshes.1, viewport);
+        self.layers.upload(&self.device, &self.queue, &self.scratch_layers, viewport);
         self.text.begin_frame(&self.queue, size_px);
         for batch in &self.batches {
-            if let Batch::Text { renderer, commands } = batch {
-                let areas: Vec<TextArea<'_>> = scene.commands[commands.clone()]
+            if let Batch::Text { renderer, commands: range } = batch {
+                let areas: Vec<TextArea<'_>> = commands[range.clone()]
                     .iter()
                     .filter_map(|c| match c {
-                        Command::Text(t) => Some(text_area(t, scene.scale, size_px)),
+                        Command::Text(t) => Some(text_area(t, scale, size_px)),
                         _ => None,
                     })
                     .collect();
@@ -140,22 +176,22 @@ impl Renderer {
             }
         }
         for p in &mut self.passes {
-            let commands: Vec<&CustomCmd> = p
+            let mine: Vec<&CustomCmd> = p
                 .commands
                 .iter()
-                .filter_map(|&i| match &scene.commands[i] {
+                .filter_map(|&i| match &commands[i] {
                     Command::Custom(c) => Some(c),
                     _ => None,
                 })
                 .collect();
-            if !commands.is_empty() {
-                p.pass.prepare(&self.device, &self.queue, viewport, scene.scale, &commands);
+            if !mine.is_empty() {
+                p.pass.prepare(&self.device, &self.queue, viewport, scale, &mine);
             }
         }
 
         let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("vui frame") });
         {
-            let load = match scene.clear {
+            let load = match clear {
                 Some(c) => {
                     let p = c.premultiplied();
                     wgpu::LoadOp::Clear(wgpu::Color { r: p[0] as f64, g: p[1] as f64, b: p[2] as f64, a: p[3] as f64 })
@@ -182,18 +218,19 @@ impl Renderer {
                     Batch::Text { renderer, .. } => self.text.draw(*renderer, &mut pass),
                     Batch::Custom { pass: p, index } => self.passes[*p].pass.draw(&mut pass, *index),
                     Batch::Mesh(draw) => self.meshes.draw(&mut pass, draw, [size_px.0, size_px.1]),
+                    Batch::Layer { target, instance } => self.layers.draw(&mut pass, *target, *instance),
                 }
             }
         }
         self.queue.submit([encoder.finish()]);
-        self.text.end_frame();
-        self.images.end_frame();
     }
 
-    /// Splits the scene into batches and converts the quads to instances.
-    fn plan(&mut self, scene: &Scene) {
+    /// Splits `commands` into batches and converts the quads to instances. `targets` holds, for
+    /// each layer in order, the texture it was drawn into and where in the window that sits.
+    fn plan(&mut self, commands: &[Command], scale: f32, size_px: (u32, u32), targets: &[Option<(usize, [u32; 4])>]) {
         self.scratch_quads.clear();
         self.scratch_images.clear();
+        self.scratch_layers.clear();
         self.scratch_meshes.0.clear();
         self.scratch_meshes.1.clear();
         self.batches.clear();
@@ -201,13 +238,14 @@ impl Renderer {
             p.commands.clear();
         }
         let mut text_runs = 0;
+        let mut layers = targets.iter();
         let mut i = 0;
-        while i < scene.commands.len() {
-            match &scene.commands[i] {
+        while i < commands.len() {
+            match &commands[i] {
                 Command::Quad(_) => {
                     let start = self.scratch_quads.len() as u32;
-                    while let Some(Command::Quad(q)) = scene.commands.get(i) {
-                        self.scratch_quads.push(QuadInstance::from_quad(q, scene.scale));
+                    while let Some(Command::Quad(q)) = commands.get(i) {
+                        self.scratch_quads.push(QuadInstance::from_quad(q, scale));
                         i += 1;
                     }
                     self.batches.push(Batch::Quads(start..self.scratch_quads.len() as u32));
@@ -216,13 +254,13 @@ impl Renderer {
                     i += 1;
                     if let Some(tex) = self.images.ensure(&self.device, &self.queue, &self.resources.images, cmd.id) {
                         let instance = self.scratch_images.len() as u32;
-                        self.scratch_images.push(ImageInstance::new(cmd, tex, scene.scale));
+                        self.scratch_images.push(ImageInstance::new(cmd, tex, scale));
                         self.batches.push(Batch::Image { instance, id: cmd.id });
                     }
                 }
                 Command::Text(_) => {
                     let start = i;
-                    while matches!(scene.commands.get(i), Some(Command::Text(_))) {
+                    while matches!(commands.get(i), Some(Command::Text(_))) {
                         i += 1;
                     }
                     self.batches.push(Batch::Text { renderer: text_runs, commands: start..i });
@@ -231,7 +269,7 @@ impl Renderer {
                 Command::Mesh(cmd) => {
                     i += 1;
                     let (vertices, indices) = &mut self.scratch_meshes;
-                    if let Some(draw) = MeshPipeline::add(cmd, scene.scale, [scene.pixel_size().0, scene.pixel_size().1], vertices, indices) {
+                    if let Some(draw) = MeshPipeline::add(cmd, scale, [size_px.0, size_px.1], vertices, indices) {
                         self.batches.push(Batch::Mesh(draw));
                     }
                 }
@@ -242,6 +280,16 @@ impl Renderer {
                         self.batches.push(Batch::Custom { pass: p, index });
                     }
                     i += 1;
+                }
+                Command::Layer(l) => {
+                    i += 1;
+                    if let Some(Some((target, region))) = layers.next()
+                        && let Some(inst) = LayerInstance::new(l, scale, *region)
+                    {
+                        let instance = self.scratch_layers.len() as u32;
+                        self.scratch_layers.push(inst);
+                        self.batches.push(Batch::Layer { target: *target, instance });
+                    }
                 }
             }
         }

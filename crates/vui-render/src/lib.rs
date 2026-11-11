@@ -6,6 +6,7 @@
 
 mod image_pipeline;
 mod instanced;
+mod layer;
 mod mesh;
 mod quad;
 mod text;
