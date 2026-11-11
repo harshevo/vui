@@ -94,6 +94,12 @@ vui animates with springs, so motion is interruptible and never ends abruptly.
   with the theme's spring. `.transition(spring)` uses another.
 - **`.appear()`** fades an element in and lifts it into place when it first shows up. Key it by
   what it shows.
+- **`.disappear()`** is its pair. When the view drops a keyed element, it fades out and sinks a
+  little in place, then goes. While it fades it takes no clicks, focus or screen-reader attention.
+  If the view brings it back in time, it fades back in.
+- **`.animate(keyframes)`** runs keyframes over opacity, scale, rotation and translation: a
+  pulsing dot, a swaying bell. Use `Repeat::Forever` for as long as it shows, and `.alternate()`
+  to sway back and forth.
 - **Built-in motion.** Controls animate on their own: switches slide, checkboxes draw their tick,
   focus rings fade, tabs and segmented controls move their marker, and menus scale in.
 - **Effects.** `glow(on)` draws an animated ring around an element, `shimmer(on)` sweeps a sheen
@@ -126,6 +132,25 @@ fn card(hovered: bool) -> impl IntoElement<Msg> {
         .animated()
         .on_hover(Msg::Hover)
         .child(label("Hover me"))
+}
+```
+
+Keyframes describe a `Pose` at fractions of a run:
+
+```rust
+use vui::prelude::*;
+
+fn live_dot() -> impl IntoElement<()> {
+    let pulse = Keyframes::new(1.4, Pose::REST)
+        .to(0.5, Pose::REST.scale(1.3).opacity(0.5), Easing::EaseInOut)
+        .to(1.0, Pose::REST, Easing::EaseInOut)
+        .repeat(Repeat::Forever);
+    div().width(8.0).height(8.0).rounded(Radius::Pill).bg(Tone::Success).animate(pulse)
+}
+
+fn toast(id: u32, text: &str) -> impl IntoElement<()> {
+    // Keyed, so when it is dropped from the view it fades out instead of vanishing.
+    row().key(id).padding(12.0).rounded(10.0).bg(Tone::Side).appear().disappear().child(label(text))
 }
 ```
 

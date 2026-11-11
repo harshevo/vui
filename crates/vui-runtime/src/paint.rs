@@ -134,7 +134,7 @@ fn paint_box<'a, M: 'static>(
     let theme = &*env.theme;
     let palette = &theme.palette;
     let disabled = node.input.disabled;
-    let alpha = inherited * node.anim.opacity.value().clamp(0.0, 1.0) * if disabled { DISABLED_ALPHA } else { 1.0 };
+    let alpha = inherited * (node.anim.opacity.value() * node.pose().opacity).clamp(0.0, 1.0) * if disabled { DISABLED_ALPHA } else { 1.0 };
     if alpha <= 0.0 {
         return;
     }

@@ -92,7 +92,11 @@ impl<M: 'static> Ui<M> {
     }
 }
 
+/// The ids of the nodes in the view: not ones fading out after the view dropped them.
 pub(crate) fn collect_ids<M: 'static>(node: &Node<M>, out: &mut HashSet<NodeId>) {
+    if node.leaving {
+        return;
+    }
     out.insert(node.id);
     for child in &node.children {
         collect_ids(child, out);

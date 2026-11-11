@@ -108,6 +108,25 @@ pub trait Builder<M: 'static>: Styled {
         self
     }
 
+    /// Runs keyframes over the element's opacity, scale, rotation and translation, from when it is
+    /// built: a pulsing dot, a swaying bell, a spinner. They lay over what `.opacity`, `.scale` and
+    /// the rest set. Giving the element other keyframes starts them from the beginning.
+    ///
+    /// ```
+    /// use vui_core::{Easing, Keyframes, Repeat};
+    /// use vui_runtime::{Builder, Pose, div};
+    ///
+    /// let pulse = Keyframes::new(1.4, Pose::REST)
+    ///     .to(0.5, Pose::REST.scale(1.25).opacity(0.6), Easing::EaseInOut)
+    ///     .to(1.0, Pose::REST, Easing::EaseInOut)
+    ///     .repeat(Repeat::Forever);
+    /// let dot = div::<()>().animate(pulse);
+    /// ```
+    fn animate(mut self, keyframes: vui_core::Keyframes<Pose>) -> Self {
+        self.base_mut().decor.motion = Some(keyframes);
+        self
+    }
+
     /// Turns the keyboard focus ring off, for widgets that show focus themselves.
     fn focus_ring(mut self, on: bool) -> Self {
         self.base_mut().decor.focus_ring = on;
@@ -131,6 +150,16 @@ pub trait Builder<M: 'static>: Styled {
     /// afresh instead of updating the old element in place.
     fn appear(mut self) -> Self {
         self.base_mut().appear = true;
+        self
+    }
+
+    /// Fades the element out and lets it sink a little when it leaves the view, before it is
+    /// removed: the pair of [`appear`](Builder::appear). Only keyed elements can leave this way,
+    /// since the key is what tells the element that left from one that changed. While it fades it
+    /// keeps its place, takes no input or focus, and is hidden from assistive technology. If it comes
+    /// back before it has gone, it fades back in.
+    fn disappear(mut self) -> Self {
+        self.base_mut().disappear = true;
         self
     }
 

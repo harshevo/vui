@@ -1,7 +1,7 @@
 //! Transforms: an element and everything in it scaled, turned or moved as it is drawn, without
 //! changing where the layout put it.
 
-use vui_core::{Affine, Rect, pt};
+use vui_core::{Affine, Lerp, Rect, pt};
 
 /// How an element is scaled, turned and moved when drawn, about `origin`. Layout ignores it, as CSS
 /// `transform` does: the element keeps its place and its neighbours do not move.
@@ -45,6 +45,67 @@ impl Transform {
 
     pub(crate) fn with_values(self, v: [f32; 5]) -> Transform {
         Transform { scale: [v[0], v[1]], rotate: v[2], translate: [v[3], v[4]], ..self }
+    }
+}
+
+/// What keyframes move: opacity, scale, rotation and translation, laid over the element's own
+/// opacity and transform. See [`Builder::animate`](super::Builder::animate).
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Pose {
+    pub opacity: f32,
+    pub scale: f32,
+    /// Degrees, clockwise.
+    pub rotate: f32,
+    pub translate: [f32; 2],
+}
+
+impl Pose {
+    /// Fully opaque, at its own size, unturned and in place.
+    pub const REST: Pose = Pose { opacity: 1.0, scale: 1.0, rotate: 0.0, translate: [0.0, 0.0] };
+
+    pub fn opacity(self, opacity: f32) -> Pose {
+        Pose { opacity, ..self }
+    }
+
+    pub fn scale(self, scale: f32) -> Pose {
+        Pose { scale, ..self }
+    }
+
+    pub fn rotate(self, degrees: f32) -> Pose {
+        Pose { rotate: degrees, ..self }
+    }
+
+    pub fn translate(self, x: f32, y: f32) -> Pose {
+        Pose { translate: [x, y], ..self }
+    }
+}
+
+impl Default for Pose {
+    fn default() -> Pose {
+        Pose::REST
+    }
+}
+
+impl Lerp for Pose {
+    fn lerp(self, to: Pose, t: f32) -> Pose {
+        Pose {
+            opacity: self.opacity.lerp(to.opacity, t),
+            scale: self.scale.lerp(to.scale, t),
+            rotate: self.rotate.lerp(to.rotate, t),
+            translate: [self.translate[0].lerp(to.translate[0], t), self.translate[1].lerp(to.translate[1], t)],
+        }
+    }
+}
+
+impl Transform {
+    /// This transform with `pose` laid over it.
+    pub(crate) fn with_pose(self, pose: Pose) -> Transform {
+        Transform {
+            scale: [self.scale[0] * pose.scale, self.scale[1] * pose.scale],
+            rotate: self.rotate + pose.rotate,
+            translate: [self.translate[0] + pose.translate[0], self.translate[1] + pose.translate[1]],
+            origin: self.origin,
+        }
     }
 }
 

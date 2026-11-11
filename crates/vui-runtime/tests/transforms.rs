@@ -88,3 +88,37 @@ fn transforms_nest() {
     assert_eq!(outer.len(), 1);
     assert!(outer[0].commands.iter().any(|c| matches!(c, Command::Layer(_))), "the inner layer is inside the outer one");
 }
+
+mod keyframes {
+    use super::*;
+    use vui_core::{Easing, Keyframes, Repeat};
+    use vui_runtime::Pose;
+
+    fn pulsing(k: Keyframes<Pose>) -> impl vui_runtime::IntoElement<Msg> {
+        column().child(div().key("dot").width(20.0).height(20.0).bg(Tone::Side).animate(k))
+    }
+
+    #[test]
+    fn keyframes_move_the_element_and_finish() {
+        let mut t = ui(100.0, 100.0);
+        t.view(pulsing(Keyframes::new(1.0, Pose::REST).to(0.5, Pose::REST.scale(2.0), Easing::Linear).to(1.0, Pose::REST, Easing::Linear)));
+        assert!(layers(&t.scene()).is_empty(), "at rest to start with");
+        t.advance(0.5);
+        let a = layers(&t.scene())[0].transform.a;
+        assert!((a - 2.0).abs() < 0.05, "twice the size halfway: {a}");
+        t.settle();
+        assert!(!t.ui.needs_frame(), "a single run ends");
+        assert!(layers(&t.scene()).is_empty());
+    }
+
+    #[test]
+    fn looping_keyframes_keep_going_and_fade() {
+        let mut t = ui(100.0, 100.0);
+        let fade = Keyframes::new(1.0, Pose::REST).to(1.0, Pose::REST.opacity(0.0), Easing::Linear).repeat(Repeat::Forever);
+        t.view(pulsing(fade));
+        t.advance(10.5);
+        assert!(t.ui.needs_frame(), "forever means forever");
+        let fill = vui_runtime::testing::quads(&t.scene())[0].fill;
+        assert!((fill.a - 0.5).abs() < 0.05, "half way through a run: {}", fill.a);
+    }
+}

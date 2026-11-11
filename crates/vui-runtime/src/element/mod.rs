@@ -48,7 +48,7 @@ pub use builder::Builder;
 pub use container::{Container, Div, column, div, grid, row, spacer};
 pub(crate) use lazy::Lazy;
 pub use lazy::{VirtualList, virtual_list};
-pub use transform::Transform;
+pub use transform::{Pose, Transform};
 pub(crate) use input::*;
 
 /// How round an element's corners are. Tokens follow the theme, so restyling the theme restyles every
@@ -125,6 +125,8 @@ pub struct Decor {
     pub focus_ring: bool,
     /// Scales, turns and moves the element as it is drawn; layout ignores it.
     pub transform: Transform,
+    /// Keyframes run over the element's opacity and transform.
+    pub motion: Option<vui_core::Keyframes<Pose>>,
 }
 
 impl Default for Decor {
@@ -142,6 +144,7 @@ impl Default for Decor {
             opacity: 1.0,
             focus_ring: true,
             transform: Transform::IDENTITY,
+            motion: None,
         }
     }
 }
@@ -198,6 +201,7 @@ pub struct Base<M> {
     pub(crate) key: Option<Key>,
     pub(crate) transition: Option<Spring>,
     pub(crate) appear: bool,
+    pub(crate) disappear: bool,
 }
 
 impl<M> Default for Base<M> {
@@ -211,6 +215,7 @@ impl<M> Default for Base<M> {
             key: None,
             transition: None,
             appear: false,
+            disappear: false,
         }
     }
 }
@@ -280,8 +285,8 @@ impl<M: 'static> Element<M> {
 
     fn map_rc<N: 'static>(self, f: &Rc<dyn Fn(M) -> N>) -> Element<N> {
         let Element { base, widget, children, lazy } = self;
-        let Base { style, rules, decor, input, a11y, key, transition, appear } = base;
-        let base = Base { style, rules, decor, input: input.map(f), a11y, key, transition, appear };
+        let Base { style, rules, decor, input, a11y, key, transition, appear, disappear } = base;
+        let base = Base { style, rules, decor, input: input.map(f), a11y, key, transition, appear, disappear };
         let widget: Box<dyn Erased<N>> = Box::new(Mapped { inner: widget, f: f.clone() });
         let lazy = lazy.map(|l| l.map(f));
         Element { base, widget, children: children.into_iter().map(|c| c.map_rc(f)).collect(), lazy }

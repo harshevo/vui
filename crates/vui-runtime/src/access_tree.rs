@@ -38,7 +38,7 @@ fn info_of<M: 'static>(node: &Node<M>) -> AccessInfo {
 
 /// The visible text inside a node, for naming a button after its label.
 fn text_inside<M: 'static>(node: &Node<M>, out: &mut Vec<String>) {
-    if node.eff.hidden || node.a11y.hidden {
+    if node.gone() || node.a11y.hidden {
         return;
     }
     let info = info_of(node);
@@ -55,7 +55,7 @@ fn text_inside<M: 'static>(node: &Node<M>, out: &mut Vec<String>) {
 /// Adds the node, or if it is layout only, whatever is inside it. Returns the ids the parent should
 /// list as children. `inert` is true inside a disabled element: everything in there is disabled too.
 fn build<M: 'static>(node: &Node<M>, inert: bool, out: &mut Vec<AccessNode>) -> Vec<u64> {
-    if node.eff.hidden || node.a11y.hidden {
+    if node.gone() || node.a11y.hidden {
         return Vec::new();
     }
     let inert = inert || node.input.disabled;
@@ -166,7 +166,7 @@ impl<M: 'static> Ui<M> {
         let Some(path) = path_of(root, NodeId(raw)) else { return };
         // What assistive technology cannot see or is told it cannot use is not acted on, even if a stale
         // id or a careless client asks.
-        if chain(root, &path).iter().any(|n| n.input.disabled || n.eff.hidden || n.a11y.hidden) {
+        if chain(root, &path).iter().any(|n| n.input.disabled || n.gone() || n.a11y.hidden) {
             return;
         }
         let mut run = Run { root, core: &mut self.core };

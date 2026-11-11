@@ -23,7 +23,7 @@ pub use access::{A11y, AccessAction, AccessActionKind, AccessInfo, AccessNode, A
 pub use builtin::{Img, Label, img, label, small, title};
 pub use effects::{Clipboard, Effect, MemoryClipboard};
 pub use element::{
-    Base, Builder, Click, Container, Decor, Div, Element, FocusGroup, IntoChildren, IntoElement, Parent, Radius, Transform, VirtualList, column, div, grid, row,
+    Base, Builder, Click, Container, Decor, Div, Element, FocusGroup, IntoChildren, IntoElement, Parent, Pose, Radius, Transform, VirtualList, column, div, grid, row,
     spacer, virtual_list,
 };
 pub use key::Key;

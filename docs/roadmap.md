@@ -83,10 +83,9 @@ drawer and sheet, hover card, stepper, toolbar and carousel; see [Widgets](widge
 ### 6. Motion and preferences
 
 **Today.** Transforms: `.scale`, `.rotate` and `.translate`, sprung with `.animated()`, drawn as
-layers on both renderers; see [Styling](styling.md#transforms). **Next:**
+layers on both renderers. Exit animations with `.disappear()`, and keyframes with `.animate()`.
+See [Styling](styling.md#transforms). **Next:**
 
-- **Exit animations.** Elements fade out before they're removed (`.disappear()`), to pair with
-  `.appear()`.
 - **Reduced motion.** Follow the system setting, turning springs into fades or cuts.
 - **Increased contrast and larger text.** Follow the system settings, with a high-contrast palette
   and type scaling.

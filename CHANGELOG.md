@@ -26,6 +26,10 @@ the API.
   with `.animated()`. They are drawn as a new `Command::Layer` (an `Affine` and the commands
   inside it) that both renderers composite the same way. `Scene::walk` visits commands inside
   layers.
+- Exit animations: `.disappear()` keeps a dropped keyed element in place, fading and sinking,
+  without input or focus, until it has gone.
+- Keyframes: `Keyframes<T>` with eased stops, repeats and alternation; `.animate(keyframes)` runs
+  them over an element's `Pose` (opacity, scale, rotation, translation).
 - Project files: workspace metadata and lints, CI on macOS and Linux, a frame benchmark, this
   changelog and contributor notes.
 

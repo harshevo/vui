@@ -16,6 +16,7 @@ impl<M: 'static> Node<M> {
             || a.rise.is_some()
             || a.fill.is_some()
             || a.transform.is_some()
+            || self.decor.motion.as_ref().is_some_and(|k| !k.finished(a.motion))
             || self.widget.animating(&*self.state)
             || self.children.iter().any(Node::animating)
     }
@@ -37,6 +38,14 @@ impl<M: 'static> Node<M> {
             }
         }
 
+        if let Some(k) = &self.decor.motion
+            && !k.finished(self.anim.motion)
+        {
+            self.anim.motion += dt;
+            ts.moving = true;
+            ts.paint = true;
+        }
+
         if let Some(springs) = self.anim.transform.as_mut() {
             for s in springs.iter_mut() {
                 advance(s, dt, ts);
@@ -51,7 +60,8 @@ impl<M: 'static> Node<M> {
             if advance(rise, dt, ts) {
                 ts.arrange = true;
             }
-            if rise.is_settled() {
+            // A leaving element stays sunk until it has faded out and gone.
+            if rise.is_settled() && !self.leaving {
                 self.anim.rise = None;
                 ts.arrange = true;
             }
@@ -114,6 +124,9 @@ impl<M: 'static> Node<M> {
         for child in &mut self.children {
             layout |= child.tick(dt, ts);
         }
+        let before = self.children.len();
+        self.children.retain(|c| !c.left());
+        layout |= self.children.len() != before;
         if layout {
             self.cache.clear();
             ts.layout = true;

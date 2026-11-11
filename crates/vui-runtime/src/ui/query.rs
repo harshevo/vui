@@ -41,7 +41,7 @@ impl<M: 'static> Ui<M> {
         let Some(node) = find_key(root, &key) else { return false };
         let id = node.id;
         let Some(path) = path_of(root, id) else { return false };
-        if node.focus_mode() == Focus::Never || chain(root, &path).iter().any(|n| n.input.disabled || n.eff.hidden) {
+        if node.focus_mode() == Focus::Never || chain(root, &path).iter().any(|n| n.input.disabled || n.gone()) {
             return false;
         }
         let mut run = Run { root, core: &mut self.core };

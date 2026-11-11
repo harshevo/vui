@@ -21,7 +21,7 @@ pub(crate) fn lay_out_fixed<M: 'static>(node: &mut Node<M>, env: &mut Env, windo
 
 /// The showing elements marked `autofocus` (true) or `trap_focus` (false), in tree order.
 pub(crate) fn find_flagged<M: 'static>(node: &Node<M>, out: &mut Vec<(NodeId, bool)>) {
-    if node.eff.hidden {
+    if node.gone() {
         return;
     }
     if node.input.autofocus {
@@ -39,7 +39,7 @@ pub(crate) fn find_flagged<M: 'static>(node: &Node<M>, out: &mut Vec<(NodeId, bo
 pub(crate) fn dismissible<M: 'static>(root: &Node<M>) -> Vec<Vec<usize>> {
     fn walk<M: 'static>(node: &Node<M>, depth: usize, path: &mut Vec<usize>, out: &mut Vec<(usize, Vec<usize>)>) {
         for (i, child) in node.children.iter().enumerate() {
-            if child.eff.hidden {
+            if child.gone() {
                 continue;
             }
             path.push(i);
@@ -61,7 +61,7 @@ pub(crate) fn dismissible<M: 'static>(root: &Node<M>) -> Vec<Vec<usize>> {
 pub(crate) fn focus_trap<M: 'static>(root: &Node<M>) -> Option<Vec<usize>> {
     fn walk<M: 'static>(node: &Node<M>, path: &mut Vec<usize>, best: &mut Option<Vec<usize>>) {
         for (i, child) in node.children.iter().enumerate() {
-            if child.eff.hidden {
+            if child.gone() {
                 continue;
             }
             path.push(i);
@@ -82,7 +82,7 @@ pub(crate) fn hit<M: 'static>(root: &Node<M>, p: Point) -> Option<Vec<usize>> {
     /// Paths to the floating elements, each with how many floats it is inside of.
     fn floats<M: 'static>(node: &Node<M>, depth: usize, path: &mut Vec<usize>, out: &mut Vec<(usize, Vec<usize>)>) {
         for (i, child) in node.children.iter().enumerate() {
-            if child.eff.hidden {
+            if child.gone() {
                 continue;
             }
             path.push(i);
@@ -94,7 +94,7 @@ pub(crate) fn hit<M: 'static>(root: &Node<M>, p: Point) -> Option<Vec<usize>> {
         }
     }
     fn walk<M: 'static>(node: &Node<M>, p: Point, path: &mut Vec<usize>) -> bool {
-        if node.eff.hidden || node.clip.is_some_and(|c| !c.contains(p)) {
+        if node.gone() || node.clip.is_some_and(|c| !c.contains(p)) {
             return false;
         }
         if node.eff.overflow != Overflow::Visible && !node.rect.contains(p) {
@@ -147,7 +147,7 @@ pub(crate) fn collect_stops<M: 'static>(root: &Node<M>) -> Vec<Stop> {
     }
     /// `group` is the nearest group above `node` and the item it last had focus on.
     fn walk<M: 'static>(node: &Node<M>, group: Option<(NodeId, Option<NodeId>)>, w: &mut Walk) {
-        if node.eff.hidden || node.input.disabled {
+        if node.gone() || node.input.disabled {
             return;
         }
         if node.focus_mode() != Focus::Never {
@@ -193,7 +193,7 @@ pub(crate) fn collect_stops<M: 'static>(root: &Node<M>) -> Vec<Stop> {
 /// inside a group of their own.
 pub(crate) fn group_items<M: 'static>(group: &Node<M>) -> Vec<NodeId> {
     fn walk<M: 'static>(node: &Node<M>, out: &mut Vec<NodeId>) {
-        if node.eff.hidden || node.input.disabled {
+        if node.gone() || node.input.disabled {
             return;
         }
         if node.focus_mode() != Focus::Never {

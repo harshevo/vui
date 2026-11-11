@@ -17,6 +17,7 @@ use crate::responsive::{self, Rule};
 use crate::style::{Axis, Len, Overflow, Position, Style, Thumb};
 use crate::widget::{Dirty, Env, Erased, Focus, TickCx};
 
+mod exit;
 mod motion;
 mod reconcile;
 
@@ -68,10 +69,12 @@ pub(crate) struct Anim {
     /// Top, right, bottom and left insets of an absolute element that is sliding to a new place.
     inset: [Option<SpringValue>; 4],
     /// How far below its place an appearing element still is.
-    rise: Option<SpringValue>,
+    pub rise: Option<SpringValue>,
     fill: Option<FillAnim>,
     /// The transform's scale, rotation and translation while they spring to new values.
     pub transform: Option<[SpringValue; 5]>,
+    /// Seconds the keyframes have run.
+    pub motion: f32,
 }
 
 impl Anim {
@@ -88,6 +91,7 @@ impl Anim {
             rise: None,
             fill: None,
             transform: None,
+            motion: 0.0,
         }
     }
 
@@ -218,6 +222,10 @@ pub(crate) struct Node<M: 'static> {
     pub room: Option<f32>,
     /// A virtual list's rows, and which of them are built as children.
     pub lazy: Option<(Lazy<M>, std::ops::Range<usize>)>,
+    /// It fades out when the view drops it (`disappear`).
+    pub disappear: bool,
+    /// The view has dropped it and it is fading out; it is removed once it has.
+    pub leaving: bool,
 }
 
 impl<M: 'static> LayoutNode<Env> for Node<M> {
@@ -274,10 +282,20 @@ impl<M: 'static> Node<M> {
 
     /// The transform as drawn right now, part way through a transition or at rest.
     pub fn transform(&self) -> crate::element::Transform {
+        self.own_transform().with_pose(self.pose())
+    }
+
+    /// The element's own transform right now, without its keyframes.
+    pub(crate) fn own_transform(&self) -> crate::element::Transform {
         match &self.anim.transform {
             Some(springs) => self.decor.transform.with_values(springs.each_ref().map(SpringValue::value)),
             None => self.decor.transform,
         }
+    }
+
+    /// Where the keyframes are right now.
+    pub fn pose(&self) -> crate::element::Pose {
+        self.decor.motion.as_ref().map_or(crate::element::Pose::REST, |k| k.sample(self.anim.motion))
     }
 
     pub fn focus_mode(&self) -> Focus {

@@ -11,7 +11,7 @@ impl<M: 'static> Node<M> {
             children = lazy.children(range.clone());
             (lazy, range)
         });
-        let Base { style: asked, rules, decor, input, a11y, key, transition, appear } = base;
+        let Base { style: asked, rules, decor, input, a11y, key, transition, appear, disappear } = base;
         let style = responsive::resolve(asked, &rules, env.window);
         let opacity = decor.opacity;
         let state = widget.create_state();
@@ -42,6 +42,8 @@ impl<M: 'static> Node<M> {
             memory: None,
             room: None,
             lazy,
+            disappear,
+            leaving: false,
         }
     }
 
@@ -55,7 +57,8 @@ impl<M: 'static> Node<M> {
             children = lazy.children(shown.clone());
             (lazy, shown)
         });
-        let Base { style: asked, rules, decor, input, a11y, key: _, transition, appear: _ } = base;
+        let Base { style: asked, rules, decor, input, a11y, key: _, transition, appear: _, disappear } = base;
+        self.disappear = disappear;
 
         let mut dirty = widget.update(&*self.widget, &mut *self.state);
         self.widget = widget;
@@ -189,8 +192,11 @@ impl<M: 'static> Node<M> {
                 FillAnim { from: self.base_fill(&env.theme.palette), t }
             });
         }
+        if new.motion != self.decor.motion {
+            self.anim.motion = 0.0;
+        }
         if new.transform != self.decor.transform {
-            let from = self.transform().values();
+            let from = self.own_transform().values();
             let to = new.transform.values();
             self.anim.transform = self.transition.filter(|_| from != to).map(|spring| {
                 std::array::from_fn(|i| {
@@ -214,10 +220,15 @@ impl<M: 'static> Node<M> {
 
 /// Matches new child elements to the nodes already there: by key when they have one, else by position
 /// and widget type. Matches keep their state; the rest are built fresh, and nodes nobody claimed are
-/// dropped.
+/// dropped, or, if they `disappear`, kept where they were while they fade out.
 pub(crate) fn reconcile<M: 'static>(old: &mut Vec<Node<M>>, new: Vec<Element<M>>, ids: &mut Ids, env: &Env) -> Dirty {
     let before: Vec<NodeId> = old.iter().map(|n| n.id).collect();
-    let mut pool: Vec<Option<Node<M>>> = std::mem::take(old).into_iter().map(Some).collect();
+    // Nodes already leaving go after the rest, so positions count only the ones still in the view;
+    // they can be matched by key alone, which brings them back.
+    let (live, leaving): (Vec<_>, Vec<_>) = std::mem::take(old).into_iter().enumerate().partition(|(_, n)| !n.leaving);
+    let live_len = live.len();
+    let (places, nodes): (Vec<usize>, Vec<Node<M>>) = live.into_iter().chain(leaving).unzip();
+    let mut pool: Vec<Option<Node<M>>> = nodes.into_iter().map(Some).collect();
     let by_key: HashMap<Key, usize> =
         pool.iter().enumerate().filter_map(|(i, n)| n.as_ref().and_then(|n| n.key.clone()).map(|k| (k, i))).collect();
 
@@ -228,10 +239,14 @@ pub(crate) fn reconcile<M: 'static>(old: &mut Vec<Node<M>>, new: Vec<Element<M>>
         let same_kind = |slot: &Option<Node<M>>| slot.as_ref().is_some_and(|n| n.widget.widget_type() == kind);
         let found = match &el.base.key {
             Some(key) => by_key.get(key).copied().filter(|&j| same_kind(&pool[j])),
-            None => (i < pool.len() && same_kind(&pool[i]) && pool[i].as_ref().is_some_and(|n| n.key.is_none())).then_some(i),
+            None => (i < live_len && same_kind(&pool[i]) && pool[i].as_ref().is_some_and(|n| n.key.is_none())).then_some(i),
         };
         match found.and_then(|j| pool[j].take()) {
             Some(mut node) => {
+                if node.leaving {
+                    node.revive();
+                    dirty = Dirty::Layout;
+                }
                 dirty = dirty.max(node.update(el, ids, env));
                 out.push(node);
             }
@@ -241,7 +256,24 @@ pub(crate) fn reconcile<M: 'static>(old: &mut Vec<Node<M>>, new: Vec<Element<M>>
             }
         }
     }
-    if pool.iter().any(Option::is_some) || out.iter().map(|n| n.id).ne(before.iter().copied()) {
+    let mut ghosts = Vec::new();
+    for (place, slot) in places.into_iter().zip(pool) {
+        let Some(mut node) = slot else { continue };
+        if node.leaving || (node.disappear && node.key.is_some()) {
+            if !node.leaving {
+                node.leave();
+                dirty = dirty.max(Dirty::Paint);
+            }
+            ghosts.push((place, node));
+        } else {
+            dirty = Dirty::Layout;
+        }
+    }
+    ghosts.sort_by_key(|(place, _)| *place);
+    for (place, node) in ghosts {
+        out.insert(place.min(out.len()), node);
+    }
+    if out.iter().map(|n| n.id).ne(before.iter().copied()) {
         dirty = Dirty::Layout;
     }
     *old = out;
