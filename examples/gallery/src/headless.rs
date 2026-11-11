@@ -31,7 +31,8 @@ impl Headless {
     /// The gallery in a window `width` wide: below 600 it is laid out for a phone-sized window.
     pub fn with_width(page: Page, dark: bool, scale: f32, width: f32) -> Headless {
         let res = Resources::bundled_only();
-        let gallery = Gallery::new(&res, page, dark);
+        let mut gallery = Gallery::new(&res, page, dark);
+        gallery.still = true;
         let mut ui = TestUi { ui: Ui::with_app(res.clone(), size(width, PROBE_HEIGHT), scale, gallery) };
         // A page is as tall as what is on it, so ask the page and cut the window to fit.
         let height = ui.rect("page").bottom().max(MIN_HEIGHT);

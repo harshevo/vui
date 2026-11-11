@@ -3,7 +3,7 @@
 use vui_core::{Color, Fonts, Rect, Scene, Theme, rect, size};
 use vui_render::assert_golden;
 use vui_render::testing::render_scene;
-use vui_viz::{Candle, Canvas, Chart, Dot, Format, Ink, VizStyle, chart, paint};
+use vui_viz::{BarList, Candle, Canvas, Chart, Dot, Format, Ink, Pie, VizStyle, chart, draw_bar_list, indexed, paint, pie};
 
 const DAY: f64 = 86_400.0;
 const START: f64 = 1_730_000_000.0;
@@ -179,4 +179,65 @@ fn the_sheet_background_is_the_palette_background() {
     let want = theme.palette.bg.to_rgba8();
     assert_eq!([r, g, b], [want[0], want[1], want[2]]);
     let _ = Color::BLACK;
+}
+
+/// The second sheet: bars grouped and stacked over named categories, market candles with volume, a
+/// donut with a slice picked out, a pie, and a ranked list of horizontal bars.
+fn more(theme: &Theme) -> Scene {
+    let fonts = Fonts::bundled_only();
+    let style = VizStyle::from_palette(&theme.palette);
+    let mut scene = Scene::new(size(960.0, 860.0), 2.0).with_clear(theme.palette.bg);
+    let quarters = ["Q1", "Q2", "Q3", "Q4"];
+
+    let grouped = Chart::new()
+        .categories(quarters)
+        .y_format(Format::Money("$"))
+        .bars("2024", &indexed(&[42.0, 51.0, 47.0, 63.0]))
+        .ink(Ink::Hue)
+        .bars("2025", &indexed(&[48.0, 57.0, 61.0, 72.0]))
+        .ink(Ink::Hue)
+        .bars("2026", &indexed(&[55.0, 60.0, 70.0, 81.0]))
+        .ink(Ink::Hue)
+        .grouped();
+    cell(&mut scene, &fonts, &style, rect(0.0, 0.0, 480.0, 320.0), &grouped, Some(2.0));
+
+    let months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
+    let stacked = Chart::new()
+        .categories(months)
+        .bars("Search", &indexed(&[30.0, 34.0, 32.0, 40.0, 44.0, 47.0]))
+        .ink(Ink::Hue)
+        .bars("Social", &indexed(&[12.0, 15.0, 19.0, 18.0, 24.0, 27.0]))
+        .ink(Ink::Hue)
+        .bars("Email", &indexed(&[8.0, 9.0, 7.0, 11.0, 12.0, 10.0]))
+        .ink(Ink::Hue)
+        .bars("Refunds", &indexed(&[-3.0, -2.0, -5.0, -1.0, -4.0, -2.0]))
+        .ink(Ink::Soft)
+        .stacked();
+    cell(&mut scene, &fonts, &style, rect(480.0, 0.0, 480.0, 320.0), &stacked, None);
+
+    let rows = candles(40);
+    let volume: Vec<(f64, f64)> = rows.iter().enumerate().map(|(i, c)| (c.x, 1.0e6 + ((i as f64) * 0.9).sin().abs() * 2.0e6)).collect();
+    let market = Chart::new().time().market().candles("ACME", &rows).volume("Volume", &volume);
+    cell(&mut scene, &fonts, &style, rect(0.0, 320.0, 400.0, 340.0), &market, Some(START + 24.0 * DAY));
+
+    let share = Pie::new().slice("Direct", 42.0).slice("Search", 31.0).slice("Social", 14.0).slice("Email", 9.0).slice("Other", 4.0);
+    let mut canvas = Canvas::new(&fonts, scene.scale);
+    pie::draw(&mut canvas, &share.clone().donut().format(Format::Si).caption("Visits (k)"), rect(416.0, 340.0, 520.0, 220.0), &style, 1.0, &[0.0, 1.0], Some(1));
+    pie::draw(&mut canvas, &share.no_legend(), rect(416.0, 580.0, 200.0, 260.0), &style, 1.0, &[], None);
+    let list = BarList::new().row("Chrome", 6420.0).row("Safari", 3180.0).row("Firefox", 860.0).row("Edge", 1120.0).row("Arc", 410.0).sorted().format(Format::Si);
+    draw_bar_list(&mut canvas, &list, rect(640.0, 690.0, 300.0, 150.0), &style, 1.0, Some(1));
+    paint(&mut scene, canvas.finish(), None, 1.0);
+    scene
+}
+
+#[test]
+fn more_chart_types_in_light() {
+    let fonts = Fonts::bundled_only();
+    assert_golden!("charts_more_light", render_scene(&more(&Theme::light()), &fonts));
+}
+
+#[test]
+fn more_chart_types_in_dark() {
+    let fonts = Fonts::bundled_only();
+    assert_golden!("charts_more_dark", render_scene(&more(&Theme::dark()), &fonts));
 }

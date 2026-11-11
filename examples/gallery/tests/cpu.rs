@@ -63,6 +63,7 @@ pages! {
     icons => Icons,
     overlays => Overlays,
     data => Data,
+    charts => Charts,
     feedback => Feedback,
     effects => Effects,
     settings => Settings,

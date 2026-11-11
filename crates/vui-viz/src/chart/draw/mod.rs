@@ -1,8 +1,9 @@
 //! Turning a chart into drawing: where the axes go, then the gridlines, then each layer's marks.
 
 use vui_core::vector::{Cap, Join, Stroke};
-use vui_core::{Corners, Fonts, Point, Quad, Rect, pt, rect};
+use vui_core::{Fonts, Point, Quad, Rect, pt, rect};
 
+use super::bars::{Segment, draw_bars, per_unit};
 use super::decimate::extremes;
 use super::{Candle, Chart, Dot, Layer, Mark, Panel, within};
 use crate::canvas::{Canvas, HAnchor, VAnchor};
@@ -106,6 +107,7 @@ pub fn draw(
     let d = layout(canvas.fonts(), chart, area, view, style);
     axes(canvas, chart, &d, view, style);
     let shown = 1.0 - (1.0 - reveal.clamp(0.0, 1.0)).powi(3);
+    let stacks = chart.stacks();
     for (i, layer) in chart.layers.iter().enumerate() {
         let (panel, y) = match (layer.panel, d.strip, d.y_strip) {
             (Panel::Strip, Some(s), Some(y)) => (s, y),
@@ -119,7 +121,7 @@ pub fn draw(
             panel.h + 6.0,
         )));
         let color = layer.ink.resolve(style, i);
-        marks(canvas, layer, &d.x, &y, color, style);
+        marks(canvas, chart, i, &stacks, &d.x, &y, color, style);
     }
     canvas.set_clip(None);
     d
@@ -184,7 +186,13 @@ fn axes(canvas: &mut Canvas, chart: &Chart, d: &Drawn, view: &View, style: &VizS
     }
 
     let want = ((d.plot.w / 96.0) as usize).clamp(2, 10);
-    let ticks = if chart.time {
+    let ticks = if !chart.categories.is_empty() {
+        let first = view.x.0.ceil().max(0.0) as usize;
+        let last = (view.x.1.floor().max(0.0) as usize).min(chart.categories.len().saturating_sub(1));
+        (first..=last)
+            .map(|i| crate::scale::Tick { value: i as f64, label: chart.categories[i].clone() })
+            .collect()
+    } else if chart.time {
         time_ticks(view.x.0, view.x.1, want)
     } else {
         nice_ticks(view.x.0, view.x.1, want)
@@ -218,14 +226,18 @@ fn axes(canvas: &mut Canvas, chart: &Chart, d: &Drawn, view: &View, style: &VizS
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn marks(
     canvas: &mut Canvas,
-    layer: &Layer,
+    chart: &Chart,
+    index: usize,
+    stacks: &[Vec<Segment>],
     x: &Linear,
     y: &Linear,
     color: vui_core::Color,
     style: &VizStyle,
 ) {
+    let layer: &Layer = &chart.layers[index];
     let view = (x.domain.0.min(x.domain.1), x.domain.0.max(x.domain.1));
     match &layer.mark {
         Mark::Line {
@@ -244,11 +256,13 @@ fn marks(
             canvas.vector().band(&upper, &lower, color.mul_alpha(0.14));
             line(canvas, &upper, false, false, color);
         }
-        Mark::Bars { points, base } => bars(
+        Mark::Bars { points, base } => draw_bars(
             canvas,
             within(points, |p| p.0, view),
+            points,
             layer.mark.spacing(),
             *base,
+            &chart.place(index, stacks),
             x,
             y,
             color,
@@ -262,6 +276,7 @@ fn marks(
             y,
             color,
             style,
+            chart.market,
         ),
     }
 }
@@ -291,63 +306,6 @@ fn line(canvas: &mut Canvas, points: &[Point], step: bool, dashed: bool, color: 
     }
 }
 
-/// How many pixels one data unit of x takes.
-fn per_unit(x: &Linear) -> f32 {
-    let span = (x.domain.1 - x.domain.0).abs();
-    if span == 0.0 {
-        1.0
-    } else {
-        ((x.range.1 - x.range.0).abs() as f64 / span) as f32
-    }
-}
-
-fn bars(
-    canvas: &mut Canvas,
-    points: &[(f64, f64)],
-    spacing: f64,
-    base: f64,
-    x: &Linear,
-    y: &Linear,
-    color: vui_core::Color,
-) {
-    let slot = spacing as f32 * per_unit(x);
-    let thin;
-    let points = if slot < 1.5 {
-        thin = extremes(points, x);
-        &thin[..]
-    } else {
-        points
-    };
-    let width = (slot * 0.64).clamp(1.0, 36.0);
-    let radius = if width >= 5.0 { 2.0 } else { 0.0 };
-    let floor = y.map(base);
-    for &(px, v) in points {
-        let top = y.map(v);
-        let (y0, y1) = (top.min(floor), top.max(floor));
-        let corners = if top <= floor {
-            Corners {
-                tl: radius,
-                tr: radius,
-                br: 0.0,
-                bl: 0.0,
-            }
-        } else {
-            Corners {
-                tl: 0.0,
-                tr: 0.0,
-                br: radius,
-                bl: radius,
-            }
-        };
-        let cx = x.map(px);
-        canvas.quad(
-            Quad::new(rect(cx - width / 2.0, y0, width, (y1 - y0).max(1.0)))
-                .fill(color)
-                .radii(corners),
-        );
-    }
-}
-
 fn scatter(
     canvas: &mut Canvas,
     shown: &[Dot],
@@ -368,6 +326,7 @@ fn scatter(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn candles(
     canvas: &mut Canvas,
     rows: &[Candle],
@@ -376,11 +335,18 @@ fn candles(
     y: &Linear,
     ink: vui_core::Color,
     style: &VizStyle,
+    market: bool,
 ) {
     let slot = spacing as f32 * per_unit(x);
     let width = (slot * 0.7).clamp(1.0, 16.0);
     let wick = 1.0;
     for c in rows {
+        let rising = c.close >= c.open;
+        let ink = match (market, rising) {
+            (false, _) => ink,
+            (true, true) => style.up,
+            (true, false) => style.down,
+        };
         let cx = x.map(c.x);
         let (high, low) = (y.map(c.high), y.map(c.low));
         canvas.quad(Quad::new(rect(cx - wick / 2.0, high, wick, (low - high).max(1.0))).fill(ink));
@@ -389,13 +355,9 @@ fn candles(
         }
         let (a, b) = (y.map(c.open), y.map(c.close));
         let body = rect(cx - width / 2.0, a.min(b), width, (a - b).abs().max(1.0));
-        // Up candles are hollow, down candles solid: readable without colour.
         let quad = Quad::new(body).radii(1.0);
-        canvas.quad(if c.close >= c.open {
-            quad.fill(style.bg).border(1.0, ink)
-        } else {
-            quad.fill(ink)
-        });
+        // Without colour, up candles are hollow and down candles solid, readable either way.
+        canvas.quad(if rising && !market { quad.fill(style.bg).border(1.0, ink) } else { quad.fill(ink) });
     }
 }
 

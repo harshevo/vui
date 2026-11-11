@@ -134,7 +134,9 @@ impl<M: 'static> Widget<M> for ChartWidget<M> {
     ) -> Size {
         let width = known.x.unwrap_or(match avail.x {
             Avail::Definite(w) => w,
-            _ => DEFAULT_WIDTH,
+            // It can be drawn narrow, so it never holds a row open at its usual width.
+            Avail::MinContent => 160.0,
+            Avail::MaxContent => DEFAULT_WIDTH,
         });
         size(width, known.y.unwrap_or((width * 0.52).clamp(160.0, 380.0)))
     }

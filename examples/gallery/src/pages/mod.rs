@@ -5,6 +5,7 @@ use vui::prelude::*;
 use crate::{Gallery, Msg, Page};
 
 mod buttons;
+mod charts;
 mod controls;
 mod data;
 mod effects;
@@ -29,6 +30,7 @@ pub fn view(g: &Gallery) -> Div<Msg> {
         Page::Icons => icons::view(g),
         Page::Overlays => overlays::view(g),
         Page::Data => data::view(g),
+        Page::Charts => charts::view(g),
         Page::Feedback => feedback::view(g),
         Page::Effects => effects::view(g),
         Page::Settings => settings::view(g),

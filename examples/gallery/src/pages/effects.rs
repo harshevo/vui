@@ -1,6 +1,5 @@
 //! Shaded boxes: gradients, an aurora, a beam running round an edge, spotlights, glow and shimmer.
-//! Everything that moves is held still here, so the page shoots the same every time; drop `.still`
-//! to let it move.
+//! In screenshots everything that moves is held still, so the page shoots the same every time.
 
 use super::*;
 
@@ -25,13 +24,14 @@ fn tier(name: &str, price: &str, lit: Option<(f32, f32)>) -> Element<Msg> {
     }
 }
 
-pub fn view(_g: &Gallery) -> Div<Msg> {
+pub fn view(g: &Gallery) -> Div<Msg> {
+    let held = |seconds: f32| g.still.then_some(seconds);
     page(
         "Effects",
         (
             section(
                 "Aurora",
-                aurora().still(3.0).rounded(16.0).padding(32.0).child(column().gap(8.0).children((
+                held(3.0).map_or(aurora(), |t| aurora().still(t)).rounded(16.0).padding(32.0).child(column().gap(8.0).children((
                     title("Build once, run anywhere"),
                     label("Soft colour drifting behind the content, blended in Oklab with a little grain.").color(Tone::Text2),
                     row().gap(8.0).children((button("Get started").primary(), button("Read the docs"))),
@@ -59,11 +59,11 @@ pub fn view(_g: &Gallery) -> Div<Msg> {
             section(
                 "Border beam",
                 flow().children((
-                    border_beam(true).still(1.1).rounded(12.0).padding(16.0).bg(Tone::Side).border(1.0, Tone::Line).child(row().gap(12.0).align_items(Align::Center).children((
+                    held(1.1).map_or(border_beam(true), |t| border_beam(true).still(t)).rounded(12.0).padding(16.0).bg(Tone::Side).border(1.0, Tone::Line).child(row().gap(12.0).align_items(Align::Center).children((
                         icon(icon_set::REFRESH),
                         column().gap(2.0).children((label("Syncing"), small("2 of 5 folders").color(Tone::Text3))),
                     ))),
-                    border_beam(true).still(2.6).width(2.0).length(0.45).colors([Fill::from(TEAL.with_alpha(0.0)), TEAL.into(), Tone::Blue.into()]).rounded(Radius::Pill).padding((10.0, 18.0)).border(1.0, Tone::Line).child(label("Live")),
+                    held(2.6).map_or(border_beam(true), |t| border_beam(true).still(t)).width(2.0).length(0.45).colors([Fill::from(TEAL.with_alpha(0.0)), TEAL.into(), Tone::Blue.into()]).rounded(Radius::Pill).padding((10.0, 18.0)).border(1.0, Tone::Line).child(label("Live")),
                 )),
             ),
             section("Spotlight", row().wrap().gap(12.0).children((tier("Starter", "$8", Some((70.0, 30.0))), tier("Team", "$16", None), tier("Business", "$32", None)))),

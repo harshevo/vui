@@ -3,8 +3,9 @@
 `vui::viz` draws data with vui's own vector engine. Data goes in, triangles come out, and there's
 no plotting library underneath. It has:
 
-- **Charts:** line, step, area, bars, volume, scatter and candlesticks, with axes that pick round
-  numbers.
+- **Charts:** line, step, area, bars (grouped, stacked, over named categories), volume, scatter
+  and candlesticks, with axes that pick round numbers.
+- **Pies and donuts,** and **bar lists**: horizontal bars ranking things.
 - **Sparklines:** small trends for cards and tables.
 - **Graphs:** a force-directed layout for networks and knowledge graphs, with pan, zoom and picking.
 
@@ -46,13 +47,31 @@ let view: Div<()> = card().padding(20.0).child(
 | `.dots(name, &[Dot { x, y, size }])` | scatter, sized by value |
 | `.candles(name, &[Candle { x, open, high, low, close }])` | open–high–low–close |
 
-Options apply to the layer just added: `.ink(Ink::Accent | Strong | Mid | Soft | Color(c))`,
+Options apply to the layer just added: `.ink(Ink::Accent | Hue | Strong | Mid | Soft | Color(c))`,
 `.dashed()` and `.format(…)`. Others apply to the chart:
 
 - **`.time()`** makes x seconds since the epoch, with date and time ticks.
 - **`.y_format(Format::…)`** formats the y axis: `Auto`, `Fixed(2)`, `Si` (1.2k, 3.4M),
   `Percent(1)` or `PercentPoints(1)`.
 - **`.from_zero()`** keeps 0 on the y axis.
+- **`.categories(["Q1", "Q2", …])`** names x = 0, 1, 2…; build the points with `indexed(&values)`.
+- **`.grouped()`** puts bar layers side by side; **`.stacked()`** stacks them, positives up and
+  negatives down. Give each `Ink::Hue` so they take distinct theme hues.
+- **`.market()`** draws candles rising in green and falling in red, instead of hollow and solid.
+
+```rust
+use std::rc::Rc;
+use vui::prelude::*;
+use vui::viz::{Chart, Format, Ink, chart, indexed};
+
+let revenue = Chart::new()
+    .categories(["Q1", "Q2", "Q3", "Q4"])
+    .y_format(Format::Money("$"))
+    .bars("2025", &indexed(&[48.0, 57.0, 61.0, 72.0])).ink(Ink::Hue)
+    .bars("2026", &indexed(&[55.0, 60.0, 70.0, 81.0])).ink(Ink::Hue)
+    .grouped();
+let view: Div<()> = card().child(chart(Rc::new(revenue)).height(240.0));
+```
 
 **Interaction:**
 
@@ -69,6 +88,37 @@ guide at an x from elsewhere. Together they line up several charts at the same m
 
 **Large data** is thinned to the extremes per pixel column before drawing, so 100,000 points draw
 as fast as 1,000 and no spike is lost.
+
+## Pies, donuts and bar lists
+
+A `Pie` is a list of slices; `.donut()` cuts a hole and writes the total in it. Hovering a slice
+(or its legend row) moves it out and writes its value in the hole. The legend sits beside the
+circle when there's room and below it when there isn't.
+
+A `BarList` ranks things: a label, a bar sized by its share of the largest, and the value.
+
+```rust
+use std::rc::Rc;
+use vui::prelude::*;
+use vui::viz::{BarList, Format, Pie, bar_list, pie};
+
+let visits = Pie::new()
+    .slice("Direct", 4210.0)
+    .slice("Search", 3120.0)
+    .slice("Social", 1430.0)
+    .donut()
+    .format(Format::Si)
+    .caption("Visits");
+let browsers = BarList::new().row("Chrome", 6420.0).row("Safari", 3180.0).row("Firefox", 860.0).sorted();
+
+let view: Div<()> = row().wrap().gap(12.0).children((
+    card().grow(1.0).basis(px(320.0)).child(pie(Rc::new(visits))),
+    card().grow(1.0).basis(px(320.0)).child(bar_list(Rc::new(browsers)).name("Visitors by browser")),
+));
+```
+
+Both take `.on_hover(Msg::Over)` with the index under the pointer, and `.still()`. Slices and
+bars take `Ink`; without one, slices go round the theme's hues.
 
 ## Sparklines
 

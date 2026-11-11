@@ -22,13 +22,14 @@ pub enum Page {
     Icons,
     Overlays,
     Data,
+    Charts,
     Feedback,
     Effects,
     Settings,
 }
 
 impl Page {
-    pub const ALL: [Page; 12] = [
+    pub const ALL: [Page; 13] = [
         Page::Foundations,
         Page::Buttons,
         Page::Controls,
@@ -38,6 +39,7 @@ impl Page {
         Page::Icons,
         Page::Overlays,
         Page::Data,
+        Page::Charts,
         Page::Feedback,
         Page::Effects,
         Page::Settings,
@@ -54,6 +56,7 @@ impl Page {
             Page::Icons => "Icons",
             Page::Overlays => "Overlays",
             Page::Data => "Data",
+            Page::Charts => "Charts",
             Page::Feedback => "Feedback",
             Page::Effects => "Effects",
             Page::Settings => "Settings",
@@ -71,6 +74,7 @@ impl Page {
             Page::Icons => icon_set::STAR,
             Page::Overlays => icon_set::COPY,
             Page::Data => icon_set::GRID,
+            Page::Charts => icon_set::BAR_CHART,
             Page::Feedback => icon_set::BELL,
             Page::Effects => icon_set::SPARKLES,
             Page::Settings => icon_set::SETTINGS,
@@ -217,6 +221,8 @@ pub struct Gallery {
     pub filters: Vec<&'static str>,
     pub page_no: usize,
     pub nav_open: bool,
+    /// Hold everything that moves by itself still: set for screenshots, so they match from run to run.
+    pub still: bool,
     pub pictures: Pictures,
 }
 
@@ -261,6 +267,7 @@ impl Gallery {
             filters: vec!["Design", "Due this week", "Assigned to me"],
             page_no: 6,
             nav_open: false,
+            still: false,
             pictures: Pictures { scenes, detail, disc, hash },
         }
     }

@@ -16,6 +16,12 @@ pub struct VizStyle {
     /// A faint fill: hover bands and bar tracks.
     pub wash: Color,
     pub accent: Color,
+    /// Distinct hues for categories, where each mark needs its own colour: pie slices, grouped and
+    /// stacked bars. Taken from the theme, so they suit light and dark.
+    pub hues: [Color; 6],
+    /// Rising and falling, for market candles.
+    pub up: Color,
+    pub down: Color,
     pub label: TextStyle,
     pub label_mono: TextStyle,
     pub title: TextStyle,
@@ -31,6 +37,9 @@ impl VizStyle {
             line: p.line,
             wash: p.wash,
             accent: p.accent,
+            hues: [p.accent, p.orange, p.success, p.purple, p.warning, p.blue],
+            up: p.success,
+            down: p.danger,
             label: TextStyle::new(11.0, 14.0),
             label_mono: TextStyle::new(11.0, 14.0).mono(),
             title: TextStyle::new(13.0, 18.0).weight(500),
@@ -46,6 +55,15 @@ impl VizStyle {
             2 => self.ink_3,
             3 => self.accent.lerp(self.bg, 0.5),
             _ => self.ink_2,
+        }
+    }
+
+    /// The colour of category `i`: six theme hues, then the same hues lighter, then again.
+    pub fn category(&self, i: usize) -> Color {
+        let hue = self.hues[i % self.hues.len()];
+        match (i / self.hues.len()) % 2 {
+            0 => hue,
+            _ => hue.lerp(self.bg, 0.45),
         }
     }
 
@@ -67,6 +85,9 @@ impl VizStyle {
 pub enum Ink {
     /// The next colour in the series order, by layer position.
     Auto,
+    /// The next of the category hues, by layer position: for layers that sit side by side or on top
+    /// of each other and need telling apart, like grouped and stacked bars.
+    Hue,
     Strong,
     Accent,
     Mid,
@@ -78,6 +99,7 @@ impl Ink {
     pub fn resolve(self, style: &VizStyle, index: usize) -> Color {
         match self {
             Ink::Auto => style.series(index),
+            Ink::Hue => style.category(index),
             Ink::Strong => style.ink,
             Ink::Accent => style.accent,
             Ink::Mid => style.ink_2,
@@ -110,6 +132,9 @@ mod tests {
             assert_eq!(s.series(0), s.series(5));
             assert_eq!(Ink::Accent.resolve(&s, 3), s.accent);
             assert_eq!(Ink::Auto.resolve(&s, 1), s.accent);
+            assert_eq!(s.category(0), s.accent);
+            assert_ne!(s.category(6), s.category(0), "past six the hues come back lighter");
+            assert_eq!(s.category(12), s.category(0));
         }
     }
 }

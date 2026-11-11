@@ -116,7 +116,7 @@ vui = { git = "https://github.com/harshevo/vui" }   # or { path = "../vui/crates
 | [Styling and theming](docs/styling.md) | tones, decoration, motion, themes and dark mode |
 | [Widgets](docs/widgets.md) | the catalogue |
 | [Text, icons and images](docs/text-icons-images.md) | type styles, custom fonts, icons, pictures |
-| [Charts and graphs](docs/charts.md) | charts, sparklines, force-directed graphs |
+| [Charts and graphs](docs/charts.md) | charts, pies and donuts, bar lists, sparklines, force-directed graphs |
 | [Custom widgets](docs/custom-widgets.md) | the `Widget` trait, painting, input, custom GPU passes |
 | [Rendering](docs/rendering.md) | the GPU and CPU renderers, headless frames, snapshots |
 | [Testing](docs/testing.md) | `TestUi`, golden images, CI without a GPU |
@@ -133,7 +133,7 @@ Every Rust snippet in the guides runs as a doctest, so they stay true to the API
 | Controls | switches, checkboxes (with mixed), radios and radio groups, sliders, number inputs |
 | Text input | text fields, text areas, search, passwords. One editor behind them: selection, undo, clipboard (text and images), input methods, dictation, emoji |
 | Display | labels and titles, markdown, badges, chips, avatars, icons, pictures, cards, separators |
-| Data | lists, sortable and responsive tables, trees, lasso selection; line, area, bar, scatter and candle charts, sparklines, graphs |
+| Data | lists, sortable and responsive tables, trees, lasso selection; line, area, grouped and stacked bar, scatter and candlestick charts, pies and donuts, bar lists, sparklines, graphs |
 | Navigation | sidebars, tabs, breadcrumbs, pagination, accordions, disclosures |
 | Overlays | tooltips, popovers, dropdown menus, selects, context menus, dialogs, toasts |
 | Feedback | progress bars, spinners, alerts, empty states, skeletons, glow, shimmer |
@@ -149,7 +149,7 @@ Every Rust snippet in the guides runs as a doctest, so they stay true to the API
 | [`vui-runtime`](crates/vui-runtime) | elements and reconciliation, the flexbox engine, responsive rules, input routing, focus, scrolling, animation, accessibility; all headless |
 | [`vui-widgets`](crates/vui-widgets) | the standard widgets, by feature: `buttons`, `controls`, `inputs`, `display`, `data`, `navigation`, `overlay`, `feedback`, `layout` |
 | [`vui-icons`](crates/vui-icons) | 157 line icons on a 24-point grid, rasterised at any size and weight |
-| [`vui-viz`](crates/vui-viz) | scales, charts, sparklines and force-directed graphs |
+| [`vui-viz`](crates/vui-viz) | scales, charts, pies, bar lists, sparklines and force-directed graphs |
 | [`vui-render`](crates/vui-render) | the wgpu renderer, the CPU renderer, custom passes, headless rendering and golden-image tests |
 | [`vui-macos`](crates/vui-macos) | the macOS backend: windows, overlays, input method, clipboard, cursors, display-link frames, `Proxy` |
 | [`vui-fonts`](crates/vui-fonts) | Inter and JetBrains Mono, bundled (SIL OFL 1.1) |

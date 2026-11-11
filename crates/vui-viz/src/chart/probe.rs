@@ -118,7 +118,9 @@ pub fn probe(chart: &Chart, style: &VizStyle, x: f64) -> Option<Probe> {
             }
         }
     }
-    let head = if chart.time {
+    let head = if let Some(name) = chart.category(at) {
+        name.to_string()
+    } else if chart.time {
         Format::Date.apply(at)
     } else {
         Format::Auto.apply(at)

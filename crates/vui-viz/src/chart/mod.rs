@@ -1,11 +1,13 @@
 //! Charts: a list of layers over shared axes. Describe the data here; [`draw`] turns it into scene
 //! commands and [`probe`] answers what is under a pointer. Nothing in this module knows about windows.
 
+mod bars;
 mod decimate;
 mod draw;
 mod probe;
 mod widget;
 
+pub use bars::{BarLayout, indexed};
 pub use decimate::extremes;
 pub use draw::{Drawn, View, draw, layout};
 pub use probe::{Probe, Row, draw_probe, probe};
@@ -76,6 +78,12 @@ pub struct Chart {
     pub y_format: Format,
     /// Keep zero on the vertical axis even when the data stays far from it.
     pub zero: bool,
+    /// How bar layers in the main panel share each x.
+    pub bar_layout: BarLayout,
+    /// Names for x = 0, 1, 2…: the horizontal axis and the probe show these instead of numbers.
+    pub categories: Vec<String>,
+    /// Candles rise in the theme's green and fall in its red, instead of hollow and solid ink.
+    pub market: bool,
 }
 
 impl Default for Chart {
@@ -91,6 +99,9 @@ impl Chart {
             time: false,
             y_format: Format::Auto,
             zero: false,
+            bar_layout: BarLayout::Overlap,
+            categories: Vec::new(),
+            market: false,
         }
     }
 
@@ -284,8 +295,13 @@ impl Chart {
     pub fn y_extent(&self, panel: Panel, x: (f64, f64), ticks: usize) -> (f64, f64) {
         let (mut lo, mut hi) = (f64::INFINITY, f64::NEG_INFINITY);
         let mut anchored = self.zero && panel == Panel::Main;
-        for l in self.layers.iter().filter(|l| l.panel == panel) {
-            if let Some((a, b)) = l.mark.y_bounds(x) {
+        let stacks = self.stacks();
+        for (i, l) in self.layers.iter().enumerate().filter(|(_, l)| l.panel == panel) {
+            let bounds = match stacks.get(i).filter(|s| !s.is_empty()) {
+                Some(stack) => bars::stack_bounds(&l.mark, stack, x),
+                None => l.mark.y_bounds(x),
+            };
+            if let Some((a, b)) = bounds {
                 lo = lo.min(a);
                 hi = hi.max(b);
             }
