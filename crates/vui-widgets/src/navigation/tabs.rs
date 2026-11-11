@@ -5,7 +5,7 @@ use std::rc::Rc;
 use vui_core::{Fill, Spring, TextRole, Tone};
 use vui_runtime::{Align, Breakpoint, Builder, Div, Focus, FocusGroup, IntoChildren, Parent, Role, Styled, column, div, row};
 
-use crate::item::{Height, Item, Place, Spec};
+use crate::data::item::{Height, Item, Place, Spec};
 
 /// How thick the line under the open tab is.
 const LINE: f32 = 2.0;

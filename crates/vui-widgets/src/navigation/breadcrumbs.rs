@@ -4,7 +4,7 @@ use vui_core::{CursorIcon, Tone};
 use vui_icons::set;
 use vui_runtime::{Align, Builder, Div, Parent, Role, Styled, label, row};
 
-use crate::icon::icon;
+use crate::display::icon::icon;
 
 /// The path to the current page: `(label, message)` for each step, the message sent when the step is
 /// pressed, `None` for the last step, which is where you are.

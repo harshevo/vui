@@ -6,7 +6,7 @@ use vui_core::{CursorIcon, Fill, Spring, Tone};
 use vui_icons::set;
 use vui_runtime::{Align, Breakpoint, Builder, Div, Element, Focus, FocusGroup, IntoChildren, IntoElement, Justify, Parent, Role, Styled, column, div, row, small};
 
-use crate::icon::icon;
+use crate::display::icon::icon;
 
 /// Which way a column is sorted.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

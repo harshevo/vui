@@ -4,7 +4,7 @@ use vui_core::{CursorIcon, Spring, Tone};
 use vui_icons::set;
 use vui_runtime::{Align, Builder, Div, Focus, IntoChildren, Parent, Role, Styled, column, label, row};
 
-use crate::icon::icon;
+use crate::display::icon::icon;
 
 /// A section titled `title` whose `content` shows while `open`; pressing the heading, or Return or
 /// Space on it, sends `on_toggle`. The chevron points down while open.

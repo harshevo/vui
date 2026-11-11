@@ -4,7 +4,7 @@ use vui_core::{Fill, Tone};
 use vui_icons::Icon;
 use vui_runtime::{Align, Builder, Div, IntoChildren, Justify, Parent, Radius, Styled, column, div, label};
 
-use crate::icon::icon;
+use crate::display::icon::icon;
 
 /// An icon in a soft circle, a `title`, a line of `detail`, and what to do about it (`actions`),
 /// centred in the space it is given.

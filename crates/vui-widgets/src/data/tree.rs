@@ -4,7 +4,7 @@ use vui_core::{CursorIcon, Fill, Spring, Tone};
 use vui_icons::{Icon, set};
 use vui_runtime::{Align, Builder, Div, Focus, FocusGroup, IntoChildren, Parent, Role, Styled, column, div, label, row};
 
-use crate::icon::icon;
+use crate::display::icon::icon;
 
 /// Indent for each level.
 const INDENT: f32 = 16.0;

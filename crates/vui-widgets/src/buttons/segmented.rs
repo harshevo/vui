@@ -5,7 +5,7 @@ use std::rc::Rc;
 use vui_core::{Fill, Spring, TextRole, Tone};
 use vui_runtime::{Builder, Div, Focus, FocusGroup, Parent, Radius, Role, Styled, row};
 
-use crate::item::{Height, Item, Place, Spec};
+use crate::data::item::{Height, Item, Place, Spec};
 
 /// How tall a segment is: the track is 2 points bigger on every side.
 const SEGMENT_HEIGHT: f32 = 28.0;

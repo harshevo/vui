@@ -8,7 +8,7 @@ use vui_runtime::{Align, Builder, Focus, Parent, Radius, Role, Styled, label, ro
 
 use super::menu::menu_check;
 use super::popover::{Popover, popover};
-use crate::icon::icon;
+use crate::display::icon::icon;
 use super::menu::menu;
 
 /// One choice out of a list, in a field that opens a menu under itself. `on_open` hears whether the

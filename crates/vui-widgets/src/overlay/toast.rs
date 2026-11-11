@@ -4,7 +4,7 @@ use vui_core::{Shadow, Spring, Tone};
 use vui_icons::Icon;
 use vui_runtime::{Align, Breakpoint, Builder, Div, IntoChildren, Parent, Radius, Role, Styled, column, label, row};
 
-use crate::icon::icon;
+use crate::display::icon::icon;
 
 /// The corner stack the toasts sit in, newest last, above everything. Give each toast a key so the
 /// others keep their place as one leaves. Hide them with a timer: `cx.after(Duration::from_secs(4), Msg::Hide(id))`.

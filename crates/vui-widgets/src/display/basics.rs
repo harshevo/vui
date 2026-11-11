@@ -3,7 +3,7 @@
 use vui_core::{Fill, ImageId, TextRole, Tone};
 use vui_runtime::{Base, Builder, Div, Img, Label, Radius, Role, Styled, builder, div, img, small};
 
-use crate::item::{Height, Item, ItemWidget, Place, Spec};
+use crate::data::item::{Height, Item, ItemWidget, Place, Spec};
 
 /// A 1-point line across its parent.
 pub fn separator<M: 'static>() -> Div<M> {

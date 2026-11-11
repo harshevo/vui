@@ -4,7 +4,7 @@ use vui_core::{NamedKey, Tone};
 use vui_icons::set;
 use vui_runtime::{Align, Builder, Div, Focus, Justify, Parent, Radius, Role, Styled, label, row};
 
-use crate::button::icon_button;
+use crate::buttons::button::icon_button;
 
 /// `value` between `min` and `max`, with − and + buttons that move it by `step`. Up and Down do the
 /// same while it has focus. `on_change` hears the new value, already kept in range.

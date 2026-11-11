@@ -5,7 +5,7 @@ use vui_icons::set;
 use vui_runtime::{Builder, Div, Focus, FocusGroup, IntoChildren, Parent, Radius, Role, Styled, div};
 
 use super::popover::panel;
-use crate::item::{Height, Item, Place, Spec};
+use crate::data::item::{Height, Item, Place, Spec};
 
 /// A menu's narrowest width.
 const MIN_WIDTH: f32 = 200.0;

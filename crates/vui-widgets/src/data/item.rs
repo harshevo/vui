@@ -11,7 +11,7 @@ use vui_runtime::{
     AccessAction, AccessInfo, Base, Dirty, Env, EventCx, Focus, FocusBy, PaintCx, Role, TickCx, Widget, WidgetEvent, builder,
 };
 
-use crate::icon::{ICON_SIZE, paint_icon, paint_spinner};
+use crate::display::icon::{ICON_SIZE, paint_icon, paint_spinner};
 
 /// Space between the parts.
 const GAP: f32 = 8.0;

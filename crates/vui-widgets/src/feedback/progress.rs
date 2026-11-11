@@ -4,7 +4,7 @@ use vui_core::{Corners, Fill, Quad, Rect, Size, Spring, SpringValue, Tone, size}
 use vui_runtime::layout::{Avail, Pair};
 use vui_runtime::{AccessInfo, AccessRange, Base, Dirty, Env, PaintCx, Role, TickCx, Widget, builder};
 
-use crate::icon::{ICON_SIZE, paint_spinner};
+use crate::display::icon::{ICON_SIZE, paint_spinner};
 
 const BAR: f32 = 4.0;
 const DEFAULT_WIDTH: f32 = 160.0;

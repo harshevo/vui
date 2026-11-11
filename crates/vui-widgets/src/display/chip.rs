@@ -4,7 +4,7 @@ use vui_core::{Fill, Tone};
 use vui_icons::set;
 use vui_runtime::{Align, Builder, Div, Parent, Radius, Styled, row};
 
-use crate::icon::icon;
+use crate::display::icon::icon;
 
 /// A pill with `text` and, given `on_remove`, an × that sends it.
 pub fn chip<M: Clone + 'static>(text: impl Into<String>, on_remove: Option<M>) -> Div<M> {

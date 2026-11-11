@@ -11,7 +11,7 @@ use vui_runtime::{
 };
 
 use crate::display::section_title;
-use crate::item::{Height, ItemWidget, Place, Spec};
+use crate::data::item::{Height, ItemWidget, Place, Spec};
 
 /// How wide a sidebar is unless told otherwise.
 pub const SIDEBAR_WIDTH: f32 = 240.0;

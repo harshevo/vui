@@ -14,7 +14,7 @@ use vui_runtime::{
     TickCx, Widget, WidgetEvent, builder, column,
 };
 
-use crate::icon::paint_icon;
+use crate::display::icon::paint_icon;
 
 /// Space between the control and its label.
 const GAP: f32 = 8.0;

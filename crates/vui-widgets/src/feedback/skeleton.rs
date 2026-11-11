@@ -3,7 +3,7 @@
 use vui_core::Tone;
 use vui_runtime::{Builder, Parent, Radius, Styled};
 
-use crate::effects::{Shimmer, shimmer};
+use crate::display::effects::{Shimmer, shimmer};
 
 /// A block `width` by `height` standing in for content that is loading. Round it to match what it
 /// stands for: `.rounded(Radius::Pill)` for an avatar, the default for a line of text.

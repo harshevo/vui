@@ -4,7 +4,7 @@ use vui_core::{Fill, Tone};
 use vui_icons::set;
 use vui_runtime::{Align, Breakpoint, Builder, Div, Parent, Role, Styled, label, row};
 
-use crate::button::{button, icon_button};
+use crate::buttons::button::{button, icon_button};
 
 /// Pages `1..=pages` with `page` current: previous and next, the first and last, and the pages next
 /// to the current one, with gaps shown as "…". `on_page` hears the page asked for.

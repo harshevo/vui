@@ -4,7 +4,7 @@ use vui_core::{Fill, TextRole, Tone};
 use vui_icons::Icon;
 use vui_runtime::{Base, Builder, Radius, Role, Styled, builder};
 
-use crate::item::{Height, ItemWidget, Spec};
+use crate::data::item::{Height, ItemWidget, Spec};
 
 /// How much a button stands out. A window has one [`Primary`](ButtonVariant::Primary) at most.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]

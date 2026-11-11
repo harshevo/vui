@@ -4,7 +4,7 @@ use vui_core::{Fill, Tone};
 use vui_icons::set;
 use vui_runtime::{Align, Builder, Div, IntoChildren, Parent, Radius, Role, Styled, column, label, row};
 
-use crate::icon::icon;
+use crate::display::icon::icon;
 
 /// What an alert is about.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
