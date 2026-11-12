@@ -480,6 +480,7 @@ impl<M: 'static> Ui<M> {
         }
         core.env.res.fonts.end_frame();
         core.paint_dirty = false;
+        self.note_embeds(&scene);
         scene
     }
 }

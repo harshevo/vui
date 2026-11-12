@@ -132,6 +132,16 @@ The editor behind them handles the following:
 | `separator()`, `separator_vertical()`, `dot(Tone::Success)` | hairlines and status dots |
 | `card()`, `panel()` | surfaces |
 
+### Media
+
+| Widget | Notes |
+| --- | --- |
+| `web_view(url)` | a web page; WKWebView on macOS |
+| `video(url)` | `.playing(…)`, `.looping()`, `.muted(…)`; AVPlayer on macOS, 16:9 by default |
+| `pdf_view(path)` | `.page(n)`, counted from 0; PDFKit on macOS |
+
+See [Web pages, video and PDFs](#web-pages-video-and-pdfs).
+
 ### Lists, tables and trees
 
 | Widget | Notes |
@@ -234,3 +244,41 @@ fn order_dialog(o: &Order) -> Div<Msg> {
     ))
 }
 ```
+
+## Web pages, video and PDFs
+
+`web_view`, `video` and `pdf_view` take a place in layout like any element: size them, round them,
+let them grow. They fill the width they are given at their natural shape (a page, 16:9, a letter
+page) unless you size them. A URL may be a web address or a file path.
+
+```rust
+use vui::prelude::*;
+
+#[derive(Clone)]
+enum Msg { Toggle, NextPage }
+
+struct Lesson { playing: bool, page: usize }
+
+fn lesson(l: &Lesson) -> Div<Msg> {
+    column().gap(12.0).children((
+        video("/Users/me/Movies/lesson.mp4").playing(l.playing).muted(true).rounded(10.0),
+        row().gap(8.0).children((
+            button(if l.playing { "Pause" } else { "Play" }).on_click(Msg::Toggle),
+            button("Next page").on_click(Msg::NextPage),
+        )),
+        pdf_view("/Users/me/Documents/notes.pdf").page(l.page).height(400.0),
+        web_view("https://example.com").height(300.0),
+    ))
+}
+```
+
+On macOS each is a native view (WKWebView, an AVPlayerLayer, PDFKit's `PDFView`) laid over the
+window where layout puts it, cut to any scroll view it sits in, with its corners rounded. The view
+is kept while the element stays in the tree, so a page keeps its scroll position and a video its
+place as layout moves them; changing `.playing` or `.page` updates it in place.
+
+The window draws a placeholder under each: a framed icon and the file or host name, which also
+names it for screen readers. That placeholder is all that shows in headless renders, golden images
+and on Windows and Linux for now, so goldens stay the same whatever the page holds. Each frame's
+list is in `Ui::embeds()`, and the backend hears `Effect::Embeds` only when it changes.
+

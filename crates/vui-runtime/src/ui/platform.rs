@@ -22,11 +22,13 @@ pub(crate) struct Platform<M> {
     menus: Vec<MenuSpec>,
     status: Option<MenuSpec>,
     actions: HashMap<u64, MenuAction<M>>,
+    /// The native views last sent.
+    embeds: Vec<vui_core::Embed>,
 }
 
 impl<M> Default for Platform<M> {
     fn default() -> Platform<M> {
-        Platform { next: 0, replies: HashMap::new(), notifications: Vec::new(), menus: Vec::new(), status: None, actions: HashMap::new() }
+        Platform { next: 0, replies: HashMap::new(), notifications: Vec::new(), menus: Vec::new(), status: None, actions: HashMap::new(), embeds: Vec::new() }
     }
 }
 
@@ -115,6 +117,19 @@ impl<M: 'static> Ui<M> {
     /// front, and for tests.
     pub fn menus(&self) -> &[MenuSpec] {
         &self.platform.menus
+    }
+
+    /// Sends the native views a new frame asks for, if they changed.
+    pub(crate) fn note_embeds(&mut self, scene: &Scene) {
+        if scene.embeds != self.platform.embeds {
+            self.platform.embeds = scene.embeds.clone();
+            self.core.out.effects.push(Effect::Embeds(scene.embeds.clone()));
+        }
+    }
+
+    /// The native views (web pages, videos, PDFs) as last painted, for backends and tests.
+    pub fn embeds(&self) -> &[vui_core::Embed] {
+        &self.platform.embeds
     }
 
     /// The app's menu-bar item as last sent.

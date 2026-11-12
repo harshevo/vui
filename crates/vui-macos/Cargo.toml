@@ -9,7 +9,7 @@ license.workspace = true
 repository.workspace = true
 keywords.workspace = true
 categories.workspace = true
-description = "The macOS backend for vui: an AppKit window, its Metal surface, input, text input, the pasteboard and frame timing, and notifications."
+description = "The macOS backend for vui: an AppKit window, its Metal surface, input, text input, the pasteboard and frame timing, notifications, and web, video and PDF views."
 
 [dependencies]
 vui-core = { path = "../vui-core" }
@@ -26,6 +26,11 @@ objc2-foundation = "0.3.2"
 objc2-app-kit = "0.3.2"
 objc2-quartz-core = "0.3.2"
 dispatch2 = "0.3.1"
+# Native views placed by layout: web pages, video and PDF.
+objc2-web-kit = { version = "0.3.2", default-features = false, features = ["std", "objc2-app-kit", "objc2-core-foundation", "WKWebView", "WKWebViewConfiguration", "WKNavigation"] }
+objc2-av-foundation = { version = "0.3.2", default-features = false, features = ["std", "objc2-quartz-core", "objc2-core-media", "AVPlayer", "AVPlayerItem", "AVPlayerLayer", "AVAnimation"] }
+objc2-core-media = { version = "0.3.2", default-features = false, features = ["std", "CMTime"] }
+objc2-pdf-kit = { version = "0.3.2", default-features = false, features = ["std", "objc2-app-kit", "PDFView", "PDFDocument", "PDFPage"] }
 objc2-user-notifications = { version = "0.3.2", default-features = false, features = [
     "std",
     "block2",

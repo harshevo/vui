@@ -21,6 +21,8 @@ pub struct ViewIvars {
     pub(super) caret: Cell<Option<Rect>>,
     /// The app's item in the menu bar, while it has one.
     pub(super) status: RefCell<Option<Retained<objc2_app_kit::NSStatusItem>>>,
+    /// Native views placed by layout, by embed id, in paint order.
+    pub(super) embeds: RefCell<Vec<(u64, embed::Native)>>,
 }
 
 define_class!(
@@ -337,6 +339,7 @@ impl VuiView {
             timer: RefCell::new(None),
             pending: RefCell::new(None),
             status: RefCell::new(None),
+            embeds: RefCell::new(Vec::new()),
             marked: RefCell::new(String::new()),
             caret: Cell::new(None),
         });

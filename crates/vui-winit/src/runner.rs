@@ -98,6 +98,9 @@ impl Slot {
                         warn_once("notifications are not available on this platform yet");
                         let _ = notification;
                     }
+                    Effect::Embeds(list) if !list.is_empty() => {
+                        warn_once("web, video and PDF views are macOS-only for now; their placeholders show instead");
+                    }
                     Effect::FullScreen(on) => {
                         let is = self.window.fullscreen().is_some();
                         if on.is_none_or(|on| on != is) {

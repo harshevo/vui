@@ -30,6 +30,9 @@ pub enum Effect {
     Menus(Vec<MenuSpec>),
     /// The app's menu-bar item, or none.
     StatusItem(Option<MenuSpec>),
+    /// The native views the window shows now, in paint order: create the new ones, move the others
+    /// and remove the ones not listed. Sent when the list changes.
+    Embeds(Vec<vui_core::Embed>),
 }
 
 /// Clipboard access: text both ways, and a picture to paste. The backend installs the system

@@ -8,6 +8,7 @@
 mod pasteboard;
 pub use pasteboard::Pasteboard;
 
+mod embed;
 mod menu;
 mod notify;
 mod system;

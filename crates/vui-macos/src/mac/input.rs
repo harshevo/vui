@@ -85,6 +85,7 @@ impl VuiView {
                 Effect::FullScreen(on) => self.set_full_screen(on),
                 Effect::Menus(menus) => self.set_menus(&menus),
                 Effect::StatusItem(item) => self.set_status_item(item.as_ref()),
+                Effect::Embeds(list) => self.set_embeds(&list),
                 _ => {}
             }
         }

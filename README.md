@@ -91,6 +91,7 @@ cargo run -p vui --example hello        # the counter above
 cargo run -p vui --example todo         # text input, a list from data, filters, empty state
 cargo run -p vui --example dashboard    # sidebar, stat cards, a chart and a table: resize it
 cargo run -p vui --example notes        # app menus, shortcuts, file sheets, a menu-bar item
+cargo run -p vui --example media        # a web page, a video and a PDF placed by layout
 cargo run -p gallery --release -- --window   # every widget, light and dark
 ```
 
@@ -139,6 +140,7 @@ Every Rust snippet in the guides runs as a doctest, so they stay true to the API
 | Controls | switches, checkboxes (with mixed), radios and radio groups, sliders (range, marked, upright), number inputs |
 | Text input | text fields, text areas, search, passwords. One editor behind them: selection, undo, clipboard (text and images), input methods, dictation, emoji |
 | Display | labels and titles, markdown, badges, chips, avatars, icons, pictures, cards, separators |
+| Media | web pages, video and PDFs: native views on macOS, placeholders elsewhere |
 | Data | lists, sortable and responsive tables, trees, lasso selection; line, area, grouped and stacked bar, scatter and candlestick charts, pies and donuts, bar lists, sparklines, graphs |
 | Navigation | sidebars, tabs, breadcrumbs, pagination, accordions, disclosures |
 | Overlays | tooltips, popovers, dropdown menus, selects, context menus, dialogs, toasts |
@@ -157,7 +159,7 @@ Every Rust snippet in the guides runs as a doctest, so they stay true to the API
 | [`vui-icons`](crates/vui-icons) | 157 line icons on a 24-point grid, rasterised at any size and weight |
 | [`vui-viz`](crates/vui-viz) | scales, charts, pies, bar lists, sparklines and force-directed graphs |
 | [`vui-render`](crates/vui-render) | the wgpu renderer, the CPU renderer, custom passes, headless rendering and golden-image tests |
-| [`vui-macos`](crates/vui-macos) | the macOS backend: windows, overlays, input method, clipboard, cursors, display-link frames, notifications with actions, `Proxy` |
+| [`vui-macos`](crates/vui-macos) | the macOS backend: windows, overlays, input method, clipboard, cursors, display-link frames, notifications with actions, web, video and PDF views, `Proxy` |
 | [`vui-winit`](crates/vui-winit) | the Windows and Linux backend on winit: windows, overlays, input method, clipboard, cursors, vsync frames, the CPU fallback |
 | [`vui-shell`](crates/vui-shell) | what both backends share: window and overlay options, `Proxy`, errors, and the host that ties a UI to its renderer |
 | [`vui-fonts`](crates/vui-fonts) | Inter and JetBrains Mono, bundled (SIL OFL 1.1) |
@@ -169,7 +171,7 @@ Each crate is split by feature, and no source file is over 500 lines.
 
 | | Status |
 | --- | --- |
-| macOS | windows, overlays, menus, sheets, notifications with actions, and everything above |
+| macOS | windows, overlays, menus, sheets, notifications with actions, web pages, video and PDFs, and everything above |
 | Windows, Linux | windows and overlays through winit (X11 and Wayland on Linux): input and input methods, the clipboard, cursors, vsync frames, the CPU fallback; menus, dialogs and notifications are on the [roadmap](docs/roadmap.md) |
 
 ## Tests

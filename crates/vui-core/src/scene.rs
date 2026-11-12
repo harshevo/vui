@@ -245,11 +245,14 @@ pub struct Scene {
     /// Colour the frame is cleared to before the commands run. `None` keeps what is already there.
     pub clear: Option<Color>,
     pub commands: Vec<Command>,
+    /// Native views to show over the frame, in paint order. Renderers draw only the placeholders
+    /// painted under them; the window backend shows the views themselves.
+    pub embeds: Vec<crate::Embed>,
 }
 
 impl Scene {
     pub fn new(size: Size, scale: f32) -> Scene {
-        Scene { size, scale, clear: None, commands: Vec::new() }
+        Scene { size, scale, clear: None, commands: Vec::new(), embeds: Vec::new() }
     }
 
     pub fn with_clear(mut self, color: Color) -> Scene {

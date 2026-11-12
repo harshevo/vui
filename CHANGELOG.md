@@ -49,6 +49,11 @@ the API.
   ones included (`Gpu::software_for_surface`). Ctrl is the shortcut modifier there. `vui` picks
   the backend by target, and the shared pieces (`WindowOptions`, `OverlayOptions`, `Proxy`,
   `Error`, the host) move to the new `vui-shell`, re-exported by both backends.
+- Media: `web_view`, `video` (play, pause, loop, mute) and `pdf_view` (pages) take a place in
+  layout and paint a placeholder. On macOS they are WKWebView, an AVPlayerLayer and PDFKit's
+  `PDFView`, laid over the window where layout puts them and cut to scroll views; headless,
+  golden and winit frames show the placeholder. `PaintCx::embed`, `Scene::embeds`, `Ui::embeds`
+  and `Effect::Embeds` carry them. New `media` example.
 - Dev tools: an inspector overlay (Cmd-Option-I) and frame stats (Cmd-Option-S) in every
   window, also through `VUI_INSPECT=1`, `VUI_STATS=1`, `Ui::set_inspector` and
   `Ui::set_frame_stats`.

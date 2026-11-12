@@ -18,7 +18,7 @@ importance. Each item says what exists today.
 | --- | --- |
 | Rendering | wgpu GPU renderer (quads, text, pictures, meshes, effects, shading, custom passes) and a CPU renderer that matches it; automatic fallback; any display scale, followed when a window changes display |
 | Layout | flexbox (grow, shrink, basis, wrap, alignment, gaps, auto margins), absolute, fixed and floating layers, scrolling, responsive `.when` rules |
-| Widgets | 70+: buttons, controls, fields and text areas, lists, tables, trees, tabs, menus, select, popovers, dialogs, toasts, alerts, progress, skeletons, markdown, forms |
+| Widgets | 70+: buttons, controls, fields and text areas, lists, tables, trees, tabs, menus, select, popovers, dialogs, toasts, alerts, progress, skeletons, markdown, forms; web pages, video and PDFs (native on macOS) |
 | Text | shaping, wrapping, ellipsis, fallback for every script, custom fonts, a full editor with IME, undo and the clipboard |
 | Icons | 157 line icons, four weights, `icon!` for your own |
 | Data | charts (line, step, area, grouped and stacked bars, volume, scatter, candles), pies and donuts, bar lists, sparklines, force-directed graphs |
@@ -57,7 +57,9 @@ and runs headless tests; it is checked live on macOS through the same winit code
 - run it live on Windows and Linux machines, and keep goldens for them;
 - native file dialogs and notifications (they answer as cancelled and print a warning today);
 - passing clicks through only the empty part of an overlay (`through_empty`), which winit cannot
-  do per pixel.
+  do per pixel;
+- web, video and PDF views there (WebView2 and WebKitGTK, Media Foundation and GStreamer); their
+  placeholders show today.
 
 ### 3. Large data
 
@@ -99,12 +101,16 @@ scales with `text_scale`; see [Accessibility](accessibility.md#system-settings).
 
 **Today.** App menus with shortcuts, ticks and disabled items from state; open and save sheets;
 notifications through `UNUserNotificationCenter` with action buttons, answered as app messages
-(`cx.notify_then`) and playable in `TestUi`; a menu-bar item; full screen. See
+(`cx.notify_then`) and playable in `TestUi`; a menu-bar item; full screen; web pages, video and
+PDFs as widgets (`web_view`, `video`, `pdf_view`), shown by WKWebView, AVPlayerLayer and PDFKit as
+native views placed and clipped by layout, with a placeholder in headless and CPU frames. See
 [The app model](app-model.md#menus-shortcuts-and-the-menu-bar). **Next:**
 
 - drag out of the app (as a drag source);
 - submenus, and icons in menus and the menu-bar item;
-- menus, dialogs and notifications on Windows and Linux.
+- menus, dialogs and notifications on Windows and Linux;
+- web view navigation and messages (back, forward, title, script calls into the app), video
+  controls and time, PDF search and selection; native views over overlays drawn by vui.
 
 ### 8. Developer experience
 

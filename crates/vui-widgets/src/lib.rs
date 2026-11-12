@@ -17,6 +17,7 @@
 //! | `data` | `item`, `data_table`, `tree`, `lasso` |
 //! | `feedback` | `progress`, `spinner`, `alert`, `skeleton`, `empty_state` |
 //! | `layout` | `field`, `setting`, `splitter`, `disclosure`, `accordion` |
+//! | `media` | `web_view`, `video`, `pdf_view`: native views placed by layout |
 //! | `navigation` | `sidebar`, `nav_item`, `list`, `list_row`, `tabs`, `breadcrumbs`, `pagination`, `stepper`, `toolbar`, `carousel` |
 //! | `overlay` | `popover`, `dropdown`, `menu`, `select`, `context_menu`, `dialog`, `toasts`, `command_palette`, `drawer`, `sheet`, `hover_card` |
 
@@ -27,6 +28,7 @@ mod display;
 mod feedback;
 mod inputs;
 mod layout;
+pub mod media;
 mod navigation;
 pub mod overlay;
 
@@ -37,6 +39,7 @@ pub use display::*;
 pub use feedback::*;
 pub use inputs::*;
 pub use layout::*;
+pub use media::{PdfView, Video, WebView, pdf_view, video, web_view};
 pub use navigation::*;
 pub use overlay::{
     Command, Edge, Popover, Side, command, command_palette, context_menu, drawer, hover_card, sheet, dialog, dialog_actions, dropdown, menu, menu_check, menu_heading, menu_item, menu_separator, panel, popover,

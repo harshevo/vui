@@ -234,6 +234,14 @@ impl PaintCx<'_> {
         self.clip = saved;
     }
 
+    /// Asks for a native view over the content box (a web page, a video, a PDF), cut to the clip.
+    /// `id` must stay the same while the element is on screen. Paint a placeholder under it too:
+    /// frames drawn without a window show only that.
+    pub fn embed(&mut self, id: u64, kind: vui_core::EmbedKind) {
+        let radius = self.radii.tl.max(self.radii.tr).max(self.radii.bl).max(self.radii.br);
+        self.scene.embeds.push(vui_core::Embed { id, kind, rect: self.content, clip: self.clip, radius, opacity: self.alpha });
+    }
+
     /// Adds a quad, cut to the clip.
     pub fn quad(&mut self, quad: Quad) {
         self.scene.quad(quad.clip(self.clip));
