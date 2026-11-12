@@ -1,0 +1,21 @@
+[package]
+name = "vui-shell"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "What every vui window backend shares: window and overlay options, the thread-safe Proxy, errors, and the Host that ties a UI to its renderer."
+
+[dependencies]
+vui-core = { path = "../vui-core" }
+vui-render = { path = "../vui-render" }
+vui-runtime = { path = "../vui-runtime" }
+wgpu.workspace = true
+
+[lints]
+workspace = true

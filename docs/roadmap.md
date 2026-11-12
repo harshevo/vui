@@ -24,7 +24,7 @@ importance. Each item says what exists today.
 | Data | charts (line, step, area, grouped and stacked bars, volume, scatter, candles), pies and donuts, bar lists, sparklines, force-directed graphs |
 | Motion and effects | springs, transitions, appear animations, transforms (scale, rotate, translate) drawn as layers, built-in control motion, glow, shimmer; a shading pass for gradients (linear, radial, conic, borders), aurora, border beam, spotlight and grain |
 | Theming | light, dark and island themes; every colour, radius, type size and spring is data |
-| Platform | macOS: windows, overlays, input method, clipboard, cursors, file drops, display-link frames, a thread-safe `Proxy`, app menus and shortcuts, open and save sheets, notifications with action buttons (`UNUserNotificationCenter`), a menu-bar item, full screen, Reduce Motion and Increase Contrast |
+| Platform | Windows and Linux (winit): windows, overlays, input method, clipboard, cursors, vsync frames, the CPU fallback. macOS: windows, overlays, input method, clipboard, cursors, file drops, display-link frames, a thread-safe `Proxy`, app menus and shortcuts, open and save sheets, notifications with action buttons (`UNUserNotificationCenter`), a menu-bar item, full screen, Reduce Motion and Increase Contrast |
 | Testing | `TestUi` for input and time; golden images on the GPU or CPU; accessibility-tree assertions |
 
 ## Next, in order
@@ -39,20 +39,25 @@ bridge hands them to VoiceOver.
 
 ### 2. Windows and Linux
 
-**Today.** Everything above the window is portable: the runtime, the widgets, and both renderers
-(wgpu already targets DirectX 12, Vulkan and GL). Only `vui-macos` is platform code.
+**Today.** `vui-winit` runs vui on Windows and Linux (X11 and Wayland) with the same `run` /
+`Application` / `Proxy` surface as `vui-macos`; both share `vui-shell` (options, `Proxy`, the
+host). It has:
 
-**Plan.** Add a backend per platform with the same `run` / `Application` / `Proxy` surface, built
-from:
+- a window and its wgpu surface (DirectX 12, Vulkan or GL);
+- pointer, wheel, trackpad, pinch, keyboard and IME events, with double and triple clicks counted;
+- the clipboard (Win32 on Windows; `wl-copy`/`wl-paste`, `xclip` or `xsel` on Linux) and cursors;
+- vsync frames (`Fifo`) that stop when the UI is idle, and timers that wake the loop;
+- the CPU-renderer fallback, shown on any adapter that can present, software ones included;
+- file drops, full screen, overlays (borderless, always on top, click-through) and snapshots.
 
-- a window and surface;
-- pointer, keyboard and IME events;
-- the clipboard and cursors;
-- vsync-driven frames that stop when idle;
-- a layer for the CPU renderer.
+Ctrl is the shortcut modifier there, reported as `Modifiers::cmd`. It builds for both targets in CI
+and runs headless tests; it is checked live on macOS through the same winit code. See
+[Getting started](getting-started.md#platforms). **Next:**
 
-A winit-based backend is the fastest path to both platforms. It is a new dependency, so it needs a
-decision.
+- run it live on Windows and Linux machines, and keep goldens for them;
+- native file dialogs and notifications (they answer as cancelled and print a warning today);
+- passing clicks through only the empty part of an overlay (`through_empty`), which winit cannot
+  do per pixel.
 
 ### 3. Large data
 
@@ -98,7 +103,8 @@ notifications through `UNUserNotificationCenter` with action buttons, answered a
 [The app model](app-model.md#menus-shortcuts-and-the-menu-bar). **Next:**
 
 - drag out of the app (as a drag source);
-- submenus, and icons in menus and the menu-bar item.
+- submenus, and icons in menus and the menu-bar item;
+- menus, dialogs and notifications on Windows and Linux.
 
 ### 8. Developer experience
 
@@ -128,6 +134,6 @@ notifications through `UNUserNotificationCenter` with action buttons, answered a
 ### 10. Project
 
 **Today.** MIT OR Apache-2.0, with the bundled fonts under SIL OFL 1.1 (see the
-[README](../README.md#licence)), and CI on macOS and Linux. **Plan:**
+[README](../README.md#licence)), and CI on macOS, Linux and Windows. **Plan:**
 
 - **Publishing.** Release on crates.io with semantic versioning.

@@ -43,7 +43,9 @@ pixel for pixel, and the gallery keeps goldens at 1x, 2x and 3x.
 ## Choosing a renderer
 
 Windows use the GPU. If no adapter can be had, the window falls back to the CPU renderer on its
-own and shows its frames through a Core Animation layer. To force the CPU renderer, for
+own. On macOS its frames are shown through a Core Animation layer; on Windows and Linux they are
+copied to the window's surface on whatever adapter can present, the system's software one (WARP,
+llvmpipe or lavapipe) included. To force the CPU renderer, for
 instance to check how the fallback looks:
 
 ```sh

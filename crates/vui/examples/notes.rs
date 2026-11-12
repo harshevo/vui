@@ -93,7 +93,7 @@ impl App for Notes {
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", windows, target_os = "linux"))]
 fn main() {
     let window = WindowOptions::new("Notes").size(size(560.0, 420.0)).min_size(size(360.0, 280.0));
     if let Err(e) = vui::run(window, |_resources| Notes::default()) {
@@ -101,7 +101,7 @@ fn main() {
     }
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", windows, target_os = "linux")))]
 fn main() {
-    eprintln!("vui has a window backend for macOS only so far; the app still runs headless in tests.");
+    eprintln!("vui has no window backend for this platform; the app still runs headless in tests.");
 }

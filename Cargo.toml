@@ -8,8 +8,10 @@ members = [
     "crates/vui-macos",
     "crates/vui-render",
     "crates/vui-runtime",
+    "crates/vui-shell",
     "crates/vui-viz",
     "crates/vui-widgets",
+    "crates/vui-winit",
     "examples/gallery",
 ]
 

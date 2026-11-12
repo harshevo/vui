@@ -142,7 +142,7 @@ fn task_row(task: &Task) -> Div<Msg> {
     ))
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", windows, target_os = "linux"))]
 fn main() {
     let start = Todo::new(&[("Read the vui guides", true), ("Build the first screen", false), ("Write a golden test", false)]);
     let window = WindowOptions::new("Todo").size(size(640.0, 560.0)).min_size(size(320.0, 360.0));
@@ -151,7 +151,7 @@ fn main() {
     }
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", windows, target_os = "linux")))]
 fn main() {
-    eprintln!("vui has a window backend for macOS only so far; the app still runs headless in tests.");
+    eprintln!("vui has no window backend for this platform; the app still runs headless in tests.");
 }

@@ -43,7 +43,7 @@ impl App for Counter {
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", windows, target_os = "linux"))]
 fn main() {
     let window = WindowOptions::new("Hello").size(size(420.0, 320.0)).min_size(size(320.0, 240.0));
     if let Err(e) = vui::run(window, |_resources| Counter::default()) {
@@ -51,7 +51,7 @@ fn main() {
     }
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", windows, target_os = "linux")))]
 fn main() {
-    eprintln!("vui has a window backend for macOS only so far; the app still runs headless in tests.");
+    eprintln!("vui has no window backend for this platform; the app still runs headless in tests.");
 }

@@ -15,6 +15,7 @@ description = "The macOS backend for vui: an AppKit window, its Metal surface, i
 vui-core = { path = "../vui-core" }
 vui-render = { path = "../vui-render" }
 vui-runtime = { path = "../vui-runtime" }
+vui-shell = { path = "../vui-shell" }
 wgpu.workspace = true
 raw-window-handle = "0.6.2"
 

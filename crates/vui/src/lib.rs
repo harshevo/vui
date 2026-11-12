@@ -42,7 +42,7 @@
 //! #     fn update(&mut self, _: (), _: &mut Cx<()>) {}
 //! #     fn view(&self) -> impl IntoElement<()> { label("Notes") }
 //! # }
-//! # #[cfg(target_os = "macos")]
+//! # #[cfg(any(target_os = "macos", windows, target_os = "linux"))]
 //! vui::run(WindowOptions::new("Notes").size(size(480.0, 360.0)), |_resources| Notes).unwrap();
 //! ```
 //!
@@ -55,7 +55,7 @@
 //! | [`viz`] | charts, sparklines and graphs |
 //! | [`render`] | the GPU renderer and its CPU fallback |
 //! | [`testing`] | driving a UI and comparing frames, with no window |
-//! | [`platform`] | the window backend (macOS) |
+//! | [`platform`] | the window backend: `vui-macos` on macOS, `vui-winit` on Windows and Linux |
 
 pub use vui_core as core;
 pub use vui_icons as icons;
@@ -69,6 +69,12 @@ pub use vui_widgets as widgets;
 pub use vui_macos as platform;
 #[cfg(target_os = "macos")]
 pub use vui_macos::{Application, Error, OverlayOptions, Place, Proxy, Screen, WindowOptions, run};
+
+/// The window backend: windows, see-through overlays, a `Proxy` per window for other threads.
+#[cfg(any(windows, target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "netbsd", target_os = "openbsd"))]
+pub use vui_winit as platform;
+#[cfg(any(windows, target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "netbsd", target_os = "openbsd"))]
+pub use vui_winit::{Application, Error, OverlayOptions, Place, Proxy, Screen, WindowOptions, run};
 
 /// Testing without a window: [`TestUi`](testing::TestUi) clicks, types and moves time by hand, and
 /// the render helpers draw a frame on the GPU, or the CPU where there is none, to compare with a
@@ -98,6 +104,8 @@ pub mod prelude {
     pub use vui_widgets::*;
     #[cfg(target_os = "macos")]
     pub use vui_macos::{Proxy, WindowOptions};
+    #[cfg(any(windows, target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "netbsd", target_os = "openbsd"))]
+    pub use vui_winit::{Proxy, WindowOptions};
 }
 
 /// The guides in `docs/`, compiled as doctests so that their code stays true to the API.

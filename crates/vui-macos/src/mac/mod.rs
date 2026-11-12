@@ -52,7 +52,8 @@ use vui_core::{
 use vui_render::{CpuRenderer, CustomPass, Gpu, Renderer};
 use vui_runtime::{App, Clipboard, Effect, Ui};
 
-use crate::convert::{frame_step, scroll_delta, scroll_phase, utf16_len, utf16_range_to_bytes};
+use crate::convert::{scroll_delta, scroll_phase, utf16_len, utf16_range_to_bytes};
+use vui_shell::frames::{cpu_requested, frame_step, snapshot_path};
 use crate::host::{Host, Output, Snapshot, Window};
 use crate::software::LayerPresenter;
 use crate::keys::{modifiers, named_key, shortcut_char, typed_text};
@@ -109,7 +110,7 @@ impl Application {
             res: Resources::new(),
             instance: Some(wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle())),
             gpu: None,
-            cpu: std::env::var("VUI_RENDERER").is_ok_and(|v| v.eq_ignore_ascii_case("cpu")),
+            cpu: cpu_requested(),
             passes: Vec::new(),
             windows: Vec::new(),
             snapshot: std::env::var_os("VUI_SNAPSHOT").map(PathBuf::from),
@@ -266,7 +267,7 @@ impl Application {
         let output = self.output(&view, transparent, size, scale);
 
         let n = self.windows.len();
-        let path = self.snapshot.as_ref().map(|p| if n == 0 { p.clone() } else { numbered(p, n) });
+        let path = self.snapshot.as_ref().map(|p| snapshot_path(p, n));
         if path.is_some() {
             self.snapshots.set(self.snapshots.get() + 1);
         }
@@ -283,7 +284,7 @@ impl Application {
         });
         view.with_host(|h| h.set_waker(std::sync::Arc::new(move || wake(id))));
         self.windows.push((window, view, delegate));
-        Ok(Proxy { tx, window: id })
+        Ok(Proxy::new(tx, std::sync::Arc::new(move || wake(id))))
     }
 
     /// Where a new view's frames go: the GPU when one can be had, else the CPU renderer, which is also
@@ -336,16 +337,6 @@ impl Application {
         app.activate();
         app.run();
     }
-}
-
-/// `frame.png` → `frame-2.png`.
-fn numbered(path: &std::path::Path, n: usize) -> PathBuf {
-    let stem = path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
-    let name = match path.extension() {
-        Some(ext) => format!("{stem}-{n}.{}", ext.to_string_lossy()),
-        None => format!("{stem}-{n}"),
-    };
-    path.with_file_name(name)
 }
 
 /// Watches the pointer, inside the app and out, and has `window` take clicks only while the pointer is

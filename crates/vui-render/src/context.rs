@@ -52,6 +52,19 @@ impl Gpu {
         Gpu::from_adapter(instance, adapter)
     }
 
+    /// A device on the system's software adapter (WARP on Windows, llvmpipe or lavapipe on Linux)
+    /// that can present to `surface`: where there is no GPU, only enough to show frames drawn on the
+    /// CPU.
+    pub fn software_for_surface(instance: wgpu::Instance, surface: &wgpu::Surface<'_>) -> Result<Gpu, GpuError> {
+        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+            force_fallback_adapter: true,
+            compatible_surface: Some(surface),
+            ..Default::default()
+        }))
+        .map_err(|e| GpuError::NoAdapter(e.to_string()))?;
+        Gpu::from_adapter(instance, adapter)
+    }
+
     fn from_adapter(instance: wgpu::Instance, adapter: wgpu::Adapter) -> Result<Gpu, GpuError> {
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("vui device"),

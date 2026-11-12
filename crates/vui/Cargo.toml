@@ -9,7 +9,7 @@ license.workspace = true
 repository.workspace = true
 keywords.workspace = true
 categories.workspace = true
-description = "A GPU-drawn UI framework for Rust: widgets, layout, charts, effects and a macOS backend, with a CPU renderer as fallback."
+description = "A GPU-drawn UI framework for Rust: widgets, layout, charts, effects, and backends for macOS, Windows and Linux, with a CPU renderer as fallback."
 
 [dependencies]
 vui-core = { path = "../vui-core" }
@@ -19,9 +19,13 @@ vui-runtime = { path = "../vui-runtime" }
 vui-widgets = { path = "../vui-widgets" }
 vui-viz = { path = "../vui-viz" }
 
-# The window backend. Other platforms build everything else (and run headless) until theirs lands.
+# The window backend: AppKit on macOS, winit on Windows, Linux and the BSDs. Other targets build
+# everything else and run headless.
 [target.'cfg(target_os = "macos")'.dependencies]
 vui-macos = { path = "../vui-macos" }
+
+[target.'cfg(any(windows, target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "netbsd", target_os = "openbsd"))'.dependencies]
+vui-winit = { path = "../vui-winit" }
 
 [lints]
 workspace = true

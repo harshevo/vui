@@ -43,6 +43,12 @@ the API.
   now takes an `Answer`. `TestUi::respond` and `TestUi::notification_action` play the person in
   tests. On macOS they go through `UNUserNotificationCenter` (`objc2-user-notifications`), in
   place of the deprecated `NSUserNotificationCenter`; `Effect::Notify` carries an id.
+- Windows and Linux: `vui-winit`, a winit backend with the same `run` / `Application` / `Proxy`
+  surface as `vui-macos`: windows and overlays, pointer, keyboard and IME input, the clipboard,
+  cursors, vsync frames that stop when idle, and the CPU fallback shown on any adapter, software
+  ones included (`Gpu::software_for_surface`). Ctrl is the shortcut modifier there. `vui` picks
+  the backend by target, and the shared pieces (`WindowOptions`, `OverlayOptions`, `Proxy`,
+  `Error`, the host) move to the new `vui-shell`, re-exported by both backends.
 - Dev tools: an inspector overlay (Cmd-Option-I) and frame stats (Cmd-Option-S) in every
   window, also through `VUI_INSPECT=1`, `VUI_STATS=1`, `Ui::set_inspector` and
   `Ui::set_frame_stats`.

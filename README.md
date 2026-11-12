@@ -158,6 +158,8 @@ Every Rust snippet in the guides runs as a doctest, so they stay true to the API
 | [`vui-viz`](crates/vui-viz) | scales, charts, pies, bar lists, sparklines and force-directed graphs |
 | [`vui-render`](crates/vui-render) | the wgpu renderer, the CPU renderer, custom passes, headless rendering and golden-image tests |
 | [`vui-macos`](crates/vui-macos) | the macOS backend: windows, overlays, input method, clipboard, cursors, display-link frames, notifications with actions, `Proxy` |
+| [`vui-winit`](crates/vui-winit) | the Windows and Linux backend on winit: windows, overlays, input method, clipboard, cursors, vsync frames, the CPU fallback |
+| [`vui-shell`](crates/vui-shell) | what both backends share: window and overlay options, `Proxy`, errors, and the host that ties a UI to its renderer |
 | [`vui-fonts`](crates/vui-fonts) | Inter and JetBrains Mono, bundled (SIL OFL 1.1) |
 | [`examples/gallery`](examples/gallery) | every widget as an app; its pages are golden images |
 
@@ -168,7 +170,7 @@ Each crate is split by feature, and no source file is over 500 lines.
 | | Status |
 | --- | --- |
 | macOS | windows, overlays, menus, sheets, notifications with actions, and everything above |
-| Windows, Linux | the runtime, widgets and both renderers build and run headless (tests, CI, screenshots); the window backend is on the [roadmap](docs/roadmap.md) |
+| Windows, Linux | windows and overlays through winit (X11 and Wayland on Linux): input and input methods, the clipboard, cursors, vsync frames, the CPU fallback; menus, dialogs and notifications are on the [roadmap](docs/roadmap.md) |
 
 ## Tests
 
@@ -193,7 +195,7 @@ docs on every push. See [CONTRIBUTING.md](CONTRIBUTING.md) for the house rules a
 
 vui is young but solid: the renderer, runtime, widgets and macOS backend are used every day by
 vmac, its first app (a voice-first Mac assistant), and are covered by tests. The next steps are the
-VoiceOver bridge, Windows and Linux backends and more widgets. See
+VoiceOver bridge, running the Windows and Linux backend live on those machines, and more widgets. See
 the [roadmap](docs/roadmap.md).
 
 ## Licence

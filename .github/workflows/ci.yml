@@ -20,7 +20,7 @@ jobs:
           - { os: macos-latest, renderer: gpu }
           # The CPU renderer must match the same goldens.
           - { os: macos-latest, renderer: cpu }
-          # Everything but the window backend runs headless on Linux.
+          # Linux builds the winit backend and runs everything headless.
           - { os: ubuntu-latest, renderer: cpu }
     runs-on: ${{ matrix.os }}
     steps:
@@ -41,6 +41,20 @@ jobs:
         with:
           name: actual-${{ matrix.os }}-${{ matrix.renderer }}
           path: "**/tests/actual/"
+
+  windows:
+    name: Windows (winit backend)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --workspace --all-targets
+      - run: cargo test -p vui-shell -p vui-winit -p vui-runtime
+        env:
+          VUI_RENDERER: cpu
 
   msrv:
     name: Minimum Rust version

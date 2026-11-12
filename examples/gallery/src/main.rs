@@ -14,11 +14,13 @@ use vui::core::size;
 fn main() {
     let mut args = std::env::args().skip(1).peekable();
     if args.peek().is_some_and(|a| a == "--window") {
-        let options = vui_macos::WindowOptions::new("vui").size(size(1040.0, 720.0));
-        if let Err(e) = vui_macos::run(options, |res| Gallery::new(res, Page::Foundations, false)) {
+        #[cfg(any(target_os = "macos", windows, target_os = "linux"))]
+        if let Err(e) = vui::run(vui::WindowOptions::new("vui").size(size(1040.0, 720.0)), |res| Gallery::new(res, Page::Foundations, false)) {
             eprintln!("{e}");
             std::process::exit(1);
         }
+        #[cfg(not(any(target_os = "macos", windows, target_os = "linux")))]
+        eprintln!("vui has no window backend for this platform");
         return;
     }
     let out: PathBuf = args.next().unwrap_or_else(|| "target/gallery".into()).into();

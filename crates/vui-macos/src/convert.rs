@@ -1,5 +1,5 @@
 //! Unit conversions between AppKit and vui that need no AppKit types: UTF-16 text ranges, scroll
-//! deltas and frame times.
+//! deltas.
 
 use vui_core::{ScrollPhase, Vec2, vec2};
 
@@ -65,16 +65,6 @@ pub fn scroll_phase(phase: usize, momentum: usize) -> (ScrollPhase, bool) {
     (out, phase == 0 && momentum != 0)
 }
 
-/// Seconds since the last frame, from display-link timestamps. The first frame after a pause steps a
-/// single refresh, so springs do not jump by however long the window sat idle.
-pub fn frame_step(last: Option<f64>, now: f64, refresh: f64) -> f32 {
-    let refresh = if refresh > 0.0 { refresh } else { 1.0 / 60.0 };
-    match last {
-        Some(last) if now > last => (now - last).min(4.0 * refresh) as f32,
-        _ => refresh as f32,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -112,14 +102,5 @@ mod tests {
         assert_eq!(scroll_phase(PHASE_ENDED, 0), (ScrollPhase::Ended, false));
         assert_eq!(scroll_phase(0, PHASE_CHANGED), (ScrollPhase::Changed, true), "momentum after the fingers lift");
         assert_eq!(scroll_phase(0, 0), (ScrollPhase::None, false), "a wheel tick");
-    }
-
-    #[test]
-    fn frame_steps_follow_the_display_but_never_jump() {
-        let r = 1.0 / 120.0;
-        assert!((frame_step(None, 10.0, r) - r as f32).abs() < 1e-6);
-        assert!((frame_step(Some(10.0), 10.0 + r, r) - r as f32).abs() < 1e-6);
-        assert!((frame_step(Some(1.0), 9.0, r) - 4.0 * r as f32).abs() < 1e-6, "long gaps are capped");
-        assert!((frame_step(Some(1.0), 1.0, 0.0) - 1.0 / 60.0).abs() < 1e-6);
     }
 }

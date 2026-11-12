@@ -1,7 +1,7 @@
 # Getting started
 
 This guide takes you from an empty crate to a window with a working counter, then shows where to go
-next. vui opens windows on macOS today; everything else, tests included, runs anywhere.
+next. vui opens windows on macOS, Windows and Linux; everything else, tests included, runs anywhere.
 
 ## Add vui
 
@@ -83,6 +83,66 @@ The gallery shows every widget in light and dark:
 
 ```sh
 cargo run -p gallery --release -- --window
+```
+
+## Platforms
+
+`vui::run`, `vui::Application` and `vui::Proxy` are the same everywhere; `vui` picks the backend
+for the target it builds for.
+
+| Target | Backend | Notes |
+| --- | --- | --- |
+| macOS | `vui-macos` (AppKit, Metal) | menus, sheets, notifications, the menu-bar item, overlays over the notch |
+| Windows | `vui-winit` (DirectX 12 or Vulkan) | the clipboard through Win32 |
+| Linux and the BSDs | `vui-winit` (Vulkan or GL; X11 and Wayland) | the clipboard through `wl-copy`/`wl-paste`, `xclip` or `xsel` |
+
+On Windows and Linux, Ctrl is the shortcut modifier: it arrives as `Modifiers::cmd`, so the same
+shortcuts work as Cmd ones do on a Mac. File dialogs answer as cancelled there, and app menus and
+notifications are macOS-only for now. Several windows and an overlay, on any of them:
+
+```rust,no_run
+use vui::prelude::*;
+
+#[derive(Clone)]
+enum Msg {
+    Tick,
+}
+
+#[derive(Default)]
+struct Clock {
+    ticks: u32,
+}
+
+impl App for Clock {
+    type Msg = Msg;
+
+    fn update(&mut self, msg: Msg, _cx: &mut Cx<Msg>) {
+        match msg {
+            Msg::Tick => self.ticks += 1,
+        }
+    }
+
+    fn view(&self) -> impl IntoElement<Msg> {
+        label(format!("{} ticks", self.ticks))
+    }
+}
+
+fn main() -> Result<(), vui::Error> {
+    let mut app = vui::Application::new("Clock")?;
+    let main = app.window(WindowOptions::new("Clock").size(size(320.0, 200.0)), Clock::default())?;
+    app.overlay(vui::OverlayOptions::new(size(200.0, 40.0)).place(vui::Place::Top), Clock::default())?;
+    std::thread::spawn(move || while main.send(Msg::Tick) {
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    });
+    app.run();
+    Ok(())
+}
+```
+
+To try the winit backend on a Mac, where it is not the default:
+
+```sh
+cargo run -p vui-winit --example winit_hello
 ```
 
 ## What to read next
