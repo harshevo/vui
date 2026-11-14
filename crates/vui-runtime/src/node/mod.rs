@@ -38,6 +38,9 @@ const BAR_MIN: f32 = 28.0;
 const BAR_FIXED_MIN: f32 = 16.0;
 /// How near the end, in points, still counts as at the end for a container that follows it.
 const FOLLOW_SLACK: f32 = 2.0;
+/// Seconds a follower keeps the room that shrinking content left at the end, in case more content
+/// arrives to fill it, before it settles down onto the new end.
+const SETTLE_HOLD: f32 = 0.6;
 /// Seconds the scrollbars stay up after the last scroll.
 const BAR_HOLD: f32 = 0.9;
 
@@ -121,6 +124,8 @@ pub(crate) struct Scroll {
     pub thick: SpringValue,
     /// Seconds since the scrollbars were last wanted.
     pub idle: f32,
+    /// Seconds left before a follower past the end, where shrinking content left it, settles down.
+    pub hold: f32,
 }
 
 impl Scroll {
@@ -132,12 +137,17 @@ impl Scroll {
             bars: SpringValue::new(0.0, BARS),
             thick: SpringValue::new(0.0, BARS),
             idle: BAR_HOLD,
+            hold: 0.0,
         }
     }
 
     /// Where the content is now.
     pub fn offset(&self) -> Vec2 {
-        vec2(self.x.value().clamp(0.0, self.max.x), self.y.value().clamp(0.0, self.max.y))
+        // Content that shrank under a follower settles down onto the end rather than jumping there,
+        // so while it glides the position may be past the end for a moment.
+        let settling = self.y.value() > self.max.y && self.y.target() <= self.max.y;
+        let top = if settling { self.y.value() } else { self.max.y };
+        vec2(self.x.value().clamp(0.0, self.max.x), self.y.value().clamp(0.0, top))
     }
 
     /// Where the content is heading.
@@ -165,26 +175,34 @@ impl Scroll {
     }
 
     /// Records how far the content can scroll, pulling the position back if the content shrank, and
-    /// with `follow`, keeping a position that was at the end there. Content that grows by less than
-    /// the `view`'s height (a reply streaming in) glides into view; more than that jumps there.
-    /// Returns true if the position started gliding.
+    /// with `follow`, keeping a position that was at the end there. While it follows, a change of
+    /// less than the `view`'s height (a reply streaming in, a block folding) glides to the new end;
+    /// more than that jumps there. Returns true if the position started gliding.
     fn set_max(&mut self, max: Vec2, view: Vec2, follow: bool) -> bool {
         let mut glide = false;
-        if follow && max.y > self.max.y && self.y.target() >= self.max.y - FOLLOW_SLACK {
-            if max.y - self.max.y <= view.y {
-                self.y.set_target(max.y);
-                glide = !self.y.is_settled();
-            } else {
-                self.y.snap_to(max.y);
-            }
-        }
-        self.max = max;
+        let at_end = self.y.target() >= self.max.y - FOLLOW_SLACK;
         if self.x.value() > max.x || self.x.target() > max.x {
             self.x.snap_to(self.x.value().min(max.x));
         }
+        if follow && at_end {
+            if max.y != self.max.y {
+                if (max.y - self.max.y).abs() <= view.y {
+                    self.y.set_target(max.y);
+                    // Past the new end: hold the room a moment for content that is still coming
+                    // (a reply after a block folds), so the view does not dip and rise again.
+                    self.hold = if self.y.value() > max.y { SETTLE_HOLD } else { 0.0 };
+                    glide = !self.y.is_settled();
+                } else {
+                    self.y.snap_to(max.y);
+                    self.hold = 0.0;
+                }
+            }
+            self.max = max;
+            return glide;
+        }
+        self.max = max;
         if self.y.value() > max.y || self.y.target() > max.y {
             self.y.snap_to(self.y.value().min(max.y));
-            glide = false;
         }
         glide
     }

@@ -244,6 +244,28 @@ fn a_following_scroller_starts_at_the_end_and_keeps_up_until_the_reader_scrolls_
 }
 
 #[test]
+fn a_follower_keeps_the_room_shrinking_content_leaves_for_what_comes_next_then_settles() {
+    let mut t = ui(200.0, 100.0);
+    t.view(list(12).follow_end());
+    t.settle();
+    assert_eq!(scroll_y(&mut t), 260.0);
+    // A block folds: two rows fewer. The view holds still rather than dropping onto the new end...
+    t.view(list(10).follow_end());
+    t.advance(0.3);
+    assert_eq!(scroll_y(&mut t), 260.0, "holds the room for a moment");
+    // ...and a row arriving in that moment fills it without the view moving at all.
+    t.view(list(11).follow_end());
+    t.advance(0.3);
+    assert_eq!(scroll_y(&mut t), 260.0, "new content fills the held room in place");
+    // Nothing more comes: it settles down onto the end, and still follows from there.
+    t.settle();
+    assert_eq!(scroll_y(&mut t), 230.0);
+    t.view(list(12).follow_end());
+    t.settle();
+    assert_eq!(scroll_y(&mut t), 260.0, "still following");
+}
+
+#[test]
 fn a_float_is_clicked_above_later_siblings_and_outside_its_scroller() {
     let mut t = ui(200.0, 100.0);
     let menu = div().key("menu").float().top(20.0).left(0.0).width(100.0).height(100.0).on_click(Msg::Value(99));

@@ -87,7 +87,15 @@ impl<M: 'static> Node<M> {
 
         if self.eff.overflow == Overflow::Scroll {
             let moved_x = advance(&mut self.scroll.x, dt, ts);
-            let moved_y = advance(&mut self.scroll.y, dt, ts);
+            let holding = self.scroll.hold > 0.0 && self.scroll.y.value() > self.scroll.max.y && !ts.env.prefs.reduce_motion;
+            let moved_y = if holding {
+                self.scroll.hold -= dt;
+                ts.moving = true;
+                false
+            } else {
+                self.scroll.hold = 0.0;
+                advance(&mut self.scroll.y, dt, ts)
+            };
             if moved_x || moved_y {
                 ts.arrange = true;
                 self.scroll.poke();
