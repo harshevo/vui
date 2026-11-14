@@ -41,6 +41,20 @@ let card: Div<()> = column().gap(4.0).children((
 For formatted text, `markdown(text)` renders headings, lists, emphasis, code and links, and
 `rich_text(text)` renders the inline parts on their own.
 
+Text that streams in, like a model's reply, can type itself in instead of jumping a chunk at a
+time. With `.reveal(true)` each paragraph keeps a steady pace a little behind what has arrived,
+its newest words fade in, and it grows a line at a time. Turn it off once the stream ends: the
+words still typing finish, and text built without it shows whole.
+
+```rust
+use vui::prelude::*;
+
+fn reply(text: &str, streaming: bool) -> impl IntoElement<()> {
+    markdown::<()>(text).reveal(streaming)
+}
+# let _ = reply("Hello", true);
+```
+
 ### Your own fonts
 
 Add a font from its bytes, then ask for its family by name:

@@ -95,7 +95,8 @@ fn inbox(subjects: std::rc::Rc<Vec<String>>) -> VirtualList<()> {
 Every row is `row_height` tall. Put the spacing inside the rows: the list's own gap isn't used.
 
 - **Following the end.** `.follow_end()` keeps a scroller pinned to the bottom while content
-  arrives (a chat log), until the person scrolls up.
+  arrives (a chat log), until the person scrolls up. A little new content glides into view; more
+  than a screenful jumps there.
 - **Keeping things visible.** Scrolling keeps the focused element in view when Tab moves to it.
 
 ## Grids
