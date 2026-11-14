@@ -7,7 +7,7 @@ use std::rc::Rc;
 use vui_core::{CursorIcon, Event, Fill, FontFamily, ImageId, PointerButton, Size, Span, TextRole, TextStyle, Theme, Tone, size};
 use vui_runtime::layout::{Avail, Pair};
 use vui_runtime::{
-    AccessInfo, Align, Base, Builder, Dirty, Div, Element, Env, EventCx, IntoElement, PaintCx, Parent, Radius, Role, Styled, Widget,
+    AccessInfo, Align, Base, Builder, Dirty, Div, Element, Env, EventCx, IntoElement, PaintCx, Parent, Radius, Role, Styled, TickCx, Widget,
     WidgetEvent, builder, column, div, img, label, row,
 };
 

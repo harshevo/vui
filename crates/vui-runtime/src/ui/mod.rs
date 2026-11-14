@@ -431,7 +431,9 @@ impl<M: 'static> Ui<M> {
         if !core.arrange_dirty {
             return false;
         }
-        root.arrange(Point::ZERO, Some(Rect::from_origin_size(Point::ZERO, core.size)));
+        if root.arrange(Point::ZERO, Some(Rect::from_origin_size(Point::ZERO, core.size))) {
+            core.animating = true;
+        }
         core.arrange_dirty = false;
         core.paint_dirty = true;
         if let Some(pos) = core.pointer {

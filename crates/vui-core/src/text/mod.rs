@@ -23,7 +23,7 @@ mod fonts;
 mod layout;
 
 pub use fonts::Fonts;
-pub use layout::TextLayout;
+pub use layout::{TextLayout, VisualLine};
 
 /// How far past its width a line may run before it wraps: far below a visible pixel, far above
 /// the rounding error of adding and removing padding.

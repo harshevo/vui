@@ -2,7 +2,7 @@
 
 use vui_core::pt;
 use vui_runtime::testing::TestUi;
-use vui_runtime::{Builder, Styled};
+use vui_runtime::{Builder, Parent, Styled};
 use vui_widgets::markdown::{Block, Inline, inlines, parse, plain, strip};
 use vui_widgets::{markdown, rich_text};
 
@@ -64,3 +64,55 @@ fn a_document_builds_a_child_per_block() {
     assert!(t.rect("doc").h > 60.0);
 }
 
+
+const LONG: &str = "Streaming text arrives in bursts of a few words at a time, and drawn as it comes it jumps. \
+Typed in at a steady pace with its newest words fading in, it reads as one smooth flow instead.";
+
+fn texts_drawn(t: &mut TestUi<Msg>) -> usize {
+    vui_runtime::testing::texts(&t.scene()).len()
+}
+
+#[test]
+fn a_revealed_paragraph_types_in_a_line_at_a_time_and_ends_whole() {
+    let mut t = TestUi::new(240.0, 400.0);
+    t.view(vui_runtime::column().child(rich_text::<Msg>(LONG).reveal(true).key("p")));
+    let first = t.rect("p").h;
+    assert!(texts_drawn(&mut t) <= 8, "nothing typed yet: at most the fading bands of the first line");
+    t.advance(0.3);
+    let middle = t.rect("p").h;
+    assert!(middle > first, "taller as the reveal reaches later lines ({first} then {middle})");
+    t.settle();
+    let whole = t.rect("p").h;
+    assert!(whole > middle, "all of it in the end ({middle} then {whole})");
+    assert_eq!(texts_drawn(&mut t), 1, "once typed in, the paragraph is drawn in one piece");
+}
+
+#[test]
+fn a_paragraph_without_reveal_shows_whole_at_once() {
+    let mut t = TestUi::new(240.0, 400.0);
+    t.view(vui_runtime::column().child(rich_text::<Msg>(LONG).reveal(true).key("p")));
+    t.settle();
+    let whole = t.rect("p").h;
+    let mut t = TestUi::new(240.0, 400.0);
+    t.view(vui_runtime::column().child(rich_text::<Msg>(LONG).key("p")));
+    assert_eq!(t.rect("p").h, whole);
+    assert_eq!(texts_drawn(&mut t), 1);
+}
+
+#[test]
+fn text_added_to_a_revealed_paragraph_types_on_from_where_it_was() {
+    let mut t = TestUi::new(240.0, 400.0);
+    let half = &LONG[..LONG.len() / 2];
+    t.view(vui_runtime::column().child(rich_text::<Msg>(half).reveal(true).key("p")));
+    t.settle();
+    let before = t.rect("p").h;
+    t.view(vui_runtime::column().child(rich_text::<Msg>(LONG).reveal(true).key("p")));
+    t.advance(1.0 / 60.0);
+    assert!(t.rect("p").h <= before + 20.0, "the new text does not appear all at once");
+    assert!(texts_drawn(&mut t) > 1, "the old text stays whole while the new types in after it");
+    // The stream ending does not cut the reveal short: what was typing finishes.
+    t.view(vui_runtime::column().child(rich_text::<Msg>(LONG).reveal(false).key("p")));
+    assert!(texts_drawn(&mut t) > 1);
+    t.settle();
+    assert_eq!(texts_drawn(&mut t), 1);
+}

@@ -33,6 +33,6 @@ pub use input::{CursorIcon, Event, ImeEvent, Key, KeyEvent, Modifiers, NamedKey,
 pub use preferences::Preferences;
 pub use resources::Resources;
 pub use scene::{Border, Command, CustomCmd, ImageCmd, ImageMode, LayerCmd, MeshCmd, Quad, Sampling, Scene, TextCmd};
-pub use text::{FontFamily, Fonts, Span, TextAlign, TextLayout, TextStyle, TextWrap};
+pub use text::{FontFamily, Fonts, Span, TextAlign, TextLayout, TextStyle, TextWrap, VisualLine};
 pub use transform::Affine;
 pub use theme::{Fill, Mode, Palette, TextRole, Theme, Tone, space};

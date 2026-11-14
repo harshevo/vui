@@ -263,12 +263,14 @@ impl<M: 'static> TestUi<M> {
 
     // ---- time ---------------------------------------------------------------------------------
 
-    /// Lets `seconds` pass, in 60 Hz frames.
+    /// Lets `seconds` pass, in 60 Hz frames. Each frame is laid out before it is stepped, as the
+    /// paint between frames does in a window.
     pub fn advance(&mut self, seconds: f32) -> &mut Self {
         let frame = 1.0 / 60.0;
         let mut left = seconds;
         while left > 0.0 {
             let dt = left.min(frame);
+            self.ui.sync();
             self.ui.tick(dt);
             left -= dt;
         }
@@ -278,8 +280,10 @@ impl<M: 'static> TestUi<M> {
     /// Runs frames until nothing is animating, for at most `limit` seconds.
     pub fn settle(&mut self) -> &mut Self {
         let mut spent = 0.0;
+        self.ui.sync();
         while self.ui.needs_frame() && spent < 5.0 {
             self.ui.tick(1.0 / 60.0);
+            self.ui.sync();
             spent += 1.0 / 60.0;
         }
         self

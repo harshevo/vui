@@ -165,10 +165,18 @@ impl Scroll {
     }
 
     /// Records how far the content can scroll, pulling the position back if the content shrank, and
-    /// with `follow`, keeping a position that was at the end there.
-    fn set_max(&mut self, max: Vec2, follow: bool) {
+    /// with `follow`, keeping a position that was at the end there. Content that grows by less than
+    /// the `view`'s height (a reply streaming in) glides into view; more than that jumps there.
+    /// Returns true if the position started gliding.
+    fn set_max(&mut self, max: Vec2, view: Vec2, follow: bool) -> bool {
+        let mut glide = false;
         if follow && max.y > self.max.y && self.y.target() >= self.max.y - FOLLOW_SLACK {
-            self.y.snap_to(max.y);
+            if max.y - self.max.y <= view.y {
+                self.y.set_target(max.y);
+                glide = !self.y.is_settled();
+            } else {
+                self.y.snap_to(max.y);
+            }
         }
         self.max = max;
         if self.x.value() > max.x || self.x.target() > max.x {
@@ -176,7 +184,9 @@ impl Scroll {
         }
         if self.y.value() > max.y || self.y.target() > max.y {
             self.y.snap_to(self.y.value().min(max.y));
+            glide = false;
         }
+        glide
     }
 }
 
@@ -343,21 +353,23 @@ impl<M: 'static> Node<M> {
     }
 
     /// Turns the positions layout left behind (relative to each parent) into window coordinates, and
-    /// works out what each node is clipped to and how far scroll containers can scroll.
-    pub fn arrange(&mut self, origin: Point, clip: Option<Rect>) {
+    /// works out what each node is clipped to and how far scroll containers can scroll. Returns true
+    /// if a scroll container started gliding to keep up with its content.
+    pub fn arrange(&mut self, origin: Point, clip: Option<Rect>) -> bool {
         if self.eff.hidden {
             self.collapse();
-            return;
+            return false;
         }
+        let mut glide = false;
         let rise = self.anim.rise.as_ref().map_or(0.0, SpringValue::value);
         let at = pt(origin.x + self.layout.origin.x, origin.y + self.layout.origin.y + rise);
         self.rect = Rect::from_origin_size(at, self.layout.size);
         self.clip = clip;
         if self.eff.overflow == Overflow::Scroll {
             let (c, s) = (self.layout.content, self.layout.size);
-            self.scroll.set_max(vec2((c.w - s.w).max(0.0), (c.h - s.h).max(0.0)), self.eff.follow_end);
+            glide = self.scroll.set_max(vec2((c.w - s.w).max(0.0), (c.h - s.h).max(0.0)), vec2(s.w, s.h), self.eff.follow_end);
         } else if self.scroll.max != Vec2::ZERO {
-            self.scroll.set_max(Vec2::ZERO, false);
+            self.scroll.set_max(Vec2::ZERO, Vec2::ZERO, false);
         }
         let child_clip = if self.eff.overflow == Overflow::Visible {
             clip
@@ -373,12 +385,13 @@ impl<M: 'static> Node<M> {
         for child in &mut self.children {
             if child.eff.position == Position::Fixed {
                 // Placed against the window, whatever it sits in.
-                child.arrange(Point::ZERO, None);
+                glide |= child.arrange(Point::ZERO, None);
                 continue;
             }
             // A floating element is above everything, so nothing it sits in cuts it off.
-            child.arrange(base, if child.eff.float { None } else { child_clip });
+            glide |= child.arrange(base, if child.eff.float { None } else { child_clip });
         }
+        glide
     }
 
     fn collapse(&mut self) {

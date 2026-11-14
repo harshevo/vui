@@ -12,6 +12,7 @@ pub struct Markdown<M: 'static> {
     pub(crate) role: TextRole,
     pub(crate) on_link: Option<LinkHandler<M>>,
     pub(crate) image: Option<ImageLookup>,
+    pub(crate) reveal: bool,
     pub(crate) base: Div<M>,
 }
 
@@ -38,6 +39,15 @@ impl<M: 'static> Markdown<M> {
         self
     }
 
+    /// For a document that is still streaming in: each paragraph types itself in at a steady pace
+    /// as text arrives, with its newest words fading in, and blocks that are not text (code, tables,
+    /// pictures) fade in when they show up. What was already there when it was built without this
+    /// shows whole, so turning it off when the stream ends lets the last words finish typing.
+    pub fn reveal(mut self, on: bool) -> Self {
+        self.reveal = on;
+        self
+    }
+
     /// Styles the box that holds the document.
     pub fn with(mut self, f: impl FnOnce(Div<M>) -> Div<M>) -> Self {
         self.base = f(self.base);
@@ -45,7 +55,7 @@ impl<M: 'static> Markdown<M> {
     }
 
     fn para(&self, inlines: Vec<Inline>) -> RichText<M> {
-        let mut r = rich_inlines(inlines).text_role(self.role).color(self.color);
+        let mut r = rich_inlines(inlines).text_role(self.role).color(self.color).reveal(self.reveal);
         r.widget.on_link = self.on_link.clone();
         r
     }
@@ -123,7 +133,23 @@ impl<M: 'static> Markdown<M> {
 impl<M: 'static> IntoElement<M> for Markdown<M> {
     fn into_element(self) -> Element<M> {
         let blocks = parse(&self.text);
-        let children: Vec<Element<M>> = blocks.into_iter().enumerate().map(|(i, b)| self.block(i, b)).collect();
+        let children: Vec<Element<M>> = blocks
+            .into_iter()
+            .enumerate()
+            .map(|(i, b)| {
+                let typed = matches!(b, Block::Paragraph(_) | Block::Heading(..));
+                let element = self.block(i, b);
+                // Text types itself in; anything else fades in as a whole when it first shows up. The
+                // box is there either way, so the stream ending does not rebuild what is in it.
+                if typed {
+                    element
+                } else {
+                    let wrap = div().min_width(0.0);
+                    let wrap = if self.reveal { wrap.appear() } else { wrap };
+                    wrap.child(element).into_element()
+                }
+            })
+            .collect();
         let Markdown { base, .. } = self;
         base.children(children).into_element()
     }
@@ -131,5 +157,5 @@ impl<M: 'static> IntoElement<M> for Markdown<M> {
 
 /// A document of markdown: `markdown(reply).on_link(Msg::Open)`.
 pub fn markdown<M: 'static>(text: &str) -> Markdown<M> {
-    Markdown { text: text.to_string(), color: Tone::Text.into(), role: TextRole::Body, on_link: None, image: None, base: column().gap(10.0).min_width(0.0) }
+    Markdown { text: text.to_string(), color: Tone::Text.into(), role: TextRole::Body, on_link: None, image: None, reveal: false, base: column().gap(10.0).min_width(0.0) }
 }

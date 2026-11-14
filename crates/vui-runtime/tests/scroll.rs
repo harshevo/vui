@@ -228,10 +228,19 @@ fn a_following_scroller_starts_at_the_end_and_keeps_up_until_the_reader_scrolls_
     t.view(list(12).follow_end());
     t.settle();
     assert_eq!(scroll_y(&mut t), 260.0, "keeps up with new rows");
-    t.trackpad(pt(100.0, 50.0), 0.0, 100.0);
-    t.view(list(14).follow_end());
+    t.view(list(13).follow_end());
+    t.advance(1.0 / 60.0);
+    let y = scroll_y(&mut t);
+    assert!(y > 260.0 && y < 290.0, "glides after a little more content rather than jumping ({y})");
     t.settle();
-    assert_eq!(scroll_y(&mut t), 160.0, "lets go once the reader scrolls back");
+    assert_eq!(scroll_y(&mut t), 290.0);
+    t.view(list(40).follow_end());
+    t.advance(1.0 / 60.0);
+    assert_eq!(scroll_y(&mut t), 1100.0, "jumps after more than a screenful");
+    t.trackpad(pt(100.0, 50.0), 0.0, 100.0);
+    t.view(list(42).follow_end());
+    t.settle();
+    assert_eq!(scroll_y(&mut t), 1000.0, "lets go once the reader scrolls back");
 }
 
 #[test]

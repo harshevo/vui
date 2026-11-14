@@ -15,6 +15,17 @@ pub struct TextLayout {
     pub(crate) span_starts: Vec<usize>,
 }
 
+/// One line of wrapped text: its top and height, how wide its glyphs reach, and the bytes
+/// `start..end` it shows.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct VisualLine {
+    pub top: f32,
+    pub height: f32,
+    pub width: f32,
+    pub start: usize,
+    pub end: usize,
+}
+
 impl fmt::Debug for TextLayout {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("TextLayout").field("text", &self.text).field("size", &self.size).field("lines", &self.lines).finish()
@@ -63,6 +74,19 @@ impl TextLayout {
             }
             None => self.text.len(),
         }
+    }
+
+    /// The visual lines after wrapping, top to bottom: where each sits and which bytes it holds.
+    pub fn visual_lines(&self) -> Vec<VisualLine> {
+        self.buffer
+            .layout_runs()
+            .map(|run| {
+                let base = self.line_starts.get(run.line_i).copied().unwrap_or(0);
+                let start = run.glyphs.iter().map(|g| g.start).min().unwrap_or(0);
+                let end = run.glyphs.iter().map(|g| g.end).max().unwrap_or(0);
+                VisualLine { top: run.line_top, height: run.line_height, width: run.line_w, start: base + start, end: base + end }
+            })
+            .collect()
     }
 
     /// Splits a byte index into (paragraph, byte offset inside it).
