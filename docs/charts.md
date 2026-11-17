@@ -46,8 +46,10 @@ let view: Div<()> = card().padding(20.0).child(
 | `.volume(name, &points)` | bars in a strip under the main panel, as under a price chart |
 | `.dots(name, &[Dot { x, y, size }])` | scatter, sized by value |
 | `.candles(name, &[Candle { x, open, high, low, close }])` | open–high–low–close |
+| `.zones(name, &[Zone { x0, x1, low, high }])` | boxes over the data, such as price zones; `low == high` draws a dashed level, and `x1` may be `f64::INFINITY` to run off the right edge |
 
-Options apply to the layer just added: `.ink(Ink::Accent | Hue | Strong | Mid | Soft | Color(c))`,
+Options apply to the layer just added: `.ink(Ink::Accent | Hue | Strong | Mid | Soft | Up | Down | Color(c))`
+(`Up` and `Down` are the market's rising and falling colours),
 `.dashed()` and `.format(…)`. Others apply to the chart:
 
 - **`.time()`** makes x seconds since the epoch, with date and time ticks.

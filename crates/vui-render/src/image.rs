@@ -43,7 +43,18 @@ impl Image {
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir)?;
         }
-        let mut encoder = png::Encoder::new(BufWriter::new(File::create(path)?), self.width, self.height);
+        self.write_png(BufWriter::new(File::create(path)?))
+    }
+
+    /// The image as PNG bytes, for sending somewhere rather than saving.
+    pub fn to_png(&self) -> io::Result<Vec<u8>> {
+        let mut bytes = Vec::new();
+        self.write_png(&mut bytes)?;
+        Ok(bytes)
+    }
+
+    fn write_png(&self, out: impl io::Write) -> io::Result<()> {
+        let mut encoder = png::Encoder::new(out, self.width, self.height);
         encoder.set_color(png::ColorType::Rgba);
         encoder.set_depth(png::BitDepth::Eight);
         let mut writer = encoder.write_header().map_err(to_io)?;
@@ -120,6 +131,7 @@ mod tests {
         let back = Image::load_png(&path).unwrap();
         assert_eq!(img, back);
         let _ = std::fs::remove_file(path);
+        assert_eq!(&img.to_png().unwrap()[..8], b"\x89PNG\r\n\x1a\n", "in memory too");
     }
 
     #[test]

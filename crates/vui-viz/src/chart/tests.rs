@@ -159,3 +159,19 @@ fn categories_name_whole_numbers_only() {
     assert_eq!(c.category(2.0), None);
     assert_eq!(c.category(-1.0), None);
 }
+
+#[test]
+fn zones_widen_the_range_they_are_in_view_of_and_run_off_the_right() {
+    let c = Chart::new()
+        .line("a", &ramp(10))
+        .zones("z", &[Zone { x0: 2.0, x1: f64::INFINITY, low: 150.0, high: 140.0 }, Zone { x0: 20.0, x1: 30.0, low: 0.0, high: 1.0 }]);
+    match &c.layers[1].mark {
+        Mark::Zones(z) => assert_eq!((z[0].low, z[0].high), (140.0, 150.0), "low and high put in order"),
+        other => panic!("{other:?}"),
+    }
+    let (_, hi) = c.y_extent(Panel::Main, (0.0, 9.0), 5);
+    assert!(hi >= 150.0, "the zone in view counts");
+    let (lo, _) = c.y_extent(Panel::Main, (0.0, 9.0), 5);
+    assert!(lo > 1.0, "the zone out of view doesn't");
+    assert_eq!(c.min_span(), 4.0, "zones leave zooming to the line");
+}

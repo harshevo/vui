@@ -152,11 +152,15 @@ pub(crate) fn draw_bars(
     color: Color,
 ) {
     let slot = spacing as f32 * per_unit(x);
-    // Too dense to tell apart: keep the extremes, which is what the eye would see anyway.
-    if slot < 1.5 && place.stack.is_none() && place.of == 1 {
-        let thin = extremes(points, x);
-        return draw_bars(canvas, &thin, &thin, spacing, base, &Place { stack: None, ..*place }, x, y, color);
-    }
+    // Too dense to tell apart: keep the extremes, which is what the eye would see anyway. Thinning
+    // doesn't change the spacing, so this happens once, not again on the thinned bars.
+    let thin;
+    let (points, all) = if slot < 1.5 && place.stack.is_none() && place.of == 1 {
+        thin = extremes(points, x);
+        (&thin[..], &thin[..])
+    } else {
+        (points, all)
+    };
     let (width, offset) = if place.of > 1 {
         let group = (slot * 0.8).min(40.0 * place.of as f32);
         let gap = if group / place.of as f32 > 8.0 { 2.0 } else { 0.0 };

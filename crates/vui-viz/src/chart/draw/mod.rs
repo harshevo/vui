@@ -5,7 +5,7 @@ use vui_core::{Fonts, Point, Quad, Rect, pt, rect};
 
 use super::bars::{Segment, draw_bars, per_unit};
 use super::decimate::extremes;
-use super::{Candle, Chart, Dot, Layer, Mark, Panel, within};
+use super::{Candle, Chart, Dot, Layer, Mark, Panel, Zone, within};
 use crate::canvas::{Canvas, HAnchor, VAnchor};
 use crate::format::Format;
 use crate::scale::{Linear, nice_ticks, time_ticks};
@@ -268,6 +268,7 @@ fn marks(
             color,
         ),
         Mark::Dots(dots) => scatter(canvas, within(dots, |d| d.x, view), dots, x, y, color),
+        Mark::Zones(zones) => boxes(canvas, zones, view, x, y, color),
         Mark::Candles(rows) => candles(
             canvas,
             within(rows, |c| c.x, view),
@@ -323,6 +324,21 @@ fn scatter(
         let r = 3.0 + (d.size / biggest).sqrt() as f32 * 9.0;
         let at = pt(x.map(d.x), y.map(d.y));
         canvas.ring(at, r, 1.0, color.mul_alpha(0.28), color);
+    }
+}
+
+/// Each zone in view as a washed box with an outline, cut to the view; a level as a dashed line.
+fn boxes(canvas: &mut Canvas, zones: &[Zone], view: (f64, f64), x: &Linear, y: &Linear, color: vui_core::Color) {
+    for z in zones.iter().filter(|z| z.x0 <= view.1 && z.x1 >= view.0) {
+        let (left, right) = (x.map(z.x0.max(view.0)), x.map(z.x1.min(view.1)));
+        let (top, bottom) = (y.map(z.high), y.map(z.low));
+        if z.low == z.high {
+            let stroke = Stroke::new(1.0).cap(Cap::Butt).dashed(&[6.0, 4.0], 0.0);
+            canvas.vector().polyline(&[pt(left, top), pt(right, top)], &stroke, color.mul_alpha(0.9));
+            continue;
+        }
+        let area = rect(left.min(right), top.min(bottom), (right - left).abs().max(1.0), (bottom - top).abs().max(1.0));
+        canvas.quad(Quad::new(area).fill(color.mul_alpha(0.12)).border(1.0, color.mul_alpha(0.5)));
     }
 }
 

@@ -157,3 +157,15 @@ fn candles_and_dots_draw_one_shape_per_item() {
         "wick and body per candle plus a dot each: {quads}"
     );
 }
+
+#[test]
+fn bars_too_dense_to_tell_apart_are_thinned_once_and_drawn() {
+    let (fonts, style) = setup();
+    let volume: Vec<(f64, f64)> = (0..2_000).map(|i| (f64::from(i), f64::from(i % 50))).collect();
+    let chart = Chart::new().bars("vol", &volume);
+    let view = chart.fit(chart.x_extent());
+    let mut c = Canvas::new(&fonts, 1.0);
+    draw(&mut c, &chart, rect(0.0, 0.0, 300.0, 200.0), &view, &style, 1.0);
+    let quads = c.finish().iter().filter(|i| matches!(i, Command::Quad(_))).count();
+    assert!(quads > 0 && quads < 2_000, "a bar per kept extreme, not one per point: {quads}");
+}

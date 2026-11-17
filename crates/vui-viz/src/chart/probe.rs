@@ -53,6 +53,8 @@ impl Mark {
             }
             Mark::Dots(d) => nearest(d, |d| d.x, x).map(|i| d[i].x),
             Mark::Candles(c) => nearest(c, |c| c.x, x).map(|i| c[i].x),
+            // Zones span time; the probe reads the data under them.
+            Mark::Zones(_) => None,
         }
     }
 }
@@ -116,6 +118,7 @@ pub fn probe(chart: &Chart, style: &VizStyle, x: f64) -> Option<Probe> {
                     }
                 }
             }
+            Mark::Zones(_) => {}
         }
     }
     let head = if let Some(name) = chart.category(at) {

@@ -34,6 +34,16 @@ pub struct Dot {
     pub size: f64,
 }
 
+/// A box in data space: from `x0` to `x1` (which may be infinite, to run off the right edge) and
+/// from `low` to `high`. A zone with `low == high` is a level: a line across that stretch.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Zone {
+    pub x0: f64,
+    pub x1: f64,
+    pub low: f64,
+    pub high: f64,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Mark {
     Line {
@@ -51,6 +61,8 @@ pub enum Mark {
     },
     Dots(Vec<Dot>),
     Candles(Vec<Candle>),
+    /// Boxes and levels over the data, such as price zones on a market chart.
+    Zones(Vec<Zone>),
 }
 
 /// Which strip of the chart a layer sits in.
@@ -218,6 +230,19 @@ impl Chart {
         self.push(name, Mark::Candles(rows), Ink::Strong, Panel::Main)
     }
 
+    /// Boxes (or, with `low == high`, levels) behind nothing and over the grid, washed in the
+    /// layer's ink with an outline. They count towards the vertical range where they are in view.
+    pub fn zones(self, name: &str, zones: &[Zone]) -> Chart {
+        let mut zones: Vec<Zone> = zones
+            .iter()
+            .copied()
+            .filter(|z| z.x0.is_finite() && !z.x1.is_nan() && z.low.is_finite() && z.high.is_finite())
+            .map(|z| Zone { low: z.low.min(z.high), high: z.low.max(z.high), ..z })
+            .collect();
+        zones.sort_by(|a, b| a.x0.total_cmp(&b.x0));
+        self.push(name, Mark::Zones(zones), Ink::Accent, Panel::Main)
+    }
+
     /// Sets how the most recently added layer is painted.
     pub fn ink(mut self, ink: Ink) -> Chart {
         if let Some(l) = self.layers.last_mut() {
@@ -355,6 +380,7 @@ impl Mark {
             }
             Mark::Dots(d) => d.iter().map(|d| d.x).collect(),
             Mark::Candles(c) => c.iter().map(|c| c.x).collect(),
+            Mark::Zones(z) => z.iter().map(|z| z.x0).collect(),
         }
     }
 
@@ -365,12 +391,20 @@ impl Mark {
             }
             Mark::Dots(d) => (d.first()?.x, d.last()?.x),
             Mark::Candles(c) => (c.first()?.x, c.last()?.x),
+            Mark::Zones(z) => {
+                let last = z.iter().map(|z| if z.x1.is_finite() { z.x1 } else { z.x0 }).fold(f64::NEG_INFINITY, f64::max);
+                (z.first()?.x0, last)
+            }
         };
         Some((first, last))
     }
 
     /// The smallest gap between neighbouring x values: how wide a bar or candle may be.
     pub(crate) fn spacing(&self) -> f64 {
+        // Zones have no step of their own; they leave zooming to the data under them.
+        if matches!(self, Mark::Zones(_)) {
+            return f64::INFINITY;
+        }
         let xs = self.xs();
         let gap = xs
             .windows(2)
@@ -396,6 +430,7 @@ impl Mark {
             Mark::Candles(c) => {
                 range(&mut within(c, |c| c.x, x).iter().flat_map(|c| [c.high, c.low]))
             }
+            Mark::Zones(z) => range(&mut z.iter().filter(|z| z.x0 <= x.1 && z.x1 >= x.0).flat_map(|z| [z.low, z.high])),
         }
     }
 }

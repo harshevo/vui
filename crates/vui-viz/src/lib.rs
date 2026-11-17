@@ -13,7 +13,7 @@ pub mod style;
 
 pub use bar_list::{BarList, BarListView, bar_list, draw_bar_list};
 pub use canvas::{Canvas, HAnchor, VAnchor, paint};
-pub use chart::{BarLayout, Candle, Chart, ChartView, Dot, Layer, Mark, Panel, chart, indexed};
+pub use chart::{BarLayout, Candle, Chart, ChartView, Dot, Layer, Mark, Panel, Zone, chart, indexed};
 pub use graph::{GraphData, GraphView, graph_view};
 pub use pie::{Pie, PieView, Slice, pie};
 pub use format::Format;

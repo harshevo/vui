@@ -92,6 +92,10 @@ pub enum Ink {
     Accent,
     Mid,
     Soft,
+    /// The market's rising colour (green), as candles use with `.market()`.
+    Up,
+    /// The market's falling colour (red).
+    Down,
     Color(Color),
 }
 
@@ -104,6 +108,8 @@ impl Ink {
             Ink::Accent => style.accent,
             Ink::Mid => style.ink_2,
             Ink::Soft => style.ink_3,
+            Ink::Up => style.up,
+            Ink::Down => style.down,
             Ink::Color(c) => c,
         }
     }
