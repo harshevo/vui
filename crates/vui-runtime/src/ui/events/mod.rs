@@ -65,10 +65,15 @@ impl<M: 'static> Run<'_, M> {
         match req.capture {
             Some(true) if self.core.press.is_none() => {
                 self.core.press =
-                    Some(Press { id, button: PointerButton::Primary, count: 1, widget: true, inside: true });
+                    Some(Press { id, button: PointerButton::Primary, count: 1, widget: true, inside: true, dragging: false });
             }
             Some(false) if self.core.press.as_ref().is_some_and(|p| p.id == id) => self.core.press = None,
             _ => {}
+        }
+        if req.drag
+            && let Some(press) = self.core.press.as_mut().filter(|p| p.id == id)
+        {
+            press.dragging = true;
         }
         if let Some(rect) = req.reveal {
             self.reveal(path, rect);

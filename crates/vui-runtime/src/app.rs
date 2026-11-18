@@ -65,6 +65,12 @@ pub trait App: 'static {
         None
     }
 
+    /// The window is closing: the person closed it. A window that doesn't quit the app (a panel
+    /// torn off into one, say) answers with a message to put things back; the default ignores it.
+    fn closing(&self) -> Option<Self::Msg> {
+        None
+    }
+
     /// The app's own menus in the menu bar, with their shortcuts: "File" after the app menu, the
     /// rest between Edit and Window. Asked
     /// again after every update, so items can be enabled, ticked or renamed from state.
@@ -275,6 +281,7 @@ pub(crate) trait Driver<M> {
     fn view(&self) -> Element<M>;
     fn theme(&self, system: Mode) -> Theme;
     fn resized(&self, size: Size) -> Option<M>;
+    fn closing(&self) -> Option<M>;
     fn menus(&self) -> Vec<crate::Menu<M>>;
     fn status_item(&self) -> Option<crate::StatusItem<M>>;
     fn as_any(&self) -> &dyn Any;
@@ -296,6 +303,10 @@ impl<A: App> Driver<A::Msg> for A {
 
     fn resized(&self, size: Size) -> Option<A::Msg> {
         App::resized(self, size)
+    }
+
+    fn closing(&self) -> Option<A::Msg> {
+        App::closing(self)
     }
 
     fn menus(&self) -> Vec<crate::Menu<A::Msg>> {

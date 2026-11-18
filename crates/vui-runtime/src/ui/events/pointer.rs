@@ -71,7 +71,7 @@ impl<M: 'static> Run<'_, M> {
             let at = &path[..k];
             if self.call(at, &WidgetEvent::Input(event)) {
                 let id = node_at(self.root, at).id;
-                self.begin_press(at, Press { id, button, count, widget: true, inside: true });
+                self.begin_press(at, Press { id, button, count, widget: true, inside: true, dragging: false });
                 return;
             }
             let node = node_at(self.root, at);
@@ -89,7 +89,7 @@ impl<M: 'static> Run<'_, M> {
                         let message = h(&click);
                         self.core.out.messages.push(message);
                     }
-                    self.begin_press(at, Press { id, button, count, widget: false, inside: true });
+                    self.begin_press(at, Press { id, button, count, widget: false, inside: true, dragging: false });
                     return;
                 }
                 _ => {}
@@ -191,6 +191,7 @@ impl<M: 'static> Run<'_, M> {
             }
         }
         if let Some(press) = &self.core.press
+            && !press.dragging
             && !ids.contains(&press.id)
         {
             ids.clear();
@@ -205,6 +206,7 @@ impl<M: 'static> Run<'_, M> {
         }
 
         let cursor = match (&self.core.press, &path) {
+            (Some(press), _) if press.dragging => Some(CursorIcon::Grabbing),
             (Some(press), _) => path_of(self.root, press.id).and_then(|p| cursor_of(&chain(self.root, &p))),
             (None, Some(path)) => cursor_of(&chain(self.root, path)),
             (None, None) => None,

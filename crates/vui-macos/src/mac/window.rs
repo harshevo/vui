@@ -62,6 +62,9 @@ define_class!(
         fn will_close(&self, _notification: &NSNotification) {
             if self.ivars().quit_on_close {
                 NSApplication::sharedApplication(self.mtm()).terminate(None);
+            } else if let Some(view) = self.ivars().view.load() {
+                let effects = view.with_host(|h| h.closing()).unwrap_or_default();
+                view.after_input(effects);
             }
         }
     }

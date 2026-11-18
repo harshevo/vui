@@ -39,6 +39,13 @@ mod runner;
 pub use app::Application;
 pub use clipboard::SystemClipboard;
 
+/// Opening a window while the app runs isn't there yet with winit, which makes windows only inside
+/// its event loop's callbacks.
+pub fn open_window<A: App>(options: WindowOptions, app: A) -> Result<Proxy<A::Msg>, Error> {
+    let _ = (options, app);
+    Err(Error::Unsupported)
+}
+
 /// Opens a window running the app that `make` builds, and runs until the app quits. `make` gets the
 /// fonts and pictures the window will draw with, so it can register images.
 pub fn run<A: App>(options: WindowOptions, make: impl FnOnce(&Resources) -> A) -> Result<(), Error> {

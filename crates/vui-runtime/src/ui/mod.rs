@@ -47,6 +47,9 @@ struct Press {
     widget: bool,
     /// The pointer is over the node right now. Letting go outside cancels the click.
     inside: bool,
+    /// The widget started dragging something (a tab, a symbol): hover follows the pointer to other
+    /// elements, so drop targets light up and hear `on_hover`.
+    dragging: bool,
 }
 
 /// A scrollbar thumb being dragged.
@@ -351,6 +354,13 @@ impl<M: 'static> Ui<M> {
 
     pub fn size(&self) -> Size {
         self.core.size
+    }
+
+    /// The window is closing: the app may answer with a message, which runs now.
+    pub fn closing(&mut self) {
+        if let Some(message) = self.driver.as_ref().and_then(|d| d.closing()) {
+            self.send(message);
+        }
     }
 
     /// Device pixels per logical pixel.

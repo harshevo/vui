@@ -1,4 +1,5 @@
-//! A splitter: the handle between two panes that drags the edge between them.
+//! A splitter: the handle between two panes that drags the edge between them. It stands between
+//! panes in a row; `.vertical()` lays it across, between panes in a column.
 //!
 //! Like every widget here it is controlled: the app owns the pane's width and changes it by what the
 //! splitter sends. A thin line shows on hover and while dragging.
@@ -25,6 +26,8 @@ type Handler<M> = Rc<dyn Fn(f32) -> M>;
 /// The widget behind [`Splitter`].
 pub struct SplitterWidget<M> {
     on_drag: Option<Handler<M>>,
+    /// Between panes in a column: it drags up and down.
+    across: bool,
 }
 
 #[derive(Default)]
@@ -46,9 +49,10 @@ impl<M> SplitterWidget<M> {
         if !key.pressed || key.mods.cmd || key.mods.ctrl || key.mods.alt {
             return false;
         }
+        let (more, less) = if self.across { (NamedKey::ArrowDown, NamedKey::ArrowUp) } else { (NamedKey::ArrowRight, NamedKey::ArrowLeft) };
         match key.key {
-            Key::Named(NamedKey::ArrowRight) => self.send(cx, KEY_STEP),
-            Key::Named(NamedKey::ArrowLeft) => self.send(cx, -KEY_STEP),
+            Key::Named(k) if k == more => self.send(cx, KEY_STEP),
+            Key::Named(k) if k == less => self.send(cx, -KEY_STEP),
             _ => return false,
         }
         true
@@ -62,16 +66,20 @@ impl<M: 'static> Widget<M> for SplitterWidget<M> {
         SplitterState::default()
     }
 
-    fn update(&self, _old: &SplitterWidget<M>, _state: &mut SplitterState) -> Dirty {
-        Dirty::None
+    fn update(&self, old: &SplitterWidget<M>, _state: &mut SplitterState) -> Dirty {
+        if old.across != self.across { Dirty::Layout } else { Dirty::None }
     }
 
     fn measure(&self, _state: &mut SplitterState, _env: &Env, known: Pair<Option<f32>>, avail: Pair<Avail>) -> Size {
-        let height = match avail.y {
-            Avail::Definite(h) => h,
+        let along = |a: Avail| match a {
+            Avail::Definite(v) => v,
             _ => 0.0,
         };
-        size(known.x.unwrap_or(WIDTH), known.y.unwrap_or(height))
+        if self.across {
+            size(known.x.unwrap_or(along(avail.x)), known.y.unwrap_or(WIDTH))
+        } else {
+            size(known.x.unwrap_or(WIDTH), known.y.unwrap_or(along(avail.y)))
+        }
     }
 
     fn paint(&self, state: &SplitterState, cx: &mut PaintCx) {
@@ -80,7 +88,8 @@ impl<M: 'static> Widget<M> for SplitterWidget<M> {
             return;
         }
         let c = cx.content;
-        let line = cx.snap(Rect::new(c.x + (c.w - LINE) / 2.0, c.y, LINE, c.h));
+        let line = if self.across { Rect::new(c.x, c.y + (c.h - LINE) / 2.0, c.w, LINE) } else { Rect::new(c.x + (c.w - LINE) / 2.0, c.y, LINE, c.h) };
+        let line = cx.snap(line);
         let colour = cx.palette().line.mul_alpha(strength * cx.alpha);
         cx.quad(Quad::new(line).fill(colour));
     }
@@ -88,7 +97,7 @@ impl<M: 'static> Widget<M> for SplitterWidget<M> {
     fn event(&self, state: &mut SplitterState, cx: &mut EventCx<M>, event: &WidgetEvent) -> bool {
         match event {
             WidgetEvent::Input(Event::PointerDown { pos, button: PointerButton::Primary, .. }) => {
-                state.grab = Some(pos.x - cx.content.x);
+                state.grab = Some(if self.across { pos.y - cx.content.y } else { pos.x - cx.content.x });
                 cx.capture_pointer();
                 cx.request_paint();
                 true
@@ -97,7 +106,8 @@ impl<M: 'static> Widget<M> for SplitterWidget<M> {
             // pointer even when the app stops the edge at a limit.
             WidgetEvent::Input(Event::PointerMoved { pos, .. }) if state.grab.is_some() => {
                 let grab = state.grab.unwrap_or(0.0);
-                self.send(cx, pos.x - cx.content.x - grab);
+                let at = if self.across { pos.y - cx.content.y } else { pos.x - cx.content.x };
+                self.send(cx, at - grab);
                 true
             }
             WidgetEvent::Input(Event::PointerUp { .. }) if state.grab.is_some() => {
@@ -138,15 +148,22 @@ pub struct Splitter<M: 'static> {
 builder!(Splitter<M> => SplitterWidget<M>);
 
 impl<M: 'static> Splitter<M> {
-    /// Called with how far the edge should move, in points: positive is to the right.
+    /// Called with how far the edge should move, in points: positive is to the right (down, when
+    /// vertical).
     pub fn on_drag(mut self, f: impl Fn(f32) -> M + 'static) -> Self {
         self.widget.on_drag = Some(Rc::new(f));
         self
+    }
+
+    /// Lies across, between panes in a column, and drags up and down.
+    pub fn vertical(mut self) -> Self {
+        self.widget.across = true;
+        self.cursor(CursorIcon::ResizeVertical).shrink(0.0)
     }
 }
 
 /// A vertical splitter. Name it for assistive technology: `splitter().name("Resize projects")`.
 pub fn splitter<M: 'static>() -> Splitter<M> {
-    let splitter = Splitter { base: Base::new(), widget: SplitterWidget { on_drag: None } };
+    let splitter = Splitter { base: Base::new(), widget: SplitterWidget { on_drag: None, across: false } };
     splitter.focus_ring(false).cursor(CursorIcon::ResizeHorizontal).shrink(0.0)
 }

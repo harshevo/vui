@@ -255,3 +255,32 @@ fn update_can_ask_for_the_keyboard_and_give_it_back() {
     t.settle();
     assert_eq!(t.ui.takes_keys(), Some(false));
 }
+
+/// A torn-off panel's window: closing it tells the app, which puts the panel back.
+struct Torn {
+    docked: bool,
+}
+
+impl App for Torn {
+    type Msg = ();
+
+    fn update(&mut self, _msg: (), _cx: &mut Cx<()>) {
+        self.docked = true;
+    }
+
+    fn view(&self) -> impl IntoElement<()> {
+        label(if self.docked { "docked" } else { "torn off" })
+    }
+
+    fn closing(&self) -> Option<()> {
+        Some(())
+    }
+}
+
+#[test]
+fn closing_the_window_runs_the_apps_answer_at_once() {
+    let mut t = TestUi::with_app(200.0, 100.0, Torn { docked: false });
+    t.ui.closing();
+    assert!(t.app::<Torn>().docked);
+    assert_eq!(texts(&t.scene()), vec!["docked"]);
+}

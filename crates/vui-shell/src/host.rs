@@ -59,6 +59,8 @@ pub trait Host {
     fn next_wake(&self) -> Option<f32>;
     /// What background tasks call to wake the window once they have sent something.
     fn set_waker(&mut self, waker: vui_runtime::Waker);
+    /// The window is closing; the app hears of it.
+    fn closing(&mut self) -> Vec<Effect>;
 }
 
 /// Writing a window's first settled frame to a file, for checking windows from scripts.
@@ -205,6 +207,11 @@ fn pixel_size(points: Size, scale: f32) -> (u32, u32) {
 impl<M: 'static> Host for Window<M> {
     fn handle(&mut self, event: Event) -> Vec<Effect> {
         self.ui.handle(event);
+        self.ui.take_effects()
+    }
+
+    fn closing(&mut self) -> Vec<Effect> {
+        self.ui.closing();
         self.ui.take_effects()
     }
 

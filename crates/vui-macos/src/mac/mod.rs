@@ -65,6 +65,20 @@ use crate::{Error, OverlayOptions, Place, Proxy, Screen, WindowOptions};
 thread_local! {
     /// The views of the windows opened so far, numbered as their `Proxy`s know them.
     static VIEWS: RefCell<Vec<Weak<VuiView>>> = const { RefCell::new(Vec::new()) };
+    /// The application once it runs, so a running app can open more windows.
+    static RUNNING: RefCell<Option<Application>> = const { RefCell::new(None) };
+}
+
+/// Opens another window while the app runs: from an app's `update`, say, to show a panel torn off
+/// the main window. Fails before [`Application::run`].
+pub fn open_window<A: App>(options: WindowOptions, app: A) -> Result<Proxy<A::Msg>, Error> {
+    RUNNING.with(|running| match running.try_borrow_mut() {
+        Ok(mut slot) => match slot.as_mut() {
+            Some(application) => application.window(options, app),
+            None => Err(Error::Platform("the app isn't running yet".into())),
+        },
+        Err(_) => Err(Error::Platform("a window is being opened already".into())),
+    })
 }
 
 /// From any thread: has the main thread hand window `id` the messages queued for it.
@@ -335,6 +349,7 @@ impl Application {
     /// Brings the app forward and runs until it quits.
     pub fn run(self) {
         let app = NSApplication::sharedApplication(self.mtm);
+        RUNNING.with(|running| *running.borrow_mut() = Some(self));
         app.activate();
         app.run();
     }

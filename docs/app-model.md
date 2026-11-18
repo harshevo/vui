@@ -235,6 +235,20 @@ permission the first time, and shows notifications only for an app that runs fro
 with an identifier; under `cargo run` vui prints a warning instead. Banners show even while the app
 is in front. Each set of button titles becomes a notification category, registered on first use.
 
+### Key bindings from a file
+
+`vui::keymap::Keymap<A>` reads bindings as text, `cmd+shift+k` or a sequence such as `g o`, by
+scope. `reserve` the host's own keys first; `bind` then refuses one that clashes with them or with
+another in the same scope, saying which. In `on_key`, `keymap.press(&event, &["ticket"])` gives
+`Resolve::Action`, `Pending` mid-sequence, or `None` to let the key through. A scope's binding wins
+over the global one while that scope is on. `Chord` and `Keys` print as macOS menus do (`⇧⌘K`).
+
+### The newest value from another thread
+
+When a worker produces faster than the window draws, `Conflated<T>` keeps only the newest value:
+`let put = slot.putter(move || sender.send(Msg::Fresh))`, then `put.put(v)` from the worker. The
+window is woken once per batch and `slot.take()` in `update` gives the latest.
+
 ## Identity: keys
 
 When the view is rebuilt, vui matches new elements to old ones by position. Give an element a
@@ -299,6 +313,14 @@ fn main() -> Result<(), vui::Error> {
     Ok(())
 }
 ```
+
+### Opening a window later
+
+Once the app runs, `vui::open_window(options, app)` opens another window from an `update`, with
+its own `Proxy`: a panel torn off the main window, say. The two apps share state the way any two do,
+through an `Rc` on the main thread and messages through each other's `Proxy`. When the person closes
+a window that doesn't quit the app, its `App::closing` may answer with a message, which runs at
+once. With winit it returns `Error::Unsupported` for now.
 
 ## Clipboard, cursors, drag and drop
 

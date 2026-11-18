@@ -36,7 +36,7 @@ mod mac;
 mod software;
 
 #[cfg(target_os = "macos")]
-pub use mac::{Application, Pasteboard};
+pub use mac::{Application, Pasteboard, open_window};
 
 /// Opens a window running the app that `make` builds, and runs until the app quits. `make` gets the
 /// fonts and pictures the window will draw with, so it can register images.

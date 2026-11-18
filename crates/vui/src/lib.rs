@@ -68,13 +68,13 @@ pub use vui_widgets as widgets;
 #[cfg(target_os = "macos")]
 pub use vui_macos as platform;
 #[cfg(target_os = "macos")]
-pub use vui_macos::{Application, Error, OverlayOptions, Place, Proxy, Screen, WindowOptions, run};
+pub use vui_macos::{Application, Error, OverlayOptions, Place, Proxy, Screen, WindowOptions, open_window, run};
 
 /// The window backend: windows, see-through overlays, a `Proxy` per window for other threads.
 #[cfg(any(windows, target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "netbsd", target_os = "openbsd"))]
 pub use vui_winit as platform;
 #[cfg(any(windows, target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "netbsd", target_os = "openbsd"))]
-pub use vui_winit::{Application, Error, OverlayOptions, Place, Proxy, Screen, WindowOptions, run};
+pub use vui_winit::{Application, Error, OverlayOptions, Place, Proxy, Screen, WindowOptions, open_window, run};
 
 /// Testing without a window: [`TestUi`](testing::TestUi) clicks, types and moves time by hand, and
 /// the render helpers draw a frame on the GPU, or the CPU where there is none, to compare with a

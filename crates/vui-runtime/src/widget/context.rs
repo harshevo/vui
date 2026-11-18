@@ -9,6 +9,7 @@ pub(crate) struct Requests {
     /// `Some(true)` takes focus, `Some(false)` gives it up.
     pub focus: Option<bool>,
     pub capture: Option<bool>,
+    pub drag: bool,
     pub layout: bool,
     pub paint: bool,
     pub frame: bool,
@@ -70,6 +71,13 @@ impl<M> EventCx<'_, M> {
 
     pub fn release_pointer(&mut self) {
         self.out.req.capture = Some(false);
+    }
+
+    /// Turns the press this widget holds into a drag: until the button is released, hover follows
+    /// the pointer onto other elements, so drop targets light up (`hover_bg`) and hear `on_hover`.
+    /// The widget still receives the pointer's moves and its release.
+    pub fn start_drag(&mut self) {
+        self.out.req.drag = true;
     }
 
     /// Sizes changed: lay the tree out again.

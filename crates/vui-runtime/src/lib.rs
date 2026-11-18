@@ -6,9 +6,11 @@ pub mod access;
 mod access_tree;
 mod app;
 pub mod builtin;
+mod conflate;
 pub mod effects;
 pub mod element;
 pub mod key;
+pub mod keymap;
 pub mod platform;
 pub mod layout;
 mod node;
@@ -21,6 +23,7 @@ pub mod widget;
 
 pub use app::{App, AppSender, Cx, Waker};
 pub use access::{A11y, AccessAction, AccessActionKind, AccessInfo, AccessNode, AccessRange, AccessTree, Role};
+pub use conflate::{Conflated, Putter};
 pub use builtin::{Img, Label, img, label, small, title};
 pub use effects::{Clipboard, Effect, MemoryClipboard};
 pub use element::{
