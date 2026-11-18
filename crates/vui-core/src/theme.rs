@@ -243,6 +243,64 @@ pub struct Theme {
     /// Height of a standard control; primary actions use `control_large`.
     pub control: f32,
     pub control_large: f32,
+    /// The glass material for floating surfaces: menus, palettes, the notch's cards.
+    pub glass: Glass,
+    /// Named colours apps add (a market's up and down, an AI colour), kept without knowing what
+    /// they mean.
+    pub ext: Ext,
+}
+
+/// A see-through material: a tint over a blurred backdrop, with a bright rim.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Glass {
+    pub tint: Color,
+    /// How much of the tint covers the backdrop, 0–1.
+    pub opacity: f32,
+    /// Blur radius, in points.
+    pub blur: f32,
+    pub saturation: f32,
+    /// Offset at the edge, in points.
+    pub refraction: f32,
+    /// Colour split at the edge, 0–1.
+    pub dispersion: f32,
+    pub rim: f32,
+    pub specular: f32,
+    pub grain: f32,
+}
+
+impl Glass {
+    pub fn for_mode(mode: Mode) -> Glass {
+        match mode {
+            Mode::Light => Glass { tint: Color::hex(0xffffff), opacity: 0.55, blur: 28.0, saturation: 1.15, refraction: 6.0, dispersion: 0.25, rim: 0.6, specular: 0.35, grain: 0.02 },
+            Mode::Dark => Glass { tint: Color::hex(0x14171d), opacity: 0.62, blur: 32.0, saturation: 1.2, refraction: 6.0, dispersion: 0.25, rim: 0.45, specular: 0.25, grain: 0.03 },
+        }
+    }
+
+    /// The tint at its opacity: what the glass looks like where there is nothing to blur.
+    pub fn solid(&self) -> Color {
+        self.tint.with_alpha(self.tint.a * self.opacity)
+    }
+}
+
+/// Named extension colours, in the order they were set.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Ext(Vec<(String, Color)>);
+
+impl Ext {
+    pub fn get(&self, name: &str) -> Option<Color> {
+        self.0.iter().find(|(n, _)| n == name).map(|(_, c)| *c)
+    }
+
+    pub fn set(&mut self, name: &str, color: Color) {
+        match self.0.iter_mut().find(|(n, _)| n == name) {
+            Some(slot) => slot.1 = color,
+            None => self.0.push((name.to_string(), color)),
+        }
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&str, Color)> {
+        self.0.iter().map(|(n, c)| (n.as_str(), *c))
+    }
 }
 
 impl Theme {
@@ -341,6 +399,8 @@ impl Theme {
             font_mono: "JetBrains Mono",
             control: 32.0,
             control_large: 40.0,
+            glass: Glass::for_mode(mode),
+            ext: Ext::default(),
         }
     }
 }
