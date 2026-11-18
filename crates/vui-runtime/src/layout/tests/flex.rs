@@ -315,3 +315,39 @@ fn an_absolute_child_sizes_to_its_content_within_the_parent() {
     assert!(label.layout.size.w <= 100.0, "{}", label.layout.size.w);
     assert!(close(label.layout.size.h, 30.0), "three words of 50 px wrap to three lines in 100 px: {}", label.layout.size.h);
 }
+
+#[test]
+fn a_stretched_wrapping_row_pushes_down_what_follows() {
+    let line = row().wrap().min_height(28.0).gap(8.0).kids(vec![T::new().height(18.0).basis(160.0).grow(1.0).min_width(0.0), boxed(150.0, 28.0)]);
+    let mut root = col().gap(6.0).kids(vec![line, T::new().grow(1.0)]);
+    run(&mut root, 200.0, 300.0);
+    assert!(close(root.kids[0].layout.size.h, 18.0 + 8.0 + 28.0), "two lines and the gap between: {:?}", root.kids[0].layout.size);
+    assert!(close(root.kids[1].layout.origin.y, 54.0 + 6.0), "{:?}", root.kids[1].layout.origin);
+}
+
+#[test]
+fn a_wrapping_row_inside_a_wrapped_line_is_as_tall_as_its_own_lines() {
+    // Three controls of 70 in a 170-wide line: two lines of them, so 28 + 4 + 28 tall.
+    let controls = row().wrap().gap(4.0).grow(1.0).min_width(0.0).kids(vec![boxed(70.0, 28.0), boxed(70.0, 28.0), boxed(70.0, 28.0)]);
+    let line = row().wrap().gap(4.0).kids(vec![T::new().height(18.0).basis(160.0).grow(1.0).min_width(0.0), controls]);
+    let mut root = col().kids(vec![line, T::new().grow(1.0)]);
+    run(&mut root, 170.0, 300.0);
+    let controls = &root.kids[0].kids[1];
+    assert!(close(controls.layout.size.h, 60.0), "{:?}", controls.layout.size);
+    assert!(close(root.kids[0].layout.size.h, 18.0 + 4.0 + 60.0), "{:?}", root.kids[0].layout.size);
+    assert!(close(root.kids[1].layout.origin.y, 82.0), "what follows starts under it: {:?}", root.kids[1].layout.origin);
+}
+
+#[test]
+fn a_nested_wrapping_row_is_measured_inside_its_ancestors_padding() {
+    // 176 wide less 8 a side leaves 160: the controls take three lines there, not the two 176 gives.
+    let controls = row().wrap().gap(8.0).justify(Justify::End).grow(1.0).min_width(0.0).kids(vec![boxed(89.0, 28.0), boxed(67.0, 28.0), boxed(62.0, 28.0), boxed(40.0, 24.0)]);
+    let line = row().wrap().gap(8.0).min_height(28.0).align_items(Align::Center).kids(vec![T::new().height(18.0).basis(160.0).grow(1.0).min_width(0.0), controls]);
+    let mut root = col().padding([4.0, 8.0, 0.0, 8.0]).gap(6.0).kids(vec![line, T::new().grow(1.0).min_height(0.0)]);
+    run(&mut root, 176.0, 292.0);
+    let controls = &root.kids[0].kids[1];
+    let bottom = controls.kids.iter().map(|k| k.layout.origin.y + k.layout.size.h).fold(0.0, f32::max);
+    assert!(close(controls.layout.size.h, bottom), "as tall as its lines: {:?} vs {bottom}", controls.layout.size);
+    let line = &root.kids[0];
+    assert!(root.kids[1].layout.origin.y >= line.layout.origin.y + line.layout.size.h, "what follows starts under it");
+}
