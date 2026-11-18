@@ -25,6 +25,7 @@ pub fn hover_card<M: 'static>(anchor: impl IntoElement<M>, open: bool, on_hover:
             Side::BelowEnd => layer.top(pct(100.0)).right(0.0).padding_top(6.0),
             Side::Above => layer.bottom(pct(100.0)).left(0.0).padding_bottom(6.0),
             Side::AboveEnd => layer.bottom(pct(100.0)).right(0.0).padding_bottom(6.0),
+            Side::Right => layer.left(pct(100.0)).top(0.0).padding_left(6.0),
         };
         layer.child(content).into_element()
     });

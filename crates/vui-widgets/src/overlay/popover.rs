@@ -18,6 +18,8 @@ pub enum Side {
     BelowEnd,
     Above,
     AboveEnd,
+    /// Beside it on the right, top edges lined up: for a flyout from a tool rail.
+    Right,
 }
 
 /// The floating card's look: the page colour, a hairline border, round corners and a deep shadow.
@@ -124,6 +126,7 @@ impl<M: Clone + 'static> IntoElement<M> for Popover<M> {
                 Side::BelowEnd => layer.top(pct(100.0)).right(0.0).margin_y(GAP),
                 Side::Above => layer.bottom(pct(100.0)).left(0.0).margin_y(GAP),
                 Side::AboveEnd => layer.bottom(pct(100.0)).right(0.0).margin_y(GAP),
+                Side::Right => layer.left(pct(100.0)).top(0.0).margin_x(GAP),
             };
             let layer = if match_width { layer.width(pct(100.0)) } else { layer };
             layer.child(content)
