@@ -166,7 +166,8 @@ fn paint_box<'a, M: 'static>(
 
     // The hover, press and drop tints, composed on their own so a gradient can sit between them and
     // the base fill.
-    let base = node.base_fill(palette);
+    let glass_float = node.decor.floating_glass && theme.glass.floating;
+    let base = if glass_float { vui_core::Color::TRANSPARENT } else { node.base_fill(palette) };
     let mut tint = vui_core::Color::TRANSPARENT;
     for (over, amount) in [
         (node.decor.hover_fill, look.hover),
@@ -186,6 +187,12 @@ fn paint_box<'a, M: 'static>(
         if let Some(shadow) = node.decor.shadow {
             let k = if theme.mode == vui_core::Mode::Dark { 2.5 } else { 1.0 };
             let mut cmd = vui_core::effects::shadow(rect, radii.tl.max(radii.br), shadow.times(k));
+            cmd.clip = node.clip;
+            cmd.opacity = alpha;
+            scene.push(Command::Custom(cmd));
+        }
+        if node.decor.glass || glass_float {
+            let mut cmd = vui_core::glass::glass(rect, radii.tl.max(radii.br), &theme.glass);
             cmd.clip = node.clip;
             cmd.opacity = alpha;
             scene.push(Command::Custom(cmd));

@@ -52,6 +52,22 @@ pub trait Builder<M: 'static>: Styled {
         self
     }
 
+    /// Makes the element's box the theme's glass: what was drawn behind it shows through blurred,
+    /// tinted and lit on the rim. Its `bg`, if any, is drawn over the glass. With Increase Contrast
+    /// on, the glass is solid.
+    fn glass(mut self) -> Self {
+        self.base_mut().decor.glass = true;
+        self
+    }
+
+    /// Marks the element as a floating surface (a menu, popover, dialog or palette): when the theme
+    /// makes floating surfaces glass (`[glass] floating = true` in look.toml) its box is glass and
+    /// its `bg` is left out; otherwise it is drawn as it is.
+    fn floating_glass(mut self) -> Self {
+        self.base_mut().decor.floating_glass = true;
+        self
+    }
+
     /// Fills the element with a gradient, over its `bg`: `.gradient(Gradient::linear(135.0, [Tone::Accent, Tone::Purple]))`.
     /// Colours blend in Oklab, so the middle stays vivid.
     fn gradient(mut self, gradient: vui_core::shading::Gradient) -> Self {

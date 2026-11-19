@@ -9,6 +9,13 @@ the API.
 
 ### Added
 
+- Glass on both renderers (`vui_core::glass`): a backdrop pass that blurs and tints what was drawn
+  behind a rounded box, bends it at the edge, splits colour there and lights the rim. `pour` joins
+  two boxes with a smooth union, so a card can pour out of a notch or pill; `pill` has round ends.
+  Elements take `.glass()`, and menus, popovers, dialogs, drawers, toasts and the command palette
+  are glass when the theme's `glass.floating` is on (porcelain and graphite, or `[glass] floating`
+  in look.toml). Increase Contrast turns glass solid.
+
 - Shading pass on both renderers: linear, radial and conic gradients as fills and borders; the
   `aurora`, `border_beam` and `spotlight` effects; film grain.
 - Charts: grouped and stacked bars, category axes, market candles in up and down colours, pies and

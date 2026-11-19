@@ -52,6 +52,11 @@ impl Theme {
             if t.mode == Mode::Dark {
                 p.side = p.side.lerp(page, 0.5);
             }
+            // Glass turns solid: nothing shows through to lower the contrast of what is on it.
+            t.glass.opacity = 1.0;
+            t.glass.tint = t.glass.tint.with_alpha(1.0);
+            t.glass.refraction = 0.0;
+            t.glass.dispersion = 0.0;
         }
         let k = prefs.text_scale.clamp(0.75, 2.5);
         if k != 1.0 {
@@ -91,6 +96,14 @@ fn until_contrast(color: Color, ink: Color, page: Color, ratio: f32) -> Color {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn high_contrast_turns_glass_solid() {
+        let t = Theme::dark().adapted(&Preferences { high_contrast: true, ..Preferences::DEFAULT });
+        assert_eq!(t.glass.opacity, 1.0);
+        assert_eq!(t.glass.solid().a, 1.0);
+        assert_eq!(t.glass.refraction, 0.0);
+    }
 
     #[test]
     fn high_contrast_meets_wcag_in_both_modes() {

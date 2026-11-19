@@ -33,6 +33,7 @@ pub fn toast<M: 'static>(text: impl Into<String>, lead: Option<Icon>) -> Div<M> 
         .bg(Tone::Text)
         .rounded(Radius::Card)
         .shadow(Shadow::RAISED)
+        .floating_glass()
         .pointer_events(true)
         .transition(Spring::SNAPPY)
         .appear()

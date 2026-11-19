@@ -10,6 +10,7 @@ pub mod color;
 pub mod effects;
 pub mod embed;
 pub mod geom;
+pub mod glass;
 pub mod image;
 pub mod input;
 pub mod keyframes;

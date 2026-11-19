@@ -123,3 +123,47 @@ fn hovering_a_gradient_button_tints_over_the_gradient() {
     t.move_to(c).settle();
     assert_eq!(order(&mut t), before + 1, "the hover tint lands on top of the gradient");
 }
+
+#[test]
+fn a_glass_box_sends_the_theme_glass_under_its_children() {
+    let mut t = window(div().key("g").width(120.0).height(60.0).rounded(14.0).glass().child(label("Hi")));
+    let scene = t.scene();
+    let glass: Vec<&CustomCmd> = scene
+        .commands
+        .iter()
+        .filter_map(|c| match c {
+            Command::Custom(c) if c.pass == vui_core::glass::PASS => Some(c),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(glass.len(), 1);
+    let shape = vui_core::glass::Shape::read(glass[0]).unwrap();
+    assert_eq!(shape.a, t.rect("g"));
+    assert_eq!(shape.ra, 14.0);
+    let at = |pred: &dyn Fn(&Command) -> bool| scene.commands.iter().position(pred).unwrap();
+    assert!(at(&|c| matches!(c, Command::Custom(_))) < at(&|c| matches!(c, Command::Text(_))), "the label sits on the glass");
+}
+
+#[test]
+fn floating_surfaces_turn_to_glass_only_when_the_look_says_so() {
+    let glass_count = |floating: bool| {
+        let mut theme = vui_core::Theme::light();
+        theme.glass.floating = floating;
+        let mut t: TestUi<()> = TestUi::with_theme(vui_core::size(320.0, 240.0), theme, 1.0);
+        t.view(column().padding(20.0).child(vui_widgets::dialog((), label("Hello"))));
+        t.advance(1.0);
+        fn count(commands: &[Command]) -> usize {
+            commands
+                .iter()
+                .map(|c| match c {
+                    Command::Custom(c) if c.pass == vui_core::glass::PASS => 1,
+                    Command::Layer(l) => count(&l.commands),
+                    _ => 0,
+                })
+                .sum()
+        }
+        count(&t.scene().commands)
+    };
+    assert_eq!(glass_count(false), 0, "solid by default");
+    assert_eq!(glass_count(true), 1, "the dialog is glass when floating glass is on");
+}

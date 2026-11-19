@@ -30,6 +30,7 @@ pub fn panel<M: 'static>() -> Div<M> {
         .border(1.0, Tone::Line)
         .rounded(Radius::Card)
         .shadow(Shadow::FLOATING)
+        .floating_glass()
         .padding(4.0)
         .transition(Spring::SNAPPY)
         .appear()

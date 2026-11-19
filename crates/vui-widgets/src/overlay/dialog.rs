@@ -21,6 +21,7 @@ pub fn dialog<M: Clone + 'static>(on_close: M, content: impl IntoChildren<M>) ->
         .bg(Tone::Bg)
         .rounded(Radius::Panel)
         .shadow(Shadow::FLOATING)
+        .floating_glass()
         .role(Role::Dialog)
         .trap_focus()
         .on_dismiss(on_close)

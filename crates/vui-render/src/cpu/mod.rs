@@ -4,12 +4,13 @@
 //! sessions, CI) and is what `VUI_RENDERER=cpu` selects. Every command the GPU renderer draws is
 //! drawn here from the same maths: rounded boxes, borders and continuous corners from the same
 //! distance field, text from the same swash glyph images, pictures from a linear-light mip chain,
-//! meshes at pixel centres, and the built-in shadow, shimmer and glow. Custom shader passes the app
+//! meshes at pixel centres, the built-in shadow, shimmer and glow, and glass. Custom shader passes the app
 //! added are GPU-only and are skipped.
 //!
 //! Frames match the GPU's to within a few levels per channel: the golden tests compare the two.
 
 mod canvas;
+mod glass;
 mod glyphs;
 mod layers;
 mod pictures;
@@ -69,6 +70,7 @@ impl CpuRenderer {
                 Command::Mesh(m) => triangles::mesh(canvas, m, scale),
                 Command::Custom(c) if c.pass == vui_core::effects::PASS => shapes::effect(canvas, c, scale),
                 Command::Custom(c) if c.pass == vui_core::shading::PASS => shading::shade(canvas, c, scale),
+                Command::Custom(c) if c.pass == vui_core::glass::PASS => glass::draw(canvas, c, scale),
                 Command::Custom(_) => {}
                 Command::Layer(l) => self.layer(canvas, l, scale, depth),
             }

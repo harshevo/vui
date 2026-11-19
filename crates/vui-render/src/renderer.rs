@@ -8,6 +8,7 @@ use vui_core::{Color, CustomCmd, Fonts, ImageId, Resources};
 
 use crate::context::{Gpu, GpuError};
 use crate::custom::CustomPass;
+use crate::glass::{GlassPipeline, Params};
 use crate::image::Image;
 use crate::image_pipeline::{ImageInstance, ImagePipeline, ImageStats};
 use crate::layer::{self, LayerInstance, LayerPipeline};
@@ -26,6 +27,8 @@ enum Batch {
     Mesh(MeshDraw),
     /// A layer drawn earlier this frame into texture `target`, composited by instance `instance`.
     Layer { target: usize, instance: u32 },
+    /// Glass `index` of this frame: the frame so far is blurred under it, then it is drawn.
+    Glass(u32),
 }
 
 struct Pass {
@@ -45,6 +48,8 @@ pub struct Renderer {
     text: TextPipeline,
     meshes: MeshPipeline,
     layers: LayerPipeline,
+    glass: GlassPipeline,
+    scratch_glass: Vec<Params>,
     scratch_meshes: (Vec<MeshVertex>, Vec<u32>),
     scratch_quads: Vec<QuadInstance>,
     scratch_images: Vec<ImageInstance>,
@@ -63,6 +68,7 @@ impl Renderer {
         let text = TextPipeline::new(&device, &queue, format);
         let meshes = MeshPipeline::new(&device, format);
         let layers = LayerPipeline::new(&device, format);
+        let glass = GlassPipeline::new(&device, format);
         let effects = Pass { name: vui_core::effects::PASS, pass: Box::new(crate::effects::pass(&device, format)), commands: Vec::new() };
         let shading = Pass { name: vui_core::shading::PASS, pass: Box::new(crate::shading::pass(&device, format)), commands: Vec::new() };
         Renderer {
@@ -75,6 +81,8 @@ impl Renderer {
             text,
             meshes,
             layers,
+            glass,
+            scratch_glass: Vec::new(),
             scratch_meshes: (Vec::new(), Vec::new()),
             scratch_quads: Vec::new(),
             scratch_images: Vec::new(),
@@ -156,7 +164,7 @@ impl Renderer {
             targets.push(target);
         }
 
-        self.plan(commands, scale, size_px, &targets);
+        self.plan(commands, scale, size_px, &targets, clear.is_some());
         let viewport = [size_px.0 as f32, size_px.1 as f32];
         self.quads.upload(&self.device, &self.queue, &self.scratch_quads, viewport);
         self.images.upload(&self.device, &self.queue, &self.scratch_images, viewport);
@@ -189,48 +197,76 @@ impl Renderer {
             }
         }
 
+        let load = match clear {
+            Some(c) => {
+                let p = c.premultiplied();
+                wgpu::LoadOp::Clear(wgpu::Color { r: p[0] as f64, g: p[1] as f64, b: p[2] as f64, a: p[3] as f64 })
+            }
+            None => wgpu::LoadOp::Load,
+        };
         let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("vui frame") });
-        {
-            let load = match clear {
-                Some(c) => {
-                    let p = c.premultiplied();
-                    wgpu::LoadOp::Clear(wgpu::Color { r: p[0] as f64, g: p[1] as f64, b: p[2] as f64, a: p[3] as f64 })
+        if self.scratch_glass.is_empty() {
+            self.encode(&mut encoder, view, load, 0..self.batches.len(), size_px);
+        } else {
+            // Draw into a frame of our own in runs split at each glass, so each can read what is
+            // behind it, then copy the frame to `view`.
+            let frame = self.glass.prepare(&self.device, &self.queue, &self.scratch_glass, size_px, depth);
+            let mut load = if clear.is_some() { load } else { wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT) };
+            let mut start = 0;
+            for (i, batch) in self.batches.iter().enumerate() {
+                if let Batch::Glass(g) = batch {
+                    self.encode(&mut encoder, &frame, load, start..i, size_px);
+                    load = wgpu::LoadOp::Load;
+                    self.glass.blur(&mut encoder, &self.scratch_glass[*g as usize], *g, depth);
+                    start = i;
                 }
-                None => wgpu::LoadOp::Load,
-            };
-            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("vui pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view,
-                    depth_slice: None,
-                    resolve_target: None,
-                    ops: wgpu::Operations { load, store: wgpu::StoreOp::Store },
-                })],
-                depth_stencil_attachment: None,
-                timestamp_writes: None,
-                occlusion_query_set: None,
-                multiview_mask: None,
-            });
-            for batch in &self.batches {
-                match batch {
-                    Batch::Quads(range) => self.quads.draw(&mut pass, range.clone()),
-                    Batch::Image { instance, id } => self.images.draw(&mut pass, *id, *instance),
-                    Batch::Text { renderer, .. } => self.text.draw(*renderer, &mut pass),
-                    Batch::Custom { pass: p, index } => self.passes[*p].pass.draw(&mut pass, *index),
-                    Batch::Mesh(draw) => self.meshes.draw(&mut pass, draw, [size_px.0, size_px.1]),
-                    Batch::Layer { target, instance } => self.layers.draw(&mut pass, *target, *instance),
-                }
+            }
+            self.encode(&mut encoder, &frame, load, start..self.batches.len(), size_px);
+            if clear.is_none() {
+                // The frame began transparent rather than with what `view` held: draw it over.
+                self.glass.copy_over(&mut encoder, view, depth);
+            } else {
+                self.glass.copy(&mut encoder, view, depth);
             }
         }
         self.queue.submit([encoder.finish()]);
     }
 
+    /// Records `batches[range]` in one pass into `view`.
+    fn encode(&self, encoder: &mut wgpu::CommandEncoder, view: &wgpu::TextureView, load: wgpu::LoadOp<wgpu::Color>, range: Range<usize>, size_px: (u32, u32)) {
+        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("vui pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view,
+                depth_slice: None,
+                resolve_target: None,
+                ops: wgpu::Operations { load, store: wgpu::StoreOp::Store },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+            multiview_mask: None,
+        });
+        for batch in &self.batches[range] {
+            match batch {
+                Batch::Quads(range) => self.quads.draw(&mut pass, range.clone()),
+                Batch::Image { instance, id } => self.images.draw(&mut pass, *id, *instance),
+                Batch::Text { renderer, .. } => self.text.draw(*renderer, &mut pass),
+                Batch::Custom { pass: p, index } => self.passes[*p].pass.draw(&mut pass, *index),
+                Batch::Mesh(draw) => self.meshes.draw(&mut pass, draw, [size_px.0, size_px.1]),
+                Batch::Layer { target, instance } => self.layers.draw(&mut pass, *target, *instance),
+                Batch::Glass(g) => self.glass.draw(&mut pass, *g),
+            }
+        }
+    }
+
     /// Splits `commands` into batches and converts the quads to instances. `targets` holds, for
     /// each layer in order, the texture it was drawn into and where in the window that sits.
-    fn plan(&mut self, commands: &[Command], scale: f32, size_px: (u32, u32), targets: &[Option<(usize, [u32; 4])>]) {
+    fn plan(&mut self, commands: &[Command], scale: f32, size_px: (u32, u32), targets: &[Option<(usize, [u32; 4])>], backdrop: bool) {
         self.scratch_quads.clear();
         self.scratch_images.clear();
         self.scratch_layers.clear();
+        self.scratch_glass.clear();
         self.scratch_meshes.0.clear();
         self.scratch_meshes.1.clear();
         self.batches.clear();
@@ -271,6 +307,13 @@ impl Renderer {
                     let (vertices, indices) = &mut self.scratch_meshes;
                     if let Some(draw) = MeshPipeline::add(cmd, scale, [size_px.0, size_px.1], vertices, indices) {
                         self.batches.push(Batch::Mesh(draw));
+                    }
+                }
+                Command::Custom(cmd) if cmd.pass == vui_core::glass::PASS => {
+                    i += 1;
+                    if let Some(p) = Params::new(cmd, scale, size_px, backdrop) {
+                        self.batches.push(Batch::Glass(self.scratch_glass.len() as u32));
+                        self.scratch_glass.push(p);
                     }
                 }
                 Command::Custom(cmd) => {

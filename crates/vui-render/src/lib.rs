@@ -4,6 +4,7 @@
 //! scene in memory where there is no GPU. `Renderer::headless()` needs no window, which is how the
 //! tests and the gallery's screenshots work.
 
+mod glass;
 mod image_pipeline;
 mod instanced;
 mod layer;

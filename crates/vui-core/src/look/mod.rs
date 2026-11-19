@@ -411,6 +411,8 @@ pub fn porcelain() -> Theme {
     p.field = Color::hex(0xEFE7D9);
     p.track_off = Color::hex(0xE6DCCB);
     t.ext.set("surface", Color::hex(0xFAF7F1));
+    // Frosted glass on floating panels, palette, menus and the ticket (plan §15).
+    t.glass.floating = true;
     t
 }
 
@@ -435,6 +437,7 @@ pub fn graphite() -> Theme {
     p.field = Color::hex(0x0F1217);
     p.track_off = Color::hex(0x272C36);
     t.ext.set("surface", Color::hex(0x14171D));
+    t.glass.floating = true;
     t
 }
 
@@ -507,6 +510,10 @@ fn glass_token(g: &mut Glass, name: &str, v: &Value, p: &mut Vec<String>) {
         "rim" => number(v, &full, 0.0..=1.0, p, |n| g.rim = n),
         "specular" => number(v, &full, 0.0..=1.0, p, |n| g.specular = n),
         "grain" => number(v, &full, 0.0..=0.2, p, |n| g.grain = n),
+        "floating" => match v.as_bool() {
+            Some(b) => g.floating = b,
+            None => p.push(format!("{full} should be true or false")),
+        },
         _ => p.push(format!("{full} is not a glass setting")),
     }
 }
@@ -619,6 +626,7 @@ surface = "#FAF7F1"
 accent_soft = "#86BDF224"
 [glass.dark]
 opacity = 0.7
+floating = true
 [notch]
 backdrop = "blur"
 wing_max = 100
@@ -643,6 +651,8 @@ density = "compact"
         let dark = look.theme("vmac", Mode::Dark, Theme::for_mode);
         assert_eq!(dark.palette.bg, graphite().palette.bg, "graphite is the dark half");
         assert_eq!(dark.glass.opacity, 0.7);
+        assert!(dark.glass.floating && light.glass.floating, "porcelain and graphite float on glass");
+        assert!(!Theme::light().glass.floating, "the plain theme stays solid");
         assert_eq!(dark.palette.wash.a, 0x24 as f32 / 255.0);
         assert_eq!(look.theme("vtrade", Mode::Light, Theme::for_mode).palette.accent, colour("#2E6EA8").unwrap(), "vtrade's own accent");
         assert_eq!(look.density("vcoding"), Density::Compact);

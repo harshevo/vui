@@ -266,13 +266,16 @@ pub struct Glass {
     pub rim: f32,
     pub specular: f32,
     pub grain: f32,
+    /// Floating surfaces (menus, popovers, dialogs, the command palette) are made of this glass.
+    /// Off, they stay solid.
+    pub floating: bool,
 }
 
 impl Glass {
     pub fn for_mode(mode: Mode) -> Glass {
         match mode {
-            Mode::Light => Glass { tint: Color::hex(0xffffff), opacity: 0.55, blur: 28.0, saturation: 1.15, refraction: 6.0, dispersion: 0.25, rim: 0.6, specular: 0.35, grain: 0.02 },
-            Mode::Dark => Glass { tint: Color::hex(0x14171d), opacity: 0.62, blur: 32.0, saturation: 1.2, refraction: 6.0, dispersion: 0.25, rim: 0.45, specular: 0.25, grain: 0.03 },
+            Mode::Light => Glass { tint: Color::hex(0xffffff), opacity: 0.55, blur: 28.0, saturation: 1.15, refraction: 6.0, dispersion: 0.25, rim: 0.6, specular: 0.35, grain: 0.02, floating: false },
+            Mode::Dark => Glass { tint: Color::hex(0x14171d), opacity: 0.62, blur: 32.0, saturation: 1.2, refraction: 6.0, dispersion: 0.25, rim: 0.45, specular: 0.25, grain: 0.03, floating: false },
         }
     }
 

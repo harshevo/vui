@@ -36,6 +36,7 @@ pub fn drawer<M: Clone + 'static>(edge: Edge, on_close: M, content: impl IntoChi
         .gap(16.0)
         .bg(Tone::Bg)
         .shadow(Shadow::FLOATING)
+        .floating_glass()
         .role(Role::Dialog)
         .trap_focus()
         .on_dismiss(on_close)

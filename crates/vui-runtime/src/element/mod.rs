@@ -114,6 +114,10 @@ pub struct Decor {
     pub border: Option<(f32, Fill)>,
     /// A soft shadow under the element's box, drawn by the renderer's effects pass.
     pub shadow: Option<vui_core::Shadow>,
+    /// The box is the theme's glass: what is behind it blurred and tinted (`vui_core::glass`).
+    pub glass: bool,
+    /// The box is glass when the theme makes floating surfaces glass, and its fill is left out.
+    pub floating_glass: bool,
     /// A gradient over the fill, drawn by the renderer's shading pass.
     pub gradient: Option<vui_core::shading::Gradient>,
     /// A border coloured by a gradient, this many points wide.
@@ -138,6 +142,8 @@ impl Default for Decor {
             drop_fill: Fill::NONE,
             border: None,
             shadow: None,
+            glass: false,
+            floating_glass: false,
             gradient: None,
             gradient_border: None,
             radius: Radius::None,

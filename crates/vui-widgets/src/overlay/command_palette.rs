@@ -130,6 +130,7 @@ pub fn command_palette<M: Clone + 'static>(state: &Picker, commands: &[Command],
         .border(1.0, Tone::Line)
         .rounded(Radius::Panel)
         .shadow(Shadow::FLOATING)
+        .floating_glass()
         .role(Role::Dialog)
         .name("Command palette")
         .trap_focus()
