@@ -26,7 +26,7 @@ use vui_icons::set as icon_set;
 use vui_runtime::layout::{Avail, Pair};
 use vui_runtime::{
     Align, Base, Builder, Dirty, Div, Element, Env, EventCx, Focus, IntoElement, Overflow, PaintCx, Parent, Radius, Styled, Widget, WidgetEvent,
-    builder, column, label, row,
+    builder, column, row, small,
 };
 
 use crate::icon_button;
@@ -606,21 +606,21 @@ where
             }
             let handle = drag_source().on_click(on(DockMsg::Activate(p.clone())));
             let handle = if d.locked { handle } else { handle.on_drag(on(DockMsg::Drag(p.clone()))).on_drop(on(DockMsg::Drop)) };
-            let close = (!d.locked && shown).then(|| icon_button(icon_set::X, "Close").on_click(on(DockMsg::Close(p.clone()))).square(20.0));
+            let close = (!d.locked && shown).then(|| icon_button(icon_set::X, "Close").on_click(on(DockMsg::Close(p.clone()))).square(18.0));
             row()
                 .key(format!("tab-{title}"))
                 .name(title.clone())
-                .height(28.0)
+                .height(26.0)
                 .padding_x(10.0)
                 .gap(4.0)
                 .align_items(Align::Center)
                 .rounded(Radius::Pill)
                 .bg(if shown { Fill::from(Tone::Wash) } else { Fill::NONE })
                 .hover_bg(if shown { Tone::Wash } else { Tone::Hover })
-                .children((label(title).color(if shown { Tone::Text } else { Tone::Text2 }).max_lines(1), handle, close))
+                .children((small(title).weight(500).color(if shown { Tone::Text } else { Tone::Text2 }).max_lines(1), handle, close))
         })
         .collect();
-    let bar = row().height(32.0).gap(2.0).align_items(Align::Center).min_width(0.0).children((
+    let bar = row().height(30.0).gap(2.0).align_items(Align::Center).min_width(0.0).children((
         row().grow(1.0).gap(2.0).align_items(Align::Center).min_width(0.0).overflow(Overflow::Hidden).children(heads),
         tools.map(|t| row().shrink(0.0).align_items(Align::Center).child(t)),
     ));
