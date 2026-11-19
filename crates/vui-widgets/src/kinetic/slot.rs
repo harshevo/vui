@@ -22,6 +22,8 @@ const STEP: f32 = 22.0;
 const ROW: f32 = 18.0;
 /// How hard the drum bounces when it is pushed past either end.
 const KICK: f32 = 7.0;
+/// How hard it turns the first time the pointer comes over it.
+const NUDGE: f32 = 6.0;
 
 type Pick<M> = Rc<dyn Fn(usize) -> M>;
 
@@ -42,6 +44,9 @@ pub struct SlotState {
     wheel: f32,
     /// While the pointer is down: where it last stepped from, and whether it has stepped at all.
     drag: Option<(f32, bool)>,
+    /// Whether the drum has shown that it turns, which it does once, the first time the pointer
+    /// comes over it.
+    shown: bool,
 }
 
 impl<M> SlotWidget<M> {
@@ -72,7 +77,7 @@ impl<M: 'static> Widget<M> for SlotWidget<M> {
     type State = SlotState;
 
     fn create_state(&self) -> SlotState {
-        SlotState { layouts: Vec::new(), roll: SpringValue::new(self.chosen as f32, Spring::SNAPPY), wheel: 0.0, drag: None }
+        SlotState { layouts: Vec::new(), roll: SpringValue::new(self.chosen as f32, Spring::SNAPPY), wheel: 0.0, drag: None, shown: false }
     }
 
     fn update(&self, old: &SlotWidget<M>, state: &mut SlotState) -> Dirty {
@@ -129,6 +134,14 @@ impl<M: 'static> Widget<M> for SlotWidget<M> {
 
     fn event(&self, state: &mut SlotState, cx: &mut EventCx<M>, event: &WidgetEvent) -> bool {
         match event {
+            WidgetEvent::HoverChanged(true) if !state.shown => {
+                // A small turn towards the next word and back: this is a drum, not a label.
+                state.shown = true;
+                let towards = if self.chosen + 1 < self.labels.len() { 1.0 } else { -1.0 };
+                state.roll.set_velocity(NUDGE * towards);
+                cx.request_frame();
+                false
+            }
             WidgetEvent::Input(Event::Scroll { delta, .. }) => {
                 // Content moving up (the wheel turned towards you) brings the next option in.
                 state.wheel += delta.y;

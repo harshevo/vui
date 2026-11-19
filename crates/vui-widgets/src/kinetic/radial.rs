@@ -82,9 +82,14 @@ impl<M: 'static> Widget<M> for RadialWidget<M> {
         if r < 1.0 {
             return;
         }
-        // The disc itself is the layer around the widget: a raised floating surface. Inside it, a
-        // soft hole in the middle unless a title sits there.
+        // The disc itself is the layer around the widget, a floating surface. A faint wash of the
+        // text colour lifts it off a sheet of the same colour (lighter in dark, greyer in light),
+        // and a soft hole sits in the middle unless a title does.
         let side = cx.color(Tone::Side);
+        let lift = Rect::new(c.x - r, c.y - r, r * 2.0, r * 2.0);
+        // A plain quad: the smoothed corners of fill_rounded would square a full circle off.
+        let wash = cx.color(Fill::Tone(Tone::Text, 0.05));
+        cx.quad(Quad::new(lift).fill(wash).radii(Corners::all(r)));
         match &self.title {
             Some(title) => {
                 let layout = line(cx.env, title, TextRole::Small, 600, true);
@@ -219,8 +224,8 @@ pub fn radial_menu<M: Clone + 'static>(at: Point, title: Option<String>, choices
         .size(RADIUS * 2.0, RADIUS * 2.0)
         .rounded(vui_runtime::Radius::Pill)
         .bg(Tone::Bg)
-        .border(1.0, Tone::Line)
-        .shadow(vui_core::Shadow::RAISED)
+        .border(1.0, Fill::Tone(Tone::Text, 0.14))
+        .shadow(vui_core::Shadow::FLOATING)
         .floating_glass()
         .appear()
         .on_dismiss(on_close)

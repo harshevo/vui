@@ -15,6 +15,8 @@ const PAD: f32 = 10.0;
 const DRAIN: f32 = 4.0;
 /// How long the full fill stays after it fires.
 const DONE: f32 = 0.5;
+/// How far the pointer may stray off the button while holding before the hold is cancelled.
+const SLACK: f32 = 12.0;
 
 /// The widget behind [`Hold`].
 pub struct HoldWidget<M> {
@@ -105,6 +107,16 @@ impl<M: 'static> Widget<M> for HoldWidget<M> {
             WidgetEvent::Input(Event::PointerDown { button: PointerButton::Primary, .. }) => {
                 cx.capture_pointer();
                 self.start(state, cx);
+                true
+            }
+            WidgetEvent::Input(Event::PointerMoved { pos, .. }) if state.holding && !state.fired => {
+                // Sliding off the button is the other way to change your mind.
+                let r = cx.rect;
+                let near = pos.x >= r.x - SLACK && pos.x <= r.x + r.w + SLACK && pos.y >= r.y - SLACK && pos.y <= r.y + r.h + SLACK;
+                if !near {
+                    state.holding = false;
+                    cx.request_frame();
+                }
                 true
             }
             WidgetEvent::Input(Event::PointerUp { .. }) => {

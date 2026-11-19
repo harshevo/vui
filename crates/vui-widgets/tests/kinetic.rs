@@ -186,6 +186,37 @@ fn hold_fires_only_after_the_hold_and_not_on_an_early_release() {
 }
 
 #[test]
+fn sliding_off_a_held_button_cancels_it() {
+    let mut ui = lab();
+    let c = ui.center("kill");
+    let away = pt(c.x + 300.0, c.y);
+    ui.press(c).advance(0.2).move_to(away);
+    for _ in 0..60 {
+        ui.advance(1.0 / 60.0);
+    }
+    ui.release(away).settle();
+    assert!(log(&mut ui).is_empty(), "dragged away: nothing happens");
+    // A small wobble while holding is still a hold.
+    ui.press(c).move_to(pt(c.x + 6.0, c.y + 4.0));
+    for _ in 0..45 {
+        ui.advance(1.0 / 60.0);
+    }
+    assert_eq!(log(&mut ui), vec![Msg::Kill]);
+    ui.release(c).settle();
+}
+
+#[test]
+fn hovering_the_slot_turns_it_a_little_and_picks_nothing() {
+    let mut ui = lab();
+    let c = ui.center("product");
+    ui.move_to(c).advance(0.05);
+    assert!(texts(&ui.scene()).iter().any(|t| t == "CNC"), "the next word turns into view");
+    ui.settle();
+    assert!(texts(&ui.scene()).iter().any(|t| t == "MIS"), "and it settles back on the chosen one");
+    assert!(log(&mut ui).is_empty(), "showing it turns picks nothing");
+}
+
+#[test]
 fn the_radial_menu_picks_by_direction_and_closes_from_the_middle() {
     let mut ui = lab();
     let p = pt(240.0, 300.0);

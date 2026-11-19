@@ -185,9 +185,11 @@ impl<M: 'static> Widget<M> for ScrubWidget<M> {
         let mut content = cx.content;
         content.x += super::shake_offset(state.shake, cx.env.prefs.reduce_motion);
         let mid = content.y + content.h / 2.0;
+        let mut named = content.x;
         if let Some(name) = &self.name {
             let layout = line(cx.env, name, TextRole::Small, 400, false);
             let h = layout.size().h;
+            named += layout.size().w;
             cx.text(layout, pt(content.x, mid - h / 2.0), Tone::Text3);
         }
         let (text, real) = self.shown(state);
@@ -208,14 +210,26 @@ impl<M: 'static> Widget<M> for ScrubWidget<M> {
             cx.quad(Quad::new(cx.snap(caret)).fill(accent));
             let r = cx.radii;
             cx.quad(Quad::new(cx.rect).radii(r).border(1.0, accent));
-        } else if cx.hover > 0.01 && real {
-            // A dotted line under the value says it can be dragged.
-            let color = cx.color(Fill::Tone(Tone::Text3, 0.8 * cx.hover));
-            let y = mid + s.h / 2.0 + 1.0;
-            let mut dx = 0.0;
-            while dx < s.w {
-                cx.quad(Quad::new(cx.snap(Rect::new(x + dx, y, 2.0, 1.0))).fill(color).radii(Corners::all(0.5)));
-                dx += 4.0;
+        } else if cx.hover > 0.01 {
+            // Chevrons either side of the value say it moves sideways; a dotted line under it says
+            // it can be dragged.
+            let fill = Fill::Tone(Tone::Text3, cx.hover);
+            let weight = vui_icons::Weight::Regular;
+            // Small enough to sit in the padding on the right; the left one only where the label
+            // leaves room for it.
+            let (c, half) = (7.0, 3.5);
+            if x - c - 2.0 >= named + 4.0 {
+                crate::display::icon::paint_icon(cx, vui_icons::set::CHEVRON_LEFT, Rect::new(x - c - 2.0, mid - half, c, c), fill, weight);
+            }
+            crate::display::icon::paint_icon(cx, vui_icons::set::CHEVRON_RIGHT, Rect::new(content.x + content.w + 0.5, mid - half, c, c), fill, weight);
+            if real {
+                let color = cx.color(Fill::Tone(Tone::Text3, 0.8 * cx.hover));
+                let y = mid + s.h / 2.0 + 1.0;
+                let mut dx = 0.0;
+                while dx < s.w {
+                    cx.quad(Quad::new(cx.snap(Rect::new(x + dx, y, 2.0, 1.0))).fill(color).radii(Corners::all(0.5)));
+                    dx += 4.0;
+                }
             }
         }
     }
