@@ -182,7 +182,17 @@ impl<A: 'static, B: 'static> Erased<B> for Mapped<A, B> {
     }
 
     fn tick(&self, state: &mut dyn Any, cx: &mut TickCx, dt: f32) -> bool {
-        self.inner.tick(state, cx, dt)
+        // What the inner widget sends is in its own type; map it into the parent's.
+        let from = cx.sent.len();
+        let moving = self.inner.tick(state, cx, dt);
+        for slot in &mut cx.sent[from..] {
+            let boxed = std::mem::replace(slot, Box::new(()));
+            *slot = match boxed.downcast::<A>() {
+                Ok(m) => Box::new((self.f)(*m)),
+                Err(other) => other,
+            };
+        }
+        moving
     }
 
     fn animating(&self, state: &dyn Any) -> bool {

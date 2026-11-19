@@ -89,11 +89,13 @@ impl<M: 'static> Ui<M> {
             layout: false,
             arrange: false,
             paint: false,
+            sent: Vec::new(),
         };
         if let Some(root) = self.root.as_mut() {
             root.tick(dt, &mut ts);
         }
         let (moving, wake, layout, arrange, painted) = (ts.moving, ts.wake, ts.layout, ts.arrange, ts.paint);
+        let sent: Vec<M> = ts.sent.into_iter().filter_map(|m| m.downcast::<M>().ok().map(|m| *m)).collect();
         core.animating = moving;
         let now = core.time;
         let mut at = wake.map(|s| now + s);
@@ -110,6 +112,10 @@ impl<M: 'static> Ui<M> {
             core.paint_dirty = true;
         }
         self.sync();
+        if !sent.is_empty() {
+            self.core.out.messages.extend(sent);
+            self.pump();
+        }
         self.fire_timers();
         self.poll();
     }

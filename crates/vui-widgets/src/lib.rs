@@ -19,6 +19,7 @@
 //! | `layout` | `field`, `setting`, `splitter`, `disclosure`, `accordion` |
 //! | `media` | `web_view`, `video`, `pdf_view`: native views placed by layout |
 //! | `navigation` | `sidebar`, `nav_item`, `list`, `list_row`, `tabs`, `breadcrumbs`, `pagination`, `stepper`, `toolbar`, `carousel` |
+//! | `kinetic` | `segments`, `slot`, `scrub`, `hold_button`, `split_button`, `radial_menu`, `tone_chip`, `shake` |
 //! | `overlay` | `popover`, `dropdown`, `menu`, `select`, `context_menu`, `dialog`, `toasts`, `command_palette`, `drawer`, `sheet`, `hover_card` |
 
 mod buttons;
@@ -27,6 +28,7 @@ mod data;
 mod display;
 mod feedback;
 mod inputs;
+mod kinetic;
 mod layout;
 pub mod media;
 mod navigation;
@@ -38,6 +40,7 @@ pub use data::*;
 pub use display::*;
 pub use feedback::*;
 pub use inputs::*;
+pub use kinetic::*;
 pub use layout::*;
 pub use media::{PdfView, Video, WebView, pdf_view, video, web_view};
 pub use navigation::*;

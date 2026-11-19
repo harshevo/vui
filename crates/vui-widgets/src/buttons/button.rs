@@ -17,6 +17,9 @@ pub enum ButtonVariant {
     Ghost,
     /// Irreversible actions only.
     Danger,
+    /// A soft wash of a colour with the label in that colour: Buy in green, Sell in red, where the
+    /// colour carries the meaning and a solid fill would shout.
+    Soft(Tone),
 }
 
 /// A button's height and the size of its text.
@@ -53,18 +56,21 @@ impl<M: 'static> Button<M> {
             ButtonVariant::Primary => (Tone::OnAccent, Tone::OnAccent),
             ButtonVariant::Danger => (Tone::OnDanger, Tone::OnDanger),
             ButtonVariant::Secondary | ButtonVariant::Ghost => (Tone::Text, Tone::Text2),
+            ButtonVariant::Soft(tone) => (tone, tone),
         };
         spec.label_color = label.into();
         spec.icon_color = icon.into();
         spec.detail_color = match variant {
             ButtonVariant::Primary | ButtonVariant::Danger => Fill::Tone(label, 0.7),
             ButtonVariant::Secondary | ButtonVariant::Ghost => Tone::Text3.into(),
+            ButtonVariant::Soft(tone) => Fill::Tone(tone, 0.7),
         };
         match variant {
             ButtonVariant::Primary => self.bg(Tone::Accent).hover_bg(Fill::Tone(Tone::Text, 0.10)).press_bg(Fill::Tone(Tone::Text, 0.20)).border(0.0, Fill::NONE),
             ButtonVariant::Danger => self.bg(Tone::Danger).hover_bg(Fill::Tone(Tone::Text, 0.10)).press_bg(Fill::Tone(Tone::Text, 0.20)).border(0.0, Fill::NONE),
             ButtonVariant::Secondary => self.bg(Tone::Wash).hover_bg(Tone::Hover).press_bg(Tone::Wash).border(0.0, Fill::NONE),
             ButtonVariant::Ghost => self.bg(Fill::NONE).hover_bg(Tone::Hover).press_bg(Tone::Wash).border(0.0, Fill::NONE),
+            ButtonVariant::Soft(tone) => self.bg(Fill::Tone(tone, 0.16)).hover_bg(Fill::Tone(tone, 0.10)).press_bg(Fill::Tone(tone, 0.18)).border(0.0, Fill::NONE),
         }
     }
 
@@ -82,6 +88,11 @@ impl<M: 'static> Button<M> {
 
     pub fn danger(self) -> Self {
         self.variant(ButtonVariant::Danger)
+    }
+
+    /// A soft wash of `tone` with the label in it.
+    pub fn soft(self, tone: Tone) -> Self {
+        self.variant(ButtonVariant::Soft(tone))
     }
 
     pub fn size(mut self, size: ButtonSize) -> Self {

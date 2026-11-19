@@ -120,6 +120,7 @@ impl<M: 'static> Node<M> {
             layout: false,
             paint: false,
             wake: None,
+            sent: Vec::new(),
         };
         if self.widget.tick(&mut *self.state, &mut cx, dt) {
             ts.moving = true;
@@ -127,6 +128,7 @@ impl<M: 'static> Node<M> {
         }
         layout |= cx.layout;
         ts.paint |= cx.paint;
+        ts.sent.append(&mut cx.sent);
         if let Some(w) = cx.wake {
             ts.wake = Some(ts.wake.map_or(w, |old| old.min(w)));
         }

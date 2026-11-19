@@ -295,6 +295,8 @@ pub(crate) struct TickState<'a> {
     pub layout: bool,
     pub arrange: bool,
     pub paint: bool,
+    /// Messages widgets sent from `tick`, boxed; the `Ui` unboxes them as its own message type.
+    pub sent: Vec<Box<dyn Any>>,
 }
 
 impl<M: 'static> Node<M> {

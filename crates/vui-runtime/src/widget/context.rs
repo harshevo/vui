@@ -140,9 +140,17 @@ pub struct TickCx<'a> {
     pub(crate) layout: bool,
     pub(crate) paint: bool,
     pub(crate) wake: Option<f32>,
+    /// Messages sent while time passed, typed by the widget that sent them.
+    pub(crate) sent: Vec<Box<dyn Any>>,
 }
 
 impl TickCx<'_> {
+    /// Sends `message` to the app, as `EventCx::emit` does: for something that happens because time
+    /// passed, such as a hold finishing. `M` is the widget's message type.
+    pub fn emit<M: 'static>(&mut self, message: M) {
+        self.sent.push(Box::new(message));
+    }
+
     /// Steps a widget's own spring, or, with reduced motion on, puts it straight where it is going.
     /// Returns true while it is still moving.
     pub fn step(&self, spring: &mut vui_core::SpringValue, dt: f32) -> bool {
