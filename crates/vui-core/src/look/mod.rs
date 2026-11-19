@@ -164,6 +164,14 @@ impl Look {
         self.doc.is_empty()
     }
 
+    /// The text the file sets at `path` (`["apps", "vtrade", "accent"]`), as written: what a settings
+    /// screen shows as chosen. None where the file doesn't set it.
+    pub fn text(&self, path: &[&str]) -> Option<&str> {
+        let (last, tables) = path.split_last()?;
+        let table = if tables.is_empty() { &self.doc } else { self.table(tables)? };
+        table.get(*last).and_then(Value::as_str)
+    }
+
     fn str(&self, key: &str) -> Option<&str> {
         self.doc.get(key).and_then(Value::as_str)
     }
@@ -651,6 +659,9 @@ density = "compact"
         let dark = look.theme("vmac", Mode::Dark, Theme::for_mode);
         assert_eq!(dark.palette.bg, graphite().palette.bg, "graphite is the dark half");
         assert_eq!(dark.glass.opacity, 0.7);
+        assert_eq!(look.text(&["apps", "vtrade", "accent"]), Some("#2E6EA8"));
+        assert_eq!(look.text(&["theme"]), Some("porcelain"));
+        assert_eq!(look.text(&["apps", "nobody", "accent"]), None);
         assert!(dark.glass.floating && light.glass.floating, "porcelain and graphite float on glass");
         assert!(!Theme::light().glass.floating, "the plain theme stays solid");
         assert_eq!(dark.palette.wash.a, 0x24 as f32 / 255.0);
