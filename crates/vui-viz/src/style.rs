@@ -96,6 +96,10 @@ pub enum Ink {
     Up,
     /// The market's falling colour (red).
     Down,
+    /// The theme's blue and purple: data hues for series that must not read as the accent (an
+    /// action) or as up and down (the market).
+    Blue,
+    Purple,
     Color(Color),
 }
 
@@ -110,6 +114,8 @@ impl Ink {
             Ink::Soft => style.ink_3,
             Ink::Up => style.up,
             Ink::Down => style.down,
+            Ink::Blue => style.hues[5],
+            Ink::Purple => style.hues[3],
             Ink::Color(c) => c,
         }
     }
