@@ -218,10 +218,10 @@ impl<M: 'static> Widget<M> for ScrubWidget<M> {
             // Small enough to sit in the padding on the right; the left one only where the label
             // leaves room for it.
             let (c, half) = (7.0, 3.5);
-            if x - c - 2.0 >= named + 4.0 {
-                crate::display::icon::paint_icon(cx, vui_icons::set::CHEVRON_LEFT, Rect::new(x - c - 2.0, mid - half, c, c), fill, weight);
+            if x - c - 4.0 >= named + 4.0 {
+                crate::display::icon::paint_icon(cx, vui_icons::set::CHEVRON_LEFT, Rect::new(x - c - 4.0, mid - half, c, c), fill, weight);
             }
-            crate::display::icon::paint_icon(cx, vui_icons::set::CHEVRON_RIGHT, Rect::new(content.x + content.w + 0.5, mid - half, c, c), fill, weight);
+            crate::display::icon::paint_icon(cx, vui_icons::set::CHEVRON_RIGHT, Rect::new(content.x + content.w + 2.0, mid - half, c, c), fill, weight);
             if real {
                 let color = cx.color(Fill::Tone(Tone::Text3, 0.8 * cx.hover));
                 let y = mid + s.h / 2.0 + 1.0;
