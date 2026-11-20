@@ -9,6 +9,8 @@ pub(crate) type KeyHandler<M> = Box<dyn Fn(&KeyEvent) -> Option<M>>;
 pub(crate) struct Input<M> {
     pub click: Option<Handler<M>>,
     pub press: Option<Handler<M>>,
+    /// Sent when a press lands on the element or anything inside it, beside what the press does.
+    pub within: Option<Box<dyn Fn() -> M>>,
     pub double_click: Option<Handler<M>>,
     pub secondary: Option<Handler<M>>,
     pub hover: Option<Box<dyn Fn(bool) -> M>>,
@@ -36,6 +38,7 @@ impl<M> Default for Input<M> {
         Input {
             click: None,
             press: None,
+            within: None,
             double_click: None,
             secondary: None,
             hover: None,
@@ -67,6 +70,10 @@ impl<M: 'static> Input<M> {
         Input {
             click: click(self.click),
             press: click(self.press),
+            within: self.within.map(|h| {
+                let f = f.clone();
+                Box::new(move || f(h())) as Box<dyn Fn() -> N>
+            }),
             double_click: click(self.double_click),
             secondary: click(self.secondary),
             hover: self.hover.map(|h| {

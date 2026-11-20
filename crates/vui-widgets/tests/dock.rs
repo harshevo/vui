@@ -98,3 +98,26 @@ fn a_tab_let_go_over_no_zone_is_torn_off() {
     assert_eq!(t.app::<Desk>().torn, vec!["chart"]);
     assert!(docking(&t).tree.contains(&"chart"), "the app decides what a tear-off does");
 }
+
+#[test]
+fn without_titles_a_grip_drags_the_card_and_the_last_pressed_card_is_kept() {
+    let mut t = desk();
+    t.update_app(|d: &mut Desk| d.docking.titles = false);
+    t.settle();
+    let words = vui_runtime::testing::texts(&t.scene());
+    assert!(!words.iter().any(|w| w == "chart" || w == "watch"), "no card names its panel: {words:?}");
+    assert!(t.rect("tab-chart").w > 0.0, "the grip is still there to drag");
+    assert_eq!(docking(&t).used, None);
+    let inside = t.center("card-chart");
+    t.click(inside);
+    assert_eq!(docking(&t).used, Some("chart"), "a press anywhere in a card makes it the last used");
+    t.click_key("menu-watch");
+    assert_eq!(docking(&t).used, Some("watch"));
+    assert_eq!(docking(&t).menu, Some("watch"), "being used leaves the card's menu open");
+    t.click_key("menu-watch");
+    let watch = t.rect("card-watch");
+    let before = docking(&t).tree.clone();
+    drag(&mut t, "tab-chart", Point { x: watch.x + watch.w / 2.0, y: watch.y + watch.h * 0.9 });
+    assert_ne!(docking(&t).tree, before, "the grip drags like a title");
+    assert!(t.app::<Desk>().torn.is_empty(), "dropped on a zone, not torn off");
+}

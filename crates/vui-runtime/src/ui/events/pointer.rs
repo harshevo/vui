@@ -65,6 +65,15 @@ impl<M: 'static> Run<'_, M> {
             return;
         }
         self.focus_for_press(&path);
+        if button == PointerButton::Primary {
+            // Containers that want to know a press landed inside them hear it first, outermost first.
+            for k in 0..=path.len() {
+                if let Some(h) = &node_at(self.root, &path[..k]).input.within {
+                    let message = h();
+                    self.core.out.messages.push(message);
+                }
+            }
+        }
 
         let click = Click { pos, mods, button, count };
         for k in (0..=path.len()).rev() {

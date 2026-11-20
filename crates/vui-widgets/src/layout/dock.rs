@@ -21,7 +21,8 @@
 //! ```
 //!
 //! There are no tabs: a card with one panel shows its name, and one holding several makes its name a
-//! menu of them. Double-clicking a header fills the dock with that card until it is asked back.
+//! menu of them. With [`Docking::titles`] off a card shows no name, only a faint grip to drag it by,
+//! and [`Docking::used`] says which card was pressed last, for the app to name elsewhere. Double-clicking a header fills the dock with that card until it is asked back.
 //! Dragging a header shows five drop zones over every stack (the centre joins its panels; an edge
 //! splits it); letting go anywhere else tears the panel off, for the app to open in a window of its
 //! own. A panel from outside the dock (a rail, say) can be dragged in the same way: it is inserted
@@ -345,6 +346,9 @@ pub enum DockMsg<P> {
     Menu(Option<P>),
     /// The card holding this panel fills the dock, or (`None`) the layout comes back.
     Zoom(Option<P>),
+    /// A press landed somewhere in the card showing this panel: it is the one last used. Sent
+    /// beside whatever the press does, and changes nothing else (an open menu stays open).
+    Used(P),
 }
 
 /// What a change means for the app, beyond the tree: a panel to open in a window of its own, or
@@ -368,12 +372,18 @@ pub struct Docking<P> {
     pub menu: Option<P>,
     /// The card filling the dock, by any panel in it.
     pub zoom: Option<P>,
+    /// The panel showing in the card last pressed: what an app names elsewhere, such as in the
+    /// notch, when its cards carry no titles.
+    pub used: Option<P>,
+    /// Whether each card's header names its panel. Without, a faint grip is what is dragged, and
+    /// its tooltip and accessible name say the panel.
+    pub titles: bool,
     undo: Vec<DockTree<P>>,
 }
 
 impl<P: Clone + PartialEq> Docking<P> {
     pub fn new(tree: DockTree<P>) -> Docking<P> {
-        Docking { tree, drag: None, locked: false, menu: None, zoom: None, undo: Vec::new() }
+        Docking { tree, drag: None, locked: false, menu: None, zoom: None, used: None, titles: true, undo: Vec::new() }
     }
 
     /// Keeps the tree as it is now as one undo step: before the app changes it itself.
@@ -395,7 +405,7 @@ impl<P: Clone + PartialEq> Docking<P> {
     }
 
     pub fn update(&mut self, msg: DockMsg<P>) -> Option<DockEvent<P>> {
-        if !matches!(msg, DockMsg::Menu(_) | DockMsg::Over(..)) {
+        if !matches!(msg, DockMsg::Menu(_) | DockMsg::Over(..) | DockMsg::Used(_)) {
             self.menu = None;
         }
         match msg {
@@ -403,6 +413,7 @@ impl<P: Clone + PartialEq> Docking<P> {
                 self.tree.activate(&p);
             }
             DockMsg::Menu(p) => self.menu = p,
+            DockMsg::Used(p) => self.used = Some(p),
             DockMsg::Zoom(p) => self.zoom = p.filter(|p| self.tree.contains(p)),
             DockMsg::Close(p) if !self.locked => {
                 self.remember();
@@ -712,13 +723,20 @@ where
         .key(format!("tab-{shown_title}"))
         .name(shown_title.clone())
         .height(26.0)
-        .padding_x(6.0)
+        .padding_x(if d.titles { 6.0 } else { 4.0 })
         .gap(3.0)
         .shrink(0.0)
         .align_items(Align::Center)
         .rounded(Radius::Control)
-        .hover_bg(Tone::Hover)
-        .children((small(shown_title.clone()).weight(600).color(Tone::Text).max_lines(1), several.then(|| crate::icon(icon_set::CHEVRON_DOWN).square(11.0).color(Tone::Text3)), handle));
+        .hover_bg(Tone::Hover);
+    let chevron = several.then(|| crate::icon(icon_set::CHEVRON_DOWN).square(11.0).color(Tone::Text3));
+    let title = if d.titles {
+        title.children((small(shown_title.clone()).weight(600).color(Tone::Text).max_lines(1), chevron, handle))
+    } else {
+        // No name: a faint grip to drag the card by, which still names it to the pointer and to
+        // assistive tools.
+        title.tooltip(shown_title.clone()).children((crate::icon(icon_set::GRIP_VERTICAL).square(12.0).color(Tone::Text3), chevron, handle))
+    };
 
     // The card's menu: the other panels, the app's items, then fill and close.
     let mut items: Vec<Element<M>> = Vec::new();
@@ -768,6 +786,7 @@ where
         .bg(Fill::Tone(Tone::Text, 0.02))
         .border(1.0, Fill::Tone(Tone::Text, 0.08))
         .overflow(Overflow::Hidden)
+        .on_press_within(on(DockMsg::Used(current.clone())))
         .children((bar, column().grow(1.0).min_height(0.0).min_width(0.0).children(body), zones))
 }
 

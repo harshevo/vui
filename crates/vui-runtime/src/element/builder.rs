@@ -209,6 +209,17 @@ pub trait Builder<M: 'static>: Styled {
         self
     }
 
+    /// Sent when the primary button goes down on the element or anything inside it, whatever that
+    /// press goes on to do: how a pane knows it was the last one used. It takes nothing from the
+    /// press, and sends even where no handler answers it.
+    fn on_press_within(mut self, message: M) -> Self
+    where
+        M: Clone,
+    {
+        self.base_mut().input.within = Some(Box::new(move || message.clone()));
+        self
+    }
+
     /// Sent after the second click of a double click. The first click still sends `on_click`.
     fn on_double_click(self, message: M) -> Self
     where
