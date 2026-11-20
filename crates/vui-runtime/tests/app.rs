@@ -284,3 +284,33 @@ fn closing_the_window_runs_the_apps_answer_at_once() {
     assert!(t.app::<Torn>().docked);
     assert_eq!(texts(&t.scene()), vec!["docked"]);
 }
+
+/// Keeps whether its window is in front, as an app showing its place in the notch does.
+struct Front {
+    front: Vec<bool>,
+}
+
+impl App for Front {
+    type Msg = bool;
+
+    fn update(&mut self, front: bool, _cx: &mut Cx<bool>) {
+        self.front.push(front);
+    }
+
+    fn view(&self) -> impl IntoElement<bool> {
+        vui_runtime::label("front")
+    }
+
+    fn focused(&self, focused: bool) -> Option<bool> {
+        Some(focused)
+    }
+}
+
+#[test]
+fn the_app_hears_its_window_come_to_the_front_and_go_behind() {
+    let mut t = vui_runtime::testing::TestUi::with_app(200.0, 100.0, Front { front: Vec::new() });
+    t.settle();
+    t.window_focus(false);
+    t.window_focus(true);
+    assert_eq!(t.app::<Front>().front, vec![false, true]);
+}

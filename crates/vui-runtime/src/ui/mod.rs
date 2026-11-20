@@ -463,13 +463,23 @@ impl<M: 'static> Ui<M> {
         if self.devtools.inspect && matches!(event, Event::PointerMoved { .. } | Event::PointerLeft) {
             self.core.paint_dirty = true;
         }
+        let window_focus = match event {
+            Event::WindowFocus(focused) => Some(focused),
+            _ => None,
+        };
         match self.root.as_mut() {
             Some(root) => Run { root, core: &mut self.core }.event(event),
             None => {
-                if let Event::WindowFocus(focused) = event {
+                if let Some(focused) = window_focus {
                     self.core.window_focused = focused;
                 }
             }
+        }
+        // The app hears the window come to the front or go behind.
+        if let Some(focused) = window_focus
+            && let Some(message) = self.driver.as_ref().and_then(|d| d.focused(focused))
+        {
+            self.send(message);
         }
         self.pump();
         self.sync();

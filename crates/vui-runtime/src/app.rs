@@ -65,6 +65,14 @@ pub trait App: 'static {
         None
     }
 
+    /// The window became the one taking keys (`true`), or another window or app did. An app that shows
+    /// something only while it is in front, such as its place in the notch, answers with a message;
+    /// the default ignores it.
+    fn focused(&self, focused: bool) -> Option<Self::Msg> {
+        let _ = focused;
+        None
+    }
+
     /// The window is closing: the person closed it. A window that doesn't quit the app (a panel
     /// torn off into one, say) answers with a message to put things back; the default ignores it.
     fn closing(&self) -> Option<Self::Msg> {
@@ -281,6 +289,7 @@ pub(crate) trait Driver<M> {
     fn view(&self) -> Element<M>;
     fn theme(&self, system: Mode) -> Theme;
     fn resized(&self, size: Size) -> Option<M>;
+    fn focused(&self, focused: bool) -> Option<M>;
     fn closing(&self) -> Option<M>;
     fn menus(&self) -> Vec<crate::Menu<M>>;
     fn status_item(&self) -> Option<crate::StatusItem<M>>;
@@ -303,6 +312,10 @@ impl<A: App> Driver<A::Msg> for A {
 
     fn resized(&self, size: Size) -> Option<A::Msg> {
         App::resized(self, size)
+    }
+
+    fn focused(&self, focused: bool) -> Option<A::Msg> {
+        App::focused(self, focused)
     }
 
     fn closing(&self) -> Option<A::Msg> {
