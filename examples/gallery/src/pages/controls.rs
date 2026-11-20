@@ -1,7 +1,7 @@
 //! Switches, checkboxes, radio buttons, segments, sliders (single, range, marked and upright) and progress.
 
 use super::*;
-use crate::{Choice, Mode};
+use crate::{Choice, Mode, Overlay};
 
 pub fn view(g: &Gallery) -> Div<Msg> {
     page(
@@ -29,8 +29,8 @@ pub fn view(g: &Gallery) -> Div<Msg> {
                 radio_group(Choice::ALL.map(|c| (c, c.name().to_string())), &g.choice, Msg::Choice).key("choice").name("Thoroughness"),
             ),
             section(
-                "Segmented",
-                segmented(Mode::ALL.map(|m| (m, m.name().to_string())), &g.mode, Msg::Mode).key("mode").name("Appearance"),
+                "Switcher",
+                switcher(Mode::ALL.map(|m| (m, m.name().to_string())), &g.mode, g.overlay == Some(Overlay::Mode), |o| Msg::Open(o.then_some(Overlay::Mode)), Msg::Mode).key("mode").name("Appearance"),
             ),
             section(
                 "Slider",

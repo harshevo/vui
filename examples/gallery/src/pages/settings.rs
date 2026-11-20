@@ -1,7 +1,7 @@
 //! A settings window: titles on the left, controls on the right, thin lines between.
 
 use super::*;
-use crate::Mode;
+use crate::{Mode, Overlay};
 
 fn group(rows: Vec<Element<Msg>>) -> Div<Msg> {
     let mut out = column::<Msg>();
@@ -27,7 +27,7 @@ pub fn view(g: &Gallery) -> Div<Msg> {
                 "General",
                 group(vec![
                     setting("Launch at login", "", toggle(g.login).key("login").on_change(Msg::Login)).into_element(),
-                    setting("Appearance", "", segmented(Mode::ALL.map(|m| (m, m.name().to_string())), &g.mode, Msg::Mode)).into_element(),
+                    setting("Appearance", "", switcher(Mode::ALL.map(|m| (m, m.name().to_string())), &g.mode, g.overlay == Some(Overlay::Mode), |o| Msg::Open(o.then_some(Overlay::Mode)), Msg::Mode)).into_element(),
                     setting("Volume", "", volume).into_element(),
                     setting("Name", "", text_field(&g.name).width(200.0).on_change(Msg::Name)).into_element(),
                 ]),

@@ -76,14 +76,14 @@ fn the_dark_switch_changes_the_theme_and_the_sidebar_colour_with_it() {
 #[test]
 fn choosing_dark_in_the_appearance_control_darkens_the_window() {
     let mut h = open(Page::Controls);
-    let dark = bounds(&mut h, Role::RadioButton, "Dark");
-    h.ui.click(dark.center());
+    h.ui.click_key("mode").settle();
+    h.ui.click_key("mode-1");
     assert_eq!(h.gallery().mode, Mode::Dark);
     assert!(h.gallery().dark);
     assert_eq!(h.ui.ui.theme().palette.bg, Theme::dark().palette.bg);
     // System follows whatever the window already is.
-    let system = bounds(&mut h, Role::RadioButton, "System");
-    h.ui.click(system.center());
+    h.ui.settle().click_key("mode").settle();
+    h.ui.click_key("mode-2");
     assert_eq!(h.gallery().mode, Mode::System);
     assert!(h.gallery().dark);
 }

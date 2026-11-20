@@ -16,6 +16,8 @@ use vui::viz::{Chart, Format, Ink, spark};
 pub enum Msg {
     Go(Section),
     Range(Range),
+    /// Opens or closes the range's menu.
+    Ranges(bool),
     Dark(bool),
 }
 
@@ -69,6 +71,7 @@ impl Range {
 pub struct Dashboard {
     pub section: Section,
     pub range: Range,
+    pub ranges: bool,
     pub dark: bool,
     revenue: Rc<Chart>,
 }
@@ -93,7 +96,7 @@ fn revenue_chart(range: Range) -> Rc<Chart> {
 
 impl Dashboard {
     pub fn new(dark: bool) -> Dashboard {
-        Dashboard { section: Section::Overview, range: Range::Month, dark, revenue: revenue_chart(Range::Month) }
+        Dashboard { section: Section::Overview, range: Range::Month, ranges: false, dark, revenue: revenue_chart(Range::Month) }
     }
 }
 
@@ -105,8 +108,10 @@ impl App for Dashboard {
             Msg::Go(section) => self.section = section,
             Msg::Range(range) => {
                 self.range = range;
+                self.ranges = false;
                 self.revenue = revenue_chart(range);
             }
+            Msg::Ranges(open) => self.ranges = open,
             Msg::Dark(dark) => self.dark = dark,
         }
     }
@@ -163,11 +168,16 @@ impl Dashboard {
     }
 
     fn overview(&self) -> Div<Msg> {
-        let range = segmented(
+        let range = switcher(
             [(Range::Week, "7 days".to_string()), (Range::Month, "30 days".to_string()), (Range::Quarter, "90 days".to_string())],
             &self.range,
+            self.ranges,
+            Msg::Ranges,
             Msg::Range,
-        );
+        )
+        .key("range")
+        .name("Range")
+        .side(Side::BelowEnd);
         let header = row().align_items(Align::Center).gap(12.0).wrap().window_drag(true).children((
             column().grow(1.0).gap(2.0).children((title(self.section.name()), small("Sales across every store").color(Tone::Text2))),
             range,

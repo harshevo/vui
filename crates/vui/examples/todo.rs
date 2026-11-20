@@ -14,6 +14,8 @@ pub enum Msg {
     Toggle(u64, bool),
     Remove(u64),
     Show(Filter),
+    /// Opens or closes the filter's menu.
+    Filters(bool),
     ClearDone,
 }
 
@@ -34,12 +36,13 @@ pub struct Todo {
     pub draft: String,
     pub tasks: Vec<Task>,
     pub filter: Filter,
+    pub filters: bool,
     next: u64,
 }
 
 impl Todo {
     pub fn new(tasks: &[(&str, bool)]) -> Todo {
-        let mut todo = Todo { draft: String::new(), tasks: Vec::new(), filter: Filter::All, next: 0 };
+        let mut todo = Todo { draft: String::new(), tasks: Vec::new(), filter: Filter::All, filters: false, next: 0 };
         for &(text, done) in tasks {
             todo.push(text, done);
         }
@@ -81,7 +84,11 @@ impl App for Todo {
                 }
             }
             Msg::Remove(id) => self.tasks.retain(|t| t.id != id),
-            Msg::Show(filter) => self.filter = filter,
+            Msg::Show(filter) => {
+                self.filter = filter;
+                self.filters = false;
+            }
+            Msg::Filters(open) => self.filters = open,
             Msg::ClearDone => self.tasks.retain(|t| !t.done),
         }
     }
@@ -98,11 +105,15 @@ impl App for Todo {
                 .on_submit(|_| Msg::Add),
             button("Add").primary().icon(icon_set::PLUS).key("add").disabled(self.draft.trim().is_empty()).on_click(Msg::Add),
         ));
-        let filters = segmented(
+        let filters = switcher(
             [(Filter::All, "All".to_string()), (Filter::Active, "Active".to_string()), (Filter::Done, "Done".to_string())],
             &self.filter,
+            self.filters,
+            Msg::Filters,
             Msg::Show,
-        );
+        )
+        .key("filter")
+        .name("Show");
         let rows: Vec<Element<Msg>> = self.shown().map(|t| task_row(t).into_element()).collect();
         let body = if rows.is_empty() {
             let (title, detail) = match self.filter {

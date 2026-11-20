@@ -174,6 +174,10 @@ pub enum Overlay {
     Menu,
     Select,
     Dialog,
+    /// The appearance switcher's menu, on the controls or settings page.
+    Mode,
+    /// The data page's view switcher.
+    Tab,
 }
 
 /// How the overlays page's menu sorts.
@@ -307,6 +311,7 @@ impl App for Gallery {
             Msg::Choice(choice) => self.choice = choice,
             Msg::Mode(mode) => {
                 self.mode = mode;
+                self.overlay = None;
                 match mode {
                     Mode::Light => self.dark = false,
                     Mode::Dark => self.dark = true,
@@ -340,7 +345,10 @@ impl App for Gallery {
                 cx.after(std::time::Duration::from_secs(4), Msg::HideToast(self.toasted));
             }
             Msg::HideToast(n) => self.toasts.retain(|&t| t != n),
-            Msg::Tab(t) => self.tab = t,
+            Msg::Tab(t) => {
+                self.tab = t;
+                self.overlay = None;
+            }
             Msg::SortBy(c) => self.sort_by = (c, self.sort_by.0 == c && !self.sort_by.1),
             Msg::Pick(r) => self.picked = r,
             Msg::Fold(i) => {

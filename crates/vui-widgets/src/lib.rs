@@ -18,7 +18,7 @@
 //! | `feedback` | `progress`, `spinner`, `alert`, `skeleton`, `empty_state` |
 //! | `layout` | `field`, `setting`, `splitter`, `disclosure`, `accordion` |
 //! | `media` | `web_view`, `video`, `pdf_view`: native views placed by layout |
-//! | `navigation` | `sidebar`, `nav_item`, `list`, `list_row`, `tabs`, `breadcrumbs`, `pagination`, `stepper`, `toolbar`, `carousel` |
+//! | `navigation` | `sidebar`, `nav_item`, `list`, `list_row`, `switcher`, `tabs`, `breadcrumbs`, `pagination`, `stepper`, `toolbar`, `carousel` |
 //! | `kinetic` | `segments`, `slot`, `scrub`, `hold_button`, `split_button`, `radial_menu`, `tone_chip`, `shake` |
 //! | `overlay` | `popover`, `dropdown`, `menu`, `select`, `context_menu`, `dialog`, `toasts`, `command_palette`, `drawer`, `sheet`, `hover_card` |
 

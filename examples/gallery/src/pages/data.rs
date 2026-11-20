@@ -81,9 +81,9 @@ pub fn view(g: &Gallery) -> Div<Msg> {
         "Data",
         (
             section(
-                "Tabs",
-                column().children((
-                    tabs_keyed("tabs", [(0, "Overview".to_string()), (1, "Activity".to_string()), (2, "Settings".to_string())], &g.tab, Msg::Tab),
+                "Switcher",
+                column().gap(8.0).children((
+                    switcher([(0, "Overview".to_string()), (1, "Activity".to_string()), (2, "Settings".to_string())], &g.tab, g.overlay == Some(crate::Overlay::Tab), |o| Msg::Open(o.then_some(crate::Overlay::Tab)), Msg::Tab).key("tabs").name("View"),
                     tab_panel((label(["The overview of the project.", "Everything that happened lately.", "How the project is set up."][g.tab]).color(Tone::Text2),)),
                 )),
             ),
