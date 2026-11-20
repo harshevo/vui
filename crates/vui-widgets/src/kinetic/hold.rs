@@ -17,6 +17,9 @@ const DRAIN: f32 = 4.0;
 const DONE: f32 = 0.5;
 /// How far the pointer may stray off the button while holding before the hold is cancelled.
 const SLACK: f32 = 12.0;
+/// The icon's size, and the space after it.
+const ICON: f32 = 13.0;
+const ICON_GAP: f32 = 5.0;
 
 /// The widget behind [`Hold`].
 pub struct HoldWidget<M> {
@@ -26,6 +29,8 @@ pub struct HoldWidget<M> {
     height: f32,
     /// No wash at rest, only the coloured word: for a toolbar where it must not compete.
     quiet: bool,
+    /// Drawn before the label, in its colour.
+    icon: Option<vui_icons::Icon>,
     on_hold: Option<Rc<dyn Fn() -> M>>,
 }
 
@@ -62,7 +67,7 @@ impl<M: 'static> Widget<M> for HoldWidget<M> {
     }
 
     fn update(&self, old: &HoldWidget<M>, _state: &mut HoldState) -> Dirty {
-        if self.label != old.label || self.height != old.height {
+        if self.label != old.label || self.height != old.height || self.icon.map(|i| i.name()) != old.icon.map(|i| i.name()) {
             Dirty::Layout
         } else if self.tone != old.tone {
             Dirty::Paint
@@ -72,7 +77,7 @@ impl<M: 'static> Widget<M> for HoldWidget<M> {
     }
 
     fn measure(&self, _state: &mut HoldState, env: &Env, known: Pair<Option<f32>>, _avail: Pair<Avail>) -> Size {
-        let w = line(env, &self.label, TextRole::Small, 500, false).size().w;
+        let w = line(env, &self.label, TextRole::Small, 500, false).size().w + if self.icon.is_some() { ICON + ICON_GAP } else { 0.0 };
         size(known.x.unwrap_or(w + PAD * 2.0), known.y.unwrap_or(self.height))
     }
 
@@ -88,7 +93,15 @@ impl<M: 'static> Widget<M> for HoldWidget<M> {
         let text = if state.hint > 0.0 { "Hold" } else { self.label.as_str() };
         let layout = line(cx.env, text, TextRole::Small, 500, false);
         let s = layout.size();
-        let at = pt(rect.x + (rect.w - s.w) / 2.0, rect.y + (rect.h - s.h) / 2.0);
+        let lead = if self.icon.is_some() { ICON + ICON_GAP } else { 0.0 };
+        let at = pt(rect.x + (rect.w - s.w - lead) / 2.0 + lead, rect.y + (rect.h - s.h) / 2.0);
+        let icon_at = Rect::new(at.x - lead, rect.y + (rect.h - ICON) / 2.0, ICON, ICON);
+        let draw_icon = |cx: &mut PaintCx, tone: Tone| {
+            if let Some(icon) = self.icon {
+                crate::display::icon::paint_icon(cx, icon, icon_at, Fill::from(tone), vui_icons::Weight::Regular);
+            }
+        };
+        draw_icon(cx, self.tone);
         cx.text(layout.clone(), at, self.tone);
         // The sweep, left to right, with the label in white where it has passed.
         let p = state.progress.clamp(0.0, 1.0);
@@ -97,6 +110,7 @@ impl<M: 'static> Widget<M> for HoldWidget<M> {
             let on = if self.tone == Tone::Accent { Tone::OnAccent } else { Tone::OnDanger };
             cx.clipped(swept, |cx| {
                 cx.fill_rounded(rect, radii, self.tone);
+                draw_icon(cx, on);
                 cx.text(layout, at, on);
             });
         }
@@ -229,12 +243,18 @@ impl<M: 'static> Hold<M> {
         self.widget.quiet = true;
         self
     }
+
+    /// An icon before the label, in its colour: a power symbol on a kill switch.
+    pub fn icon(mut self, icon: vui_icons::Icon) -> Self {
+        self.widget.icon = Some(icon);
+        self
+    }
 }
 
 /// A red button that sends `on_hold` once it has been held for 0.6 s: `hold_button("Kill switch",
 /// Msg::Kill)`. Say in its tooltip that it wants holding.
 pub fn hold_button<M: Clone + 'static>(label: impl Into<String>, on_hold: M) -> Hold<M> {
     let label = label.into();
-    let widget = HoldWidget { label: label.clone(), tone: Tone::Danger, seconds: 0.6, height: 28.0, quiet: false, on_hold: Some(Rc::new(move || on_hold.clone())) };
+    let widget = HoldWidget { label: label.clone(), tone: Tone::Danger, seconds: 0.6, height: 28.0, quiet: false, icon: None, on_hold: Some(Rc::new(move || on_hold.clone())) };
     Hold { base: Base::new(), widget }.rounded(Radius::Pill).name(label)
 }
