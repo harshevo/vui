@@ -42,7 +42,7 @@ pub fn switcher<M: Clone + 'static, T: PartialEq + Clone + 'static>(
     let (values, labels): (Vec<T>, Vec<String>) = options.into_iter().unzip();
     let chosen = values.iter().position(|v| v == selected).unwrap_or(0);
     let pick: Pick<M> = Rc::new(move |i| on_select(values[i].clone()));
-    Switcher { labels, chosen, open, on_open: Rc::new(on_open), pick, key: None, name: None, tones: Vec::new(), steps: false, menu: false, side: Side::Below }
+    Switcher { labels, chosen, open, on_open: Rc::new(on_open), pick, key: None, ids: Vec::new(), name: None, tones: Vec::new(), steps: false, menu: false, side: Side::Below }
 }
 
 /// See [`switcher`].
@@ -53,6 +53,7 @@ pub struct Switcher<M: 'static> {
     on_open: Rc<dyn Fn(bool) -> M>,
     pick: Pick<M>,
     key: Option<String>,
+    ids: Vec<String>,
     name: Option<String>,
     tones: Vec<Option<Tone>>,
     steps: bool,
@@ -64,6 +65,12 @@ impl<M: Clone + 'static> Switcher<M> {
     /// Keys the word `key` and each choice in its menu `{key}-{index}`.
     pub fn key(mut self, key: impl Into<String>) -> Self {
         self.key = Some(key.into());
+        self
+    }
+
+    /// Keys the choices in the menu `{key}-{id}` by these ids, in order, instead of by index.
+    pub fn ids(mut self, ids: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        self.ids = ids.into_iter().map(Into::into).collect();
         self
     }
 
@@ -210,7 +217,7 @@ impl<M: Clone + 'static> Switcher<M> {
             .map(|(i, text)| {
                 let item = menu_check(text.clone(), i == self.chosen).on_click((self.pick)(i));
                 match &self.key {
-                    Some(key) => item.key(format!("{key}-{i}")).into_element(),
+                    Some(key) => item.key(format!("{key}-{}", self.ids.get(i).cloned().unwrap_or_else(|| i.to_string()))).into_element(),
                     None => item.into_element(),
                 }
             })

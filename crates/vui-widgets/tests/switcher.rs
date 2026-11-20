@@ -11,6 +11,8 @@ enum Msg {
     View(u8),
     Side(bool),
     Day(u8),
+    NamedOpen(bool),
+    Named(u8),
 }
 
 #[derive(Default)]
@@ -19,6 +21,8 @@ struct Views {
     open: bool,
     buy: bool,
     day: u8,
+    named: u8,
+    named_open: bool,
 }
 
 impl App for Views {
@@ -33,6 +37,11 @@ impl App for Views {
             }
             Msg::Side(buy) => self.buy = buy,
             Msg::Day(d) => self.day = d,
+            Msg::NamedOpen(open) => self.named_open = open,
+            Msg::Named(n) => {
+                self.named = n;
+                self.named_open = false;
+            }
         }
     }
 
@@ -42,6 +51,7 @@ impl App for Views {
         let days = [(0, "18 Nov".to_string()), (1, "19 Nov".to_string()), (2, "20 Nov".to_string())];
         column().padding(16.0).gap(8.0).children((
             switcher(views, &self.view, self.open, Msg::Open, Msg::View).key("views").name("View"),
+            switcher([(0, "Long".to_string()), (1, "Short".to_string())], &self.named, self.named_open, Msg::NamedOpen, Msg::Named).key("named").ids(["long", "short"]).menu(),
             switcher(sides, &self.buy, false, Msg::Open, Msg::Side).key("side"),
             switcher(days, &self.day, false, Msg::Open, Msg::Day).key("day").steps(),
         ))
@@ -120,4 +130,14 @@ fn a_step_past_either_end_is_greyed_out() {
     let mut ui = app();
     assert!(ui.inspect("day-back").disabled);
     assert!(!ui.inspect("day-on").disabled);
+}
+
+#[test]
+fn ids_key_the_choices_and_menu_keeps_two_in_a_menu() {
+    let mut ui = app();
+    ui.click_key("named").settle();
+    assert!(ui.app::<Views>().named_open, "two choices open a menu when asked to");
+    ui.click_key("named-short").settle();
+    assert_eq!(ui.app::<Views>().named, 1);
+    assert!(!ui.app::<Views>().named_open);
 }
