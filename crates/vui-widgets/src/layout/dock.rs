@@ -629,11 +629,20 @@ where
         (Some(_), Some(target)) => Some(drop_zones(target, &shown_title, d, on)),
         _ => None,
     };
+    // Each stack is a card: the theme's continuous card corners, a hairline edge and the faintest
+    // lift off the sheet, so panels read as separate pieces while the splitters between them are
+    // the gaps.
     column()
+        .key(format!("card-{shown_title}"))
         .grow(1.0)
         .min_width(0.0)
         .min_height(0.0)
         .gap(4.0)
+        .padding(4.0)
+        .rounded(Radius::Card)
+        .bg(Fill::Tone(Tone::Text, 0.02))
+        .border(1.0, Fill::Tone(Tone::Text, 0.08))
+        .overflow(Overflow::Hidden)
         .children((bar, column().grow(1.0).min_height(0.0).min_width(0.0).children(body), zones))
 }
 
