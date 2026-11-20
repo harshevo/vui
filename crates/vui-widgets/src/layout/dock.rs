@@ -582,6 +582,10 @@ pub fn drag_source<M: 'static>() -> DragSource<M> {
 
 /// The space between two cards, which is also the splitter that resizes them.
 const GAP: f32 = 6.0;
+/// How small a sized pane gets when the dock is too small for it.
+const MIN_SIZED: f32 = 160.0;
+/// How small the pane that takes the rest gets before the sized ones give way.
+const MIN_GROWER: f32 = 240.0;
 
 /// What the app draws for one panel: its title and its content. The shown panel's title in its
 /// card's header is keyed `tab-{title}`, the card's menu button `menu-{title}`, and while a drag is
@@ -652,10 +656,13 @@ where
                 let drawn = node(child, d, panel, on, path).min_width(0.0).min_height(0.0);
                 path.pop();
                 let size = sizes.get(i).copied().filter(|s| *s > 0.0).unwrap_or(DEFAULT_PANE);
+                // When the window is too small for every pane's size, the sized panes give way
+                // first, in proportion, down to a floor; the growing pane keeps a usable minimum.
                 let drawn = match (i == g, axis) {
-                    (false, SplitAxis::Row) => drawn.width(size).grow(0.0).shrink(0.0),
-                    (false, SplitAxis::Column) => drawn.height(size).grow(0.0).shrink(0.0),
-                    (true, _) => drawn.grow(1.0).basis(0.0),
+                    (false, SplitAxis::Row) => drawn.width(size).grow(0.0).shrink(1.0).min_width(MIN_SIZED.min(size)),
+                    (false, SplitAxis::Column) => drawn.height(size).grow(0.0).shrink(1.0).min_height(MIN_SIZED.min(size)),
+                    (true, SplitAxis::Row) => drawn.grow(1.0).basis(0.0).min_width(MIN_GROWER),
+                    (true, SplitAxis::Column) => drawn.grow(1.0).basis(0.0).min_height(MIN_GROWER),
                 };
                 parts.push(drawn.into_element());
                 if i < last {
