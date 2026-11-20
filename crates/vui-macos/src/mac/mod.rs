@@ -214,11 +214,7 @@ impl Application {
         let frame = NSRect::new(origin, NSSize::new(w, h));
         let style = NSWindowStyleMask::Borderless | NSWindowStyleMask::NonactivatingPanel;
         let panel = if options.keyboard {
-            // SAFETY: NSPanel's designated initialiser, sent to a fresh instance of its subclass.
-            let panel: Retained<KeyPanel> = unsafe {
-                msg_send![KeyPanel::alloc(mtm), initWithContentRect: frame, styleMask: style, backing: NSBackingStoreType::Buffered, defer: false]
-            };
-            panel.into_super()
+            KeyPanel::new(mtm, frame, style).into_super()
         } else {
             NSPanel::initWithContentRect_styleMask_backing_defer(NSPanel::alloc(mtm), frame, style, NSBackingStoreType::Buffered, false)
         };

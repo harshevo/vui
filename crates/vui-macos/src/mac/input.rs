@@ -50,8 +50,11 @@ impl VuiView {
             return;
         };
         // Only a `KeyPanel` among overlays; ordinary windows are left to the window system.
-        let key_panel = window.styleMask().contains(NSWindowStyleMask::NonactivatingPanel) && window.canBecomeKeyWindow();
-        if !key_panel || window.isKeyWindow() == want {
+        let Some(panel) = window.downcast_ref::<KeyPanel>() else { return };
+        // It may become key only while the app wants the keyboard, so a click elsewhere in it
+        // leaves the app's own key window as it is.
+        panel.ivars().wants_keys.set(want);
+        if window.isKeyWindow() == want {
             return;
         }
         if want {

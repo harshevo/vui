@@ -2,22 +2,39 @@
 
 use super::*;
 
+pub struct KeyPanelIvars {
+    /// The app asked for the keyboard ([`VuiView::sync_keys`]).
+    pub(super) wants_keys: Cell<bool>,
+}
+
 define_class!(
-    // SAFETY: NSPanel allows subclassing; the subclass adds no state and does not implement Drop.
+    // SAFETY: NSPanel allows subclassing; the subclass's state is a `Cell` and it does not implement Drop.
     #[unsafe(super(NSPanel, NSWindow, NSResponder, NSObject))]
     #[thread_kind = MainThreadOnly]
     #[name = "VuiKeyPanel"]
-    /// An overlay panel that may become key. A borderless panel refuses by default, so a field in
-    /// it could never be typed into.
+    #[ivars = KeyPanelIvars]
+    /// An overlay panel that may become key, but only while its app asks for the keyboard. A
+    /// borderless panel refuses by default, so a field in it could never be typed into; one that
+    /// always accepted would become key on any click, and the app's own window would hear itself
+    /// go behind.
     pub(super) struct KeyPanel;
 
     impl KeyPanel {
         #[unsafe(method(canBecomeKeyWindow))]
         fn can_become_key(&self) -> bool {
-            true
+            self.ivars().wants_keys.get()
         }
     }
 );
+
+impl KeyPanel {
+    /// A borderless, non-activating panel over `frame`.
+    pub(super) fn new(mtm: MainThreadMarker, frame: NSRect, style: NSWindowStyleMask) -> Retained<KeyPanel> {
+        let this = Self::alloc(mtm).set_ivars(KeyPanelIvars { wants_keys: Cell::new(false) });
+        // SAFETY: NSPanel's designated initialiser, sent to a fresh instance of its subclass.
+        unsafe { msg_send![super(this), initWithContentRect: frame, styleMask: style, backing: NSBackingStoreType::Buffered, defer: false] }
+    }
+}
 
 pub struct WindowIvars {
     pub(super) view: Weak<VuiView>,
