@@ -17,6 +17,7 @@ pub fn split_button<M: Clone + 'static>(label: impl Into<String>, variant: Butto
         ButtonVariant::Secondary => (Fill::from(Tone::Wash), Tone::Text),
         ButtonVariant::Ghost => (Fill::NONE, Tone::Text),
         ButtonVariant::Soft(tone) => (Fill::Tone(tone, 0.16), tone),
+        ButtonVariant::Solid(tone) => (Fill::from(tone), Tone::Bg),
     };
     let half = |key: &str| {
         row()

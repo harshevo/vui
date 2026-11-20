@@ -20,6 +20,9 @@ pub enum ButtonVariant {
     /// A soft wash of a colour with the label in that colour: Buy in green, Sell in red, where the
     /// colour carries the meaning and a solid fill would shout.
     Soft(Tone),
+    /// A solid fill of a colour with the label in the page's colour: the one main action when the
+    /// colour carries its meaning, such as a ticket's Buy in green.
+    Solid(Tone),
 }
 
 /// A button's height and the size of its text.
@@ -57,11 +60,12 @@ impl<M: 'static> Button<M> {
             ButtonVariant::Danger => (Tone::OnDanger, Tone::OnDanger),
             ButtonVariant::Secondary | ButtonVariant::Ghost => (Tone::Text, Tone::Text2),
             ButtonVariant::Soft(tone) => (tone, tone),
+            ButtonVariant::Solid(_) => (Tone::Bg, Tone::Bg),
         };
         spec.label_color = label.into();
         spec.icon_color = icon.into();
         spec.detail_color = match variant {
-            ButtonVariant::Primary | ButtonVariant::Danger => Fill::Tone(label, 0.7),
+            ButtonVariant::Primary | ButtonVariant::Danger | ButtonVariant::Solid(_) => Fill::Tone(label, 0.7),
             ButtonVariant::Secondary | ButtonVariant::Ghost => Tone::Text3.into(),
             ButtonVariant::Soft(tone) => Fill::Tone(tone, 0.7),
         };
@@ -70,6 +74,7 @@ impl<M: 'static> Button<M> {
             ButtonVariant::Danger => self.bg(Tone::Danger).hover_bg(Fill::Tone(Tone::Text, 0.10)).press_bg(Fill::Tone(Tone::Text, 0.20)).border(0.0, Fill::NONE),
             ButtonVariant::Secondary => self.bg(Tone::Wash).hover_bg(Tone::Hover).press_bg(Tone::Wash).border(0.0, Fill::NONE),
             ButtonVariant::Ghost => self.bg(Fill::NONE).hover_bg(Tone::Hover).press_bg(Tone::Wash).border(0.0, Fill::NONE),
+            ButtonVariant::Solid(tone) => self.bg(tone).hover_bg(Fill::Tone(Tone::Bg, 0.12)).press_bg(Fill::Tone(Tone::Bg, 0.22)).border(0.0, Fill::NONE),
             ButtonVariant::Soft(tone) => self.bg(Fill::Tone(tone, 0.16)).hover_bg(Fill::Tone(tone, 0.10)).press_bg(Fill::Tone(tone, 0.18)).border(0.0, Fill::NONE),
         }
     }
@@ -93,6 +98,11 @@ impl<M: 'static> Button<M> {
     /// A soft wash of `tone` with the label in it.
     pub fn soft(self, tone: Tone) -> Self {
         self.variant(ButtonVariant::Soft(tone))
+    }
+
+    /// A solid fill of `tone` with the label in the page's colour.
+    pub fn solid(self, tone: Tone) -> Self {
+        self.variant(ButtonVariant::Solid(tone))
     }
 
     pub fn size(mut self, size: ButtonSize) -> Self {
