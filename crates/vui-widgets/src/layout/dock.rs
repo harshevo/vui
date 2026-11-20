@@ -9,11 +9,23 @@
 //! ```
 //!
 //! [`DockTree`] is the arrangement as data, with the operations a layout needs: activate, close,
-//! move a panel next to (or into) another, resize. [`Docking`] adds the drag in progress, the lock
-//! and undo, and turns [`DockMsg`]s into changes. [`dock`] draws it: each stack's tabs over the
-//! active panel, splitters between the children of a split. Dragging a tab shows five drop zones
-//! over every stack (the centre joins its tabs; an edge splits it); letting go anywhere else tears
-//! the panel off, for the app to open in a window of its own.
+//! move a panel next to (or into) another, resize. [`Docking`] adds the drag in progress, the lock,
+//! undo, the card menu open and the card filling the dock, and turns [`DockMsg`]s into changes.
+//! [`dock`] draws it: each stack as a card with one quiet header over the active panel, splitters
+//! between the children of a split.
+//!
+//! ```text
+//! ╭ AI ⌄   Plan  History  Scores            ● ⋯ ╮   the title, the panel's own views, its tools,
+//! │ …                                            │   and the card's menu: the other panels in the
+//! ╰──────────────────────────────────────────────╯   card, the app's items, fill the dock, close
+//! ```
+//!
+//! There are no tabs: a card with one panel shows its name, and one holding several makes its name a
+//! menu of them. Double-clicking a header fills the dock with that card until it is asked back.
+//! Dragging a header shows five drop zones over every stack (the centre joins its panels; an edge
+//! splits it); letting go anywhere else tears the panel off, for the app to open in a window of its
+//! own. A panel from outside the dock (a rail, say) can be dragged in the same way: it is inserted
+//! where it lands, and let go nowhere it does nothing.
 //!
 //! Like every widget here it is controlled: the app keeps the [`Docking`], passes its messages to
 //! [`Docking::update`], and draws what the panels hold. The panel type is the app's own: an id, an
@@ -24,13 +36,10 @@ use std::rc::Rc;
 use vui_core::{CursorIcon, Event, Fill, PointerButton, Size, Tone, size};
 use vui_icons::set as icon_set;
 use vui_runtime::layout::{Avail, Pair};
-use vui_runtime::{
-    Align, Base, Builder, Dirty, Div, Element, Env, EventCx, Focus, IntoElement, Overflow, PaintCx, Parent, Radius, Styled, Widget, WidgetEvent,
-    builder, column, row, small,
-};
+use vui_runtime::{Align, Base, Builder, Dirty, Div, Element, Env, EventCx, Focus, IntoElement, Overflow, PaintCx, Parent, Radius, Styled, Widget, WidgetEvent, builder, column, row, small};
 
-use crate::icon_button;
 use super::splitter;
+use crate::icon_button;
 
 /// The smallest a pane may be dragged to, in points.
 pub const MIN_PANE: f32 = 96.0;
@@ -309,7 +318,7 @@ impl<P: Clone + PartialEq> DockTree<P> {
     }
 }
 
-/// A tab being dragged, and the drop zone under it.
+/// A panel being dragged, and the drop zone under it.
 #[derive(Clone, Debug, PartialEq)]
 pub struct DockDrag<P> {
     pub panel: P,
@@ -321,13 +330,21 @@ pub struct DockDrag<P> {
 pub enum DockMsg<P> {
     Activate(P),
     Close(P),
-    Resize { path: Vec<usize>, index: usize, by: f32 },
+    Resize {
+        path: Vec<usize>,
+        index: usize,
+        by: f32,
+    },
     /// A tab started moving.
     Drag(P),
     /// The pointer entered (true) or left a drop zone of the stack holding the first panel.
     Over(P, Zone, bool),
     /// The dragged tab was let go.
     Drop,
+    /// The card menu of the stack holding this panel opened, or (`None`) closed.
+    Menu(Option<P>),
+    /// The card holding this panel fills the dock, or (`None`) the layout comes back.
+    Zoom(Option<P>),
 }
 
 /// What a change means for the app, beyond the tree: a panel to open in a window of its own, or
@@ -336,6 +353,8 @@ pub enum DockMsg<P> {
 pub enum DockEvent<P> {
     TearOff(P),
     Closed(P),
+    /// A panel from outside the dock was dropped into it.
+    Inserted(P),
 }
 
 /// A dock as an app keeps it: the tree, the drag in progress, the lock and undo.
@@ -345,12 +364,16 @@ pub struct Docking<P> {
     pub drag: Option<DockDrag<P>>,
     /// Nothing moves or closes while locked (⌘⇧L in a terminal); tabs still switch.
     pub locked: bool,
+    /// The card whose menu is open, by any panel in it.
+    pub menu: Option<P>,
+    /// The card filling the dock, by any panel in it.
+    pub zoom: Option<P>,
     undo: Vec<DockTree<P>>,
 }
 
 impl<P: Clone + PartialEq> Docking<P> {
     pub fn new(tree: DockTree<P>) -> Docking<P> {
-        Docking { tree, drag: None, locked: false, undo: Vec::new() }
+        Docking { tree, drag: None, locked: false, menu: None, zoom: None, undo: Vec::new() }
     }
 
     /// Keeps the tree as it is now as one undo step: before the app changes it itself.
@@ -366,14 +389,27 @@ impl<P: Clone + PartialEq> Docking<P> {
         self.undo.pop().map(|t| self.tree = t).is_some()
     }
 
+    /// The panel whose card fills the dock, if it is still in it.
+    pub fn zoomed(&self) -> Option<&P> {
+        self.zoom.as_ref().filter(|p| self.tree.contains(p))
+    }
+
     pub fn update(&mut self, msg: DockMsg<P>) -> Option<DockEvent<P>> {
+        if !matches!(msg, DockMsg::Menu(_) | DockMsg::Over(..)) {
+            self.menu = None;
+        }
         match msg {
             DockMsg::Activate(p) => {
                 self.tree.activate(&p);
             }
+            DockMsg::Menu(p) => self.menu = p,
+            DockMsg::Zoom(p) => self.zoom = p.filter(|p| self.tree.contains(p)),
             DockMsg::Close(p) if !self.locked => {
                 self.remember();
                 self.tree.close(&p);
+                if self.zoom.as_ref().is_some_and(|z| !self.tree.contains(z)) {
+                    self.zoom = None;
+                }
                 return Some(DockEvent::Closed(p));
             }
             DockMsg::Resize { path, index, by } if !self.locked => {
@@ -393,6 +429,12 @@ impl<P: Clone + PartialEq> Docking<P> {
             }
             DockMsg::Drop => {
                 let drag = self.drag.take()?;
+                if !self.tree.contains(&drag.panel) {
+                    let (target, zone) = drag.over?;
+                    self.remember();
+                    self.tree.insert(drag.panel.clone(), &target, zone);
+                    return Some(DockEvent::Inserted(drag.panel));
+                }
                 match drag.over {
                     Some((target, zone)) => {
                         let before = self.tree.clone();
@@ -416,14 +458,19 @@ type Send<M> = Rc<dyn Fn() -> M>;
 /// The widget behind [`drag_source`]: invisible, laid over what can be dragged.
 pub struct DragSourceWidget<M> {
     on_click: Option<Send<M>>,
+    on_double: Option<Send<M>>,
     on_drag: Option<Send<M>>,
     on_drop: Option<Send<M>>,
 }
+
+/// Two clicks this close together are a double click.
+const DOUBLE_CLICK: std::time::Duration = std::time::Duration::from_millis(400);
 
 #[derive(Default)]
 pub struct DragSourceState {
     from: Option<vui_core::Point>,
     dragging: bool,
+    last_click: Option<std::time::Instant>,
 }
 
 impl<M: 'static> Widget<M> for DragSourceWidget<M> {
@@ -451,7 +498,8 @@ impl<M: 'static> Widget<M> for DragSourceWidget<M> {
         };
         match event {
             WidgetEvent::Input(Event::PointerDown { pos, button: PointerButton::Primary, .. }) => {
-                *state = DragSourceState { from: Some(*pos), dragging: false };
+                state.from = Some(*pos);
+                state.dragging = false;
                 cx.capture_pointer();
                 true
             }
@@ -468,9 +516,18 @@ impl<M: 'static> Widget<M> for DragSourceWidget<M> {
             }
             WidgetEvent::Input(Event::PointerUp { .. }) if state.from.is_some() => {
                 let dragged = state.dragging;
-                *state = DragSourceState::default();
+                state.from = None;
+                state.dragging = false;
                 cx.release_pointer();
-                fire(cx, if dragged { &self.on_drop } else { &self.on_click });
+                if dragged {
+                    state.last_click = None;
+                    fire(cx, &self.on_drop);
+                } else {
+                    let now = std::time::Instant::now();
+                    let double = state.last_click.is_some_and(|at| now.duration_since(at) < DOUBLE_CLICK) && self.on_double.is_some();
+                    state.last_click = if double { None } else { Some(now) };
+                    fire(cx, if double { &self.on_double } else { &self.on_click });
+                }
                 true
             }
             _ => false,
@@ -499,6 +556,12 @@ impl<M: Clone + 'static> DragSource<M> {
         self
     }
 
+    /// Sent instead of a second click when two come quickly.
+    pub fn on_double_click(mut self, msg: M) -> Self {
+        self.widget.on_double = Some(Rc::new(move || msg.clone()));
+        self
+    }
+
     pub fn on_drag(mut self, msg: M) -> Self {
         self.widget.on_drag = Some(Rc::new(move || msg.clone()));
         self
@@ -511,7 +574,7 @@ impl<M: Clone + 'static> DragSource<M> {
 }
 
 pub fn drag_source<M: 'static>() -> DragSource<M> {
-    let source = DragSource { base: Base::new(), widget: DragSourceWidget { on_click: None, on_drag: None, on_drop: None } };
+    let source = DragSource { base: Base::new(), widget: DragSourceWidget { on_click: None, on_double: None, on_drag: None, on_drop: None } };
     source.absolute().top(0.0).left(0.0).right(0.0).bottom(0.0).cursor(CursorIcon::Pointer)
 }
 
@@ -520,23 +583,37 @@ pub fn drag_source<M: 'static>() -> DragSource<M> {
 /// The space between two cards, which is also the splitter that resizes them.
 const GAP: f32 = 6.0;
 
-/// What the app draws for one panel: its tab's title and its content. The tab is keyed
-/// `tab-{title}`, and while a drag is on, the zones over a stack `zone-{title}-{left|…|center}`,
-/// named for its shown tab.
+/// What the app draws for one panel: its title and its content. The shown panel's title in its
+/// card's header is keyed `tab-{title}`, the card's menu button `menu-{title}`, and while a drag is
+/// on, the zones over a stack `zone-{title}-{left|…|center}`, named for its shown panel.
 pub struct DockPanel<M: 'static> {
     pub title: String,
     pub body: Element<M>,
-    /// Controls at the right of the tab bar while the panel is shown: a picker of its own.
+    /// Controls at the right of the header while the panel is shown: a picker of its own.
     pub tools: Option<Element<M>>,
+    /// The panel's own views, beside its title in the header while it is shown.
+    pub views: Option<Element<M>>,
+    /// The app's items in the card's menu while the panel is shown, above fill and close.
+    pub menu: Vec<Element<M>>,
 }
 
 impl<M: 'static> DockPanel<M> {
     pub fn new(title: impl Into<String>, body: impl IntoElement<M>) -> DockPanel<M> {
-        DockPanel { title: title.into(), body: body.into_element(), tools: None }
+        DockPanel { title: title.into(), body: body.into_element(), tools: None, views: None, menu: Vec::new() }
     }
 
     pub fn tools(mut self, tools: impl IntoElement<M>) -> Self {
         self.tools = Some(tools.into_element());
+        self
+    }
+
+    pub fn views(mut self, views: impl IntoElement<M>) -> Self {
+        self.views = Some(views.into_element());
+        self
+    }
+
+    pub fn menu(mut self, items: Vec<Element<M>>) -> Self {
+        self.menu = items;
         self
     }
 }
@@ -549,6 +626,13 @@ where
     M: Clone + 'static,
 {
     let mut path = Vec::new();
+    // A card filling the dock is drawn alone, as the stack it is in.
+    if let Some(z) = docking.zoomed() {
+        let path = docking.tree.path_of(z).unwrap_or_default();
+        if let Node::Stack { tabs, active } = docking.tree.root.at(&path) {
+            return stack(tabs, *active, docking, &panel, &on).grow(1.0).min_width(0.0).min_height(0.0);
+        }
+    }
     node(&docking.tree.root, docking, &panel, &on, &mut path).grow(1.0).min_width(0.0).min_height(0.0)
 }
 
@@ -595,38 +679,68 @@ where
     M: Clone + 'static,
 {
     let mut body = None;
-    let mut tools = None;
-    let mut shown_title = String::new();
-    let heads: Vec<Div<M>> = tabs
-        .iter()
-        .enumerate()
-        .map(|(i, p)| {
-            let shown = i == active;
-            let DockPanel { title, body: content, tools: own } = panel(p, shown);
-            if shown {
-                body = Some(content);
-                tools = own;
-                shown_title = title.clone();
-            }
-            let handle = drag_source().on_click(on(DockMsg::Activate(p.clone())));
-            let handle = if d.locked { handle } else { handle.on_drag(on(DockMsg::Drag(p.clone()))).on_drop(on(DockMsg::Drop)) };
-            let close = (!d.locked && shown).then(|| icon_button(icon_set::X, "Close").on_click(on(DockMsg::Close(p.clone()))).square(18.0));
-            row()
-                .key(format!("tab-{title}"))
-                .name(title.clone())
-                .height(26.0)
-                .padding_x(10.0)
-                .gap(4.0)
-                .align_items(Align::Center)
-                .rounded(Radius::Pill)
-                .bg(if shown { Fill::from(Tone::Wash) } else { Fill::NONE })
-                .hover_bg(if shown { Tone::Wash } else { Tone::Hover })
-                .children((small(title).weight(500).color(if shown { Tone::Text } else { Tone::Text2 }).max_lines(1), handle, close))
-        })
-        .collect();
-    let bar = row().height(30.0).gap(2.0).align_items(Align::Center).min_width(0.0).children((
-        row().grow(1.0).gap(2.0).align_items(Align::Center).min_width(0.0).overflow(Overflow::Hidden).children(heads),
+    let mut shown = None;
+    // Every panel's title, for the menu of a card holding several.
+    let mut titles = Vec::new();
+    for (i, p) in tabs.iter().enumerate() {
+        let drawn = panel(p, i == active);
+        titles.push((p.clone(), drawn.title.clone(), i == active));
+        if i == active {
+            let DockPanel { title, body: content, tools, views, menu } = drawn;
+            body = Some(content);
+            shown = Some((title, tools, views, menu));
+        }
+    }
+    let (Some((shown_title, tools, views, own_items)), Some(current)) = (shown, tabs.get(active).cloned()) else { return column() };
+    let several = tabs.len() > 1;
+    let menu_open = d.menu.as_ref().is_some_and(|m| tabs.contains(m));
+    let zoomed = d.zoomed().is_some_and(|z| tabs.contains(z));
+
+    // The title: what is dragged, a double click fills the dock, and in a card of several it opens
+    // the menu of them.
+    let handle = drag_source().on_double_click(on(DockMsg::Zoom((!zoomed).then(|| current.clone()))));
+    let handle = if several { handle.on_click(on(DockMsg::Menu((!menu_open).then(|| current.clone())))) } else { handle };
+    let handle = if d.locked { handle } else { handle.on_drag(on(DockMsg::Drag(current.clone()))).on_drop(on(DockMsg::Drop)) };
+    let title = row()
+        .key(format!("tab-{shown_title}"))
+        .name(shown_title.clone())
+        .height(26.0)
+        .padding_x(6.0)
+        .gap(3.0)
+        .shrink(0.0)
+        .align_items(Align::Center)
+        .rounded(Radius::Control)
+        .hover_bg(Tone::Hover)
+        .children((small(shown_title.clone()).weight(600).color(Tone::Text).max_lines(1), several.then(|| crate::icon(icon_set::CHEVRON_DOWN).square(11.0).color(Tone::Text3)), handle));
+
+    // The card's menu: the other panels, the app's items, then fill and close.
+    let mut items: Vec<Element<M>> = Vec::new();
+    if several {
+        items.extend(titles.iter().map(|(p, t, on_now)| crate::menu_check(t.clone(), *on_now).key(format!("card-tab-{t}")).on_click(on(DockMsg::Activate(p.clone()))).into_element()));
+        items.push(crate::menu_separator().into_element());
+    }
+    let has_own = !own_items.is_empty();
+    items.extend(own_items);
+    if has_own {
+        items.push(crate::menu_separator().into_element());
+    }
+    let fill = if zoomed { "Back to the layout" } else { "Fill the desk" };
+    items.push(crate::menu_item(fill).key(format!("card-zoom-{shown_title}")).on_click(on(DockMsg::Zoom((!zoomed).then(|| current.clone())))).into_element());
+    if !d.locked {
+        items.push(crate::menu_item("Close").key(format!("card-close-{shown_title}")).on_click(on(DockMsg::Close(current.clone()))).into_element());
+    }
+    let more = icon_button(icon_set::MORE, "More").key(format!("menu-{shown_title}")).ghost().small().on_click(on(DockMsg::Menu((!menu_open).then(|| current.clone()))));
+    let more = crate::dropdown(more, menu_open, on(DockMsg::Menu(None)), items).side(crate::Side::BelowEnd);
+
+    let bar = row().height(30.0).gap(6.0).padding_x(2.0).align_items(Align::Center).min_width(0.0).children((
+        title,
+        // The views take the room left, so they can ask how wide it is (`when_container`).
+        match views {
+            Some(v) => row().grow(1.0).basis(0.0).min_width(0.0).align_items(Align::Center).overflow(Overflow::Hidden).child(v),
+            None => row().grow(1.0),
+        },
         tools.map(|t| row().shrink(0.0).align_items(Align::Center).child(t)),
+        more,
     ));
     let target = tabs.get(active).cloned();
     let zones = match (&d.drag, target) {
@@ -671,19 +785,11 @@ where
             .bg(if here { Fill::Tone(Tone::Accent, 0.22) } else { Fill::NONE })
             .on_hover(move |inside| on(DockMsg::Over(t.clone(), z, inside)))
     };
-    row()
-        .absolute()
-        .top(0.0)
-        .left(0.0)
-        .right(0.0)
-        .bottom(0.0)
-        .rounded(Radius::Card)
-        .border(1.0, Fill::Tone(Tone::Accent, 0.35))
-        .children((
-            zone(Zone::Left, 1.0),
-            column().grow(2.0).basis(0.0).min_width(0.0).children((zone(Zone::Top, 1.0), zone(Zone::Center, 2.0), zone(Zone::Bottom, 1.0))),
-            zone(Zone::Right, 1.0),
-        ))
+    row().absolute().top(0.0).left(0.0).right(0.0).bottom(0.0).rounded(Radius::Card).border(1.0, Fill::Tone(Tone::Accent, 0.35)).children((
+        zone(Zone::Left, 1.0),
+        column().grow(2.0).basis(0.0).min_width(0.0).children((zone(Zone::Top, 1.0), zone(Zone::Center, 2.0), zone(Zone::Bottom, 1.0))),
+        zone(Zone::Right, 1.0),
+    ))
 }
 
 #[cfg(test)]
@@ -760,5 +866,32 @@ mod tests {
         d.locked = true;
         d.update(DockMsg::Close("ai"));
         assert!(d.tree.contains(&"ai"), "nothing closes while locked");
+    }
+
+    #[test]
+    fn a_panel_from_outside_lands_where_dropped_and_nowhere_does_nothing() {
+        let mut d = Docking::new(layout());
+        d.update(DockMsg::Drag("news"));
+        assert_eq!(d.update(DockMsg::Drop), None, "let go over no zone: not torn off, not added");
+        assert!(!d.tree.contains(&"news"));
+        d.update(DockMsg::Drag("news"));
+        d.update(DockMsg::Over("book", Zone::Right, true));
+        assert_eq!(d.update(DockMsg::Drop), Some(DockEvent::Inserted("news")));
+        assert_eq!(d.tree.shown(), vec![&"watch", &"chart", &"book", &"news", &"ai"]);
+        assert!(d.undo() && !d.tree.contains(&"news"));
+    }
+
+    #[test]
+    fn a_card_fills_the_dock_until_asked_back_and_its_menu_closes_on_any_change() {
+        let mut d = Docking::new(layout());
+        d.update(DockMsg::Menu(Some("chart2")));
+        assert_eq!(d.menu, Some("chart2"));
+        d.update(DockMsg::Zoom(Some("chart2")));
+        assert_eq!((d.zoomed(), d.menu), (Some(&"chart2"), None));
+        d.update(DockMsg::Zoom(Some("missing")));
+        assert_eq!(d.zoomed(), None, "only a panel in the dock fills it");
+        d.update(DockMsg::Zoom(Some("book")));
+        d.update(DockMsg::Close("book"));
+        assert_eq!(d.zoomed(), None, "closing the card brings the layout back");
     }
 }

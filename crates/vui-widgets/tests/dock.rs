@@ -1,5 +1,6 @@
-//! Docking driven by the pointer: a tab dragged onto another stack's edge splits it, a click only
-//! switches tabs, and a tab let go outside every zone is torn off.
+//! Docking driven by the pointer: a card's title dragged onto another stack's edge splits it, a
+//! click on the title of a card holding several opens the menu of them, a double click fills the
+//! dock, and a title let go outside every zone is torn off.
 
 use vui_core::Point;
 use vui_runtime::testing::TestUi;
@@ -49,16 +50,33 @@ fn drag(t: &mut TestUi<Msg>, tab: &str, to: Point) {
 }
 
 #[test]
-fn a_click_on_a_tab_shows_it() {
+fn the_title_of_a_card_of_several_lists_them_and_a_pick_shows_it() {
     let mut t = desk();
-    t.click_key("tab-news");
+    assert!(t.ui.rect_of("tab-news").is_none(), "no tabs: only the shown panel's title");
+    t.click_key("tab-watch");
+    assert_eq!(docking(&t).menu, Some("watch"));
+    t.click_key("card-tab-news");
     assert_eq!(docking(&t).tree.shown(), vec![&"news", &"chart"]);
+    assert_eq!(docking(&t).menu, None, "a pick closes the menu");
+}
+
+#[test]
+fn a_double_click_on_a_title_fills_the_dock_and_another_brings_the_layout_back() {
+    let mut t = desk();
+    t.click_key("tab-chart");
+    t.click_key("tab-chart");
+    assert_eq!(docking(&t).zoomed(), Some(&"chart"));
+    assert!(t.ui.rect_of("tab-watch").is_none(), "only the filling card is drawn");
+    t.click_key("menu-chart");
+    t.click_key("card-zoom-chart");
+    assert_eq!(docking(&t).zoomed(), None);
+    assert!(t.ui.rect_of("tab-watch").is_some());
 }
 
 #[test]
 fn a_tab_dropped_on_a_stack_edge_splits_it() {
     let mut t = desk();
-    let from = t.center("tab-news");
+    let from = t.center("tab-watch");
     t.press(from);
     t.move_to(Point { x: from.x + 20.0, y: from.y + 10.0 });
     assert!(docking(&t).drag.is_some(), "moving past the threshold starts a drag");
@@ -67,7 +85,7 @@ fn a_tab_dropped_on_a_stack_edge_splits_it() {
     assert_eq!(docking(&t).drag.as_ref().and_then(|d| d.over), Some(("chart", vui_widgets::Zone::Bottom)), "the zone under the pointer lit");
     t.release(bottom);
     assert!(docking(&t).drag.is_none());
-    assert_eq!(docking(&t).tree.shown(), vec![&"watch", &"chart", &"news"]);
+    assert_eq!(docking(&t).tree.shown(), vec![&"news", &"chart", &"watch"]);
 }
 
 #[test]

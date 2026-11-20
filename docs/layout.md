@@ -214,11 +214,16 @@ You often don't need a breakpoint at all.
 - **Tables.** `table_column("Store").hide_below(Breakpoint::Medium)` drops a column that isn't
   essential.
 - **Splitters.** `splitter()` is a drag handle between two panes. `.on_drag(|dx| …)` reports the movement; clamp the pane's width in `update`. `.vertical()` splits top from bottom.
-- **Docking.** `Docking<P>` holds a tree of splits and tab stacks of the app's panel ids, plus
-  lock and undo. `dock(&docking, |p, shown| DockPanel::new(title, body), Msg::Dock)` draws it; send
-  each `DockMsg` to `docking.update`. A tab dragged past 5 px shows five zones over the stack under
-  the pointer (the four edges split, the centre joins the stack). Let go over no zone and `update`
-  returns `DockEvent::TearOff(p)`: the app decides whether that opens a window.
+- **Docking.** `Docking<P>` holds a tree of splits and stacks of the app's panel ids, plus lock,
+  undo, the open card menu and the card filling the dock. `dock(&docking, |p, shown|
+  DockPanel::new(title, body).views(…).tools(…).menu(…), Msg::Dock)` draws each stack as a card with
+  one quiet header: the title, the panel's own views, its tools and a ⋯ menu (the other panels in
+  the card, the app's items, fill the dock, close). No tabs: a card of several makes its title a menu
+  of them. Send each `DockMsg` to `docking.update`. A title dragged past 5 px shows five zones over
+  the stack under the pointer (the four edges split, the centre joins the stack); double-click it to
+  fill the dock (`DockMsg::Zoom`). Let go over no zone and `update` returns `DockEvent::TearOff(p)`:
+  the app decides whether that opens a window. A panel from outside the dock (a rail) can be dragged
+  in with `DockMsg::Drag(p)`: it lands where dropped (`DockEvent::Inserted(p)`) and nowhere else.
 
 The `examples/dashboard.rs` and `examples/todo.rs` apps are tested at both a wide and a
 phone-sized width; see their golden images in `crates/vui/tests/golden`.
