@@ -167,3 +167,28 @@ fn floating_surfaces_turn_to_glass_only_when_the_look_says_so() {
     assert_eq!(glass_count(false), 0, "solid by default");
     assert_eq!(glass_count(true), 1, "the dialog is glass when floating glass is on");
 }
+
+#[test]
+fn a_toast_on_dark_glass_keeps_light_text() {
+    // An inverted toast (light fill, dark text) loses its fill to floating glass and leaves dark
+    // text on dark glass, so the toast is drawn as the other floating surfaces are.
+    let mut theme = vui_core::Theme::dark();
+    theme.glass.floating = true;
+    let text = theme.palette.get(Tone::Text);
+    let mut t: TestUi<()> = TestUi::with_theme(vui_core::size(420.0, 240.0), theme, 1.0);
+    t.view(vui_widgets::toasts(vui_widgets::toast("Squaring off 1 position", None)));
+    t.advance(1.0);
+    fn colours(commands: &[Command], out: &mut Vec<vui_core::Color>) {
+        for c in commands {
+            match c {
+                Command::Text(t) => out.push(t.color),
+                Command::Layer(l) => colours(&l.commands, out),
+                _ => {}
+            }
+        }
+    }
+    let mut found = Vec::new();
+    colours(&t.scene().commands, &mut found);
+    assert!(!found.is_empty(), "the toast's text is drawn");
+    assert!(found.iter().all(|c| (c.r, c.g, c.b) == (text.r, text.g, text.b)), "text in the theme's text colour: {found:?}");
+}

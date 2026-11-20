@@ -22,7 +22,9 @@ pub fn toasts<M: 'static>(items: impl IntoChildren<M>) -> Div<M> {
         .children(items)
 }
 
-/// One note: dark on a light page, light on a dark one, with an optional icon before the text.
+/// One note, with an optional icon before the text. It is a floating surface like a menu or a
+/// dialog: the page's fill with the page's text, or the theme's glass when floating surfaces are
+/// glass. (An inverted note would lose its fill to the glass and leave dark text on dark glass.)
 pub fn toast<M: 'static>(text: impl Into<String>, lead: Option<Icon>) -> Div<M> {
     row()
         .gap(8.0)
@@ -30,12 +32,13 @@ pub fn toast<M: 'static>(text: impl Into<String>, lead: Option<Icon>) -> Div<M> 
         .padding_x(14.0)
         .padding_y(10.0)
         .max_width(360.0)
-        .bg(Tone::Text)
+        .bg(Tone::Bg)
+        .border(1.0, Tone::Line)
         .rounded(Radius::Card)
         .shadow(Shadow::RAISED)
         .floating_glass()
         .pointer_events(true)
         .transition(Spring::SNAPPY)
         .appear()
-        .children((lead.map(|i| icon(i).color(Tone::Bg)), label(text).color(Tone::Bg)))
+        .children((lead.map(|i| icon(i).color(Tone::Text2)), label(text).color(Tone::Text)))
 }
