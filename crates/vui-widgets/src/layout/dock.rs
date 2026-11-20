@@ -517,6 +517,9 @@ pub fn drag_source<M: 'static>() -> DragSource<M> {
 
 // ── Drawing ──────────────────────────────────────────────────────────────────────────────────────
 
+/// The space between two cards, which is also the splitter that resizes them.
+const GAP: f32 = 6.0;
+
 /// What the app draws for one panel: its tab's title and its content. The tab is keyed
 /// `tab-{title}`, and while a drag is on, the zones over a stack `zone-{title}-{left|…|center}`,
 /// named for its shown tab.
@@ -574,7 +577,8 @@ where
                 if i < last {
                     let (on, at) = (on.clone(), path.clone());
                     let handle = splitter().name("Resize").on_drag(move |by| on(DockMsg::Resize { path: at.clone(), index: i, by }));
-                    let handle = if *axis == SplitAxis::Column { handle.vertical() } else { handle };
+                    // Narrower than a lone splitter: it is also the gap between two cards.
+                    let handle = if *axis == SplitAxis::Column { handle.vertical().height(GAP) } else { handle.width(GAP) };
                     let handle = if d.locked { handle.hidden(true) } else { handle };
                     parts.push(handle.into_element());
                 }
