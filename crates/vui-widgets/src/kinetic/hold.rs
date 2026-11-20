@@ -29,6 +29,9 @@ pub struct HoldWidget<M> {
     height: f32,
     /// No wash at rest, only the coloured word: for a toolbar where it must not compete.
     quiet: bool,
+    /// The word in grey at rest, its colour only under the pointer and while held: for a switch
+    /// with nothing to act on yet.
+    calm: bool,
     /// Drawn before the label, in its colour.
     icon: Option<vui_icons::Icon>,
     on_hold: Option<Rc<dyn Fn() -> M>>,
@@ -101,8 +104,9 @@ impl<M: 'static> Widget<M> for HoldWidget<M> {
                 crate::display::icon::paint_icon(cx, icon, icon_at, Fill::from(tone), vui_icons::Weight::Regular);
             }
         };
-        draw_icon(cx, self.tone);
-        cx.text(layout.clone(), at, self.tone);
+        let ink = if self.calm && cx.hover < 0.5 && state.progress <= 0.0 { Tone::Text2 } else { self.tone };
+        draw_icon(cx, ink);
+        cx.text(layout.clone(), at, ink);
         // The sweep, left to right, with the label in white where it has passed.
         let p = state.progress.clamp(0.0, 1.0);
         if p > 0.0 {
@@ -244,6 +248,13 @@ impl<M: 'static> Hold<M> {
         self
     }
 
+    /// Grey until the pointer is over it or it is held, then its colour: a kill switch while
+    /// nothing is open.
+    pub fn calm(mut self, calm: bool) -> Self {
+        self.widget.calm = calm;
+        self
+    }
+
     /// An icon before the label, in its colour: a power symbol on a kill switch.
     pub fn icon(mut self, icon: vui_icons::Icon) -> Self {
         self.widget.icon = Some(icon);
@@ -255,6 +266,6 @@ impl<M: 'static> Hold<M> {
 /// Msg::Kill)`. Say in its tooltip that it wants holding.
 pub fn hold_button<M: Clone + 'static>(label: impl Into<String>, on_hold: M) -> Hold<M> {
     let label = label.into();
-    let widget = HoldWidget { label: label.clone(), tone: Tone::Danger, seconds: 0.6, height: 28.0, quiet: false, icon: None, on_hold: Some(Rc::new(move || on_hold.clone())) };
+    let widget = HoldWidget { label: label.clone(), tone: Tone::Danger, seconds: 0.6, height: 28.0, quiet: false, calm: false, icon: None, on_hold: Some(Rc::new(move || on_hold.clone())) };
     Hold { base: Base::new(), widget }.rounded(Radius::Pill).name(label)
 }
