@@ -9,7 +9,7 @@ use std::collections::HashMap;
 
 use vui_core::{Color, Insets, Palette, Point, Rect, Spring, SpringValue, Vec2, pt, rect, vec2};
 
-use crate::access::A11y;
+use crate::access::{A11y, Role};
 use crate::element::{Base, Decor, Element, Input, Lazy};
 use crate::key::{Key, NodeId};
 use crate::layout::{Avail, LayoutCache, LayoutNode, NodeLayout, Pair};
@@ -328,8 +328,14 @@ impl<M: 'static> Node<M> {
         self.decor.motion.as_ref().map_or(crate::element::Pose::REST, |k| k.sample(self.anim.motion))
     }
 
+    /// How the node takes focus: what the element asked for, else the widget's own answer. An element
+    /// built as a button (a role of button, link, tab or menu item, and a click handler) is reached
+    /// with Tab like a button widget, without taking focus from a text field on a click.
     pub fn focus_mode(&self) -> Focus {
-        self.input.focus.unwrap_or_else(|| self.widget.focusable())
+        self.input.focus.unwrap_or_else(|| match self.widget.focusable() {
+            Focus::Never if self.input.clickable() && matches!(self.a11y.role, Some(Role::Button | Role::Link | Role::Tab | Role::MenuItem)) => Focus::Keyboard,
+            focus => focus,
+        })
     }
 
     /// The content box of a border box, inside the padding.

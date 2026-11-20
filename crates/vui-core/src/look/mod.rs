@@ -408,12 +408,12 @@ pub fn porcelain() -> Theme {
     p.hover = Color::hex(0x1D1B17).with_alpha(0.04);
     p.text = Color::hex(0x1D1B17);
     p.text_2 = Color::hex(0x5C574E);
-    p.text_3 = Color::hex(0x9A9387);
+    p.text_3 = Color::hex(0x6F685C);
     p.accent = Color::hex(0x7DB4E6);
     // The light blue is too faint for white text, so text on it is dark.
     p.on_accent = Color::hex(0x10273D);
-    p.success = Color::hex(0x1E9E6A);
-    p.danger = Color::hex(0xD9534F);
+    p.success = Color::hex(0x157A52);
+    p.danger = Color::hex(0xC0392B);
     p.blue = Color::hex(0x2E6EA8);
     p.purple = Color::hex(0x8C7CF0);
     p.field = Color::hex(0xEFE7D9);
@@ -435,7 +435,7 @@ pub fn graphite() -> Theme {
     p.hover = Color::WHITE.with_alpha(0.04);
     p.text = Color::hex(0xE9EBEF);
     p.text_2 = Color::hex(0xA5ACB8);
-    p.text_3 = Color::hex(0x687180);
+    p.text_3 = Color::hex(0x818A99);
     p.accent = Color::hex(0x86BDF2);
     p.on_accent = Color::hex(0x0D1A27);
     p.success = Color::hex(0x2BC48A);

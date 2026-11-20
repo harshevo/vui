@@ -325,12 +325,12 @@ impl Theme {
                 hover: Color::hex(0x18181b).with_alpha(0.04),
                 text: Color::hex(0x18181b),
                 text_2: Color::hex(0x56565e),
-                text_3: Color::hex(0xa1a1aa),
+                text_3: Color::hex(0x6e6e76),
                 accent: Color::hex(0x4f5bd5),
                 on_accent: Color::hex(0xffffff),
-                danger: Color::hex(0xdc2626),
+                danger: Color::hex(0xd42424),
                 on_danger: Color::hex(0xffffff),
-                success: Color::hex(0x16a34a),
+                success: Color::hex(0x15803d),
                 warning: Color::hex(0xd97706),
                 orange: Color::hex(0xf97f2c),
                 blue: Color::hex(0x2f7cf6),
@@ -355,11 +355,11 @@ impl Theme {
                 hover: Color::WHITE.with_alpha(0.05),
                 text: Color::hex(0xededf0),
                 text_2: Color::hex(0xa8a8af),
-                text_3: Color::hex(0x6e6e76),
+                text_3: Color::hex(0x8a8a92),
                 accent: Color::hex(0x8c96fa),
                 on_accent: Color::hex(0x0e0e10),
-                danger: Color::hex(0xdc2626),
-                on_danger: Color::hex(0xffffff),
+                danger: Color::hex(0xf87171),
+                on_danger: Color::hex(0x161618),
                 success: Color::hex(0x4ade80),
                 warning: Color::hex(0xfbbf24),
                 orange: Color::hex(0xfb923c),
@@ -437,11 +437,19 @@ mod tests {
     }
 
     #[test]
-    fn tertiary_text_is_a_hint_not_body_copy() {
-        // Hints, times and placeholders sit below AA on purpose; this records how far below.
-        let t = Theme::light();
-        let r = t.palette.text_3.contrast_ratio(t.palette.bg);
-        assert!((2.0..3.5).contains(&r), "{r}");
+    fn every_text_tone_reads_at_aa_on_the_sheet_and_the_canvas() {
+        // Tertiary text carries real figures (an exchange, a column of open interest), so it is held
+        // to AA like body copy, and so are the market's up and down colours, small as prices are.
+        for t in [Theme::light(), Theme::dark(), crate::look::porcelain(), crate::look::graphite()] {
+            let p = &t.palette;
+            for (name, ink) in [("text_3", p.text_3), ("success", p.success), ("danger", p.danger)] {
+                for (page, on) in [("sheet", p.bg), ("canvas", p.side)] {
+                    let r = ink.contrast_ratio(on);
+                    assert!(r >= 4.5, "{:?} {name} on the {page}: {r}", t.mode);
+                }
+            }
+            assert!(p.text_3.contrast_ratio(p.bg) < p.text_2.contrast_ratio(p.bg), "{:?} hints stay below secondary text", t.mode);
+        }
     }
 
     #[test]

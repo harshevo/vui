@@ -3,7 +3,7 @@ mod common;
 use common::*;
 use vui_core::{Key as KeyCode, Modifiers, NamedKey, pt};
 use vui_runtime::testing::quads;
-use vui_runtime::{Builder, Focus, IntoElement, Parent, Styled, column, div};
+use vui_runtime::{Builder, Focus, IntoElement, Parent, Role, Styled, column, div};
 
 /// Four 30 px rows. "three" is disabled; "two" is only reached by Tab.
 fn form() -> impl IntoElement<Msg> {
@@ -177,4 +177,18 @@ fn an_element_can_opt_out_of_the_ring() {
     t.tab().settle();
     let scene = t.scene();
     assert!(quads(&scene).iter().all(|q| q.border.is_none()));
+}
+
+#[test]
+fn an_element_built_as_a_button_is_reached_by_tab_and_pressed_by_enter() {
+    let mut t = ui(200.0, 300.0);
+    t.view(column().children((
+        div().key("plain").height(20.0).on_click(Msg::Click("plain")),
+        div().key("menu").height(20.0).role(Role::Button).on_click(Msg::Click("menu")),
+        div().key("label").height(20.0).role(Role::Button),
+    )));
+    t.tab();
+    assert_eq!(focused(&mut t).as_deref(), Some("menu"), "a click handler alone is not a button, nor a role alone");
+    t.key(NamedKey::Enter);
+    assert_eq!(t.messages(), [Msg::Click("menu")]);
 }
