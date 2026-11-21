@@ -121,3 +121,57 @@ fn without_titles_a_grip_drags_the_card_and_the_last_pressed_card_is_kept() {
     assert_ne!(docking(&t).tree, before, "the grip drags like a title");
     assert!(t.app::<Desk>().torn.is_empty(), "dropped on a zone, not torn off");
 }
+
+/// A desk whose watchlist is never drawn wider than 260 points, nor its book taller than 200.
+struct Capped {
+    docking: Docking<&'static str>,
+}
+
+impl App for Capped {
+    type Msg = Msg;
+
+    fn update(&mut self, Msg::Dock(m): Msg, _cx: &mut Cx<Msg>) {
+        self.docking.update(m);
+    }
+
+    fn view(&self) -> impl IntoElement<Msg> {
+        dock(
+            &self.docking,
+            |p, _| {
+                let panel = DockPanel::new(p.to_string(), label(format!("{p} here")));
+                match *p {
+                    "watch" => panel.max_width(260.0),
+                    "book" => panel.max_height(200.0),
+                    _ => panel,
+                }
+            },
+            Msg::Dock,
+        )
+    }
+}
+
+#[test]
+fn a_panel_with_a_most_is_drawn_no_bigger_and_its_edge_stops_there() {
+    // The watchlist was saved at 300 points, wider than its most.
+    let right = DockNode::column(vec![DockNode::stack(vec!["chart"]), DockNode::stack(vec!["book"])], vec![0.0, 320.0]);
+    let tree = DockTree::new(DockNode::row(vec![DockNode::stack(vec!["watch"]), right], vec![300.0]));
+    let mut t = TestUi::with_app(900.0, 600.0, Capped { docking: Docking::new(tree) });
+    let watch = t.ui.rect_of("card-watch").unwrap();
+    assert_eq!(watch.w, 260.0, "drawn at its most, not the 300 saved");
+    assert_eq!(t.ui.rect_of("card-book").unwrap().h, 200.0, "the book too, down the column");
+    let chart = t.ui.rect_of("card-chart").unwrap();
+    assert!(chart.h > 300.0, "the chart takes what the book leaves");
+
+    // Dragging the edge wider stops at the most; the size kept is the most, so dragging back
+    // narrows it at once.
+    let edge = Point { x: watch.x + watch.w + 3.0, y: watch.y + watch.h / 2.0 };
+    t.press(edge);
+    t.move_to(Point { x: edge.x + 120.0, y: edge.y });
+    t.release(Point { x: edge.x + 120.0, y: edge.y });
+    let DockNode::Split { sizes, .. } = &t.app::<Capped>().docking.tree.root else { panic!() };
+    assert_eq!(sizes[0], 260.0);
+    t.press(edge);
+    t.move_to(Point { x: edge.x - 40.0, y: edge.y });
+    t.release(Point { x: edge.x - 40.0, y: edge.y });
+    assert_eq!(t.ui.rect_of("card-watch").unwrap().w, 220.0);
+}

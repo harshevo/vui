@@ -610,11 +610,27 @@ pub struct DockPanel<M: 'static> {
     pub views: Option<Element<M>>,
     /// The app's items in the card's menu while the panel is shown, above fill and close.
     pub menu: Vec<Element<M>>,
+    /// The widest and tallest the panel's card is drawn, past which it looks stretched. The card
+    /// holding it, and the split around that card, are kept to it; dragging an edge stops there.
+    pub max_width: Option<f32>,
+    pub max_height: Option<f32>,
 }
 
 impl<M: 'static> DockPanel<M> {
     pub fn new(title: impl Into<String>, body: impl IntoElement<M>) -> DockPanel<M> {
-        DockPanel { title: title.into(), body: body.into_element(), tools: None, views: None, menu: Vec::new() }
+        DockPanel { title: title.into(), body: body.into_element(), tools: None, views: None, menu: Vec::new(), max_width: None, max_height: None }
+    }
+
+    /// The widest the panel's card gets.
+    pub fn max_width(mut self, w: f32) -> Self {
+        self.max_width = Some(w);
+        self
+    }
+
+    /// The tallest the panel's card gets.
+    pub fn max_height(mut self, h: f32) -> Self {
+        self.max_height = Some(h);
+        self
     }
 
     pub fn tools(mut self, tools: impl IntoElement<M>) -> Self {
@@ -633,6 +649,28 @@ impl<M: 'static> DockPanel<M> {
     }
 }
 
+/// The most a pane may be across and down; `None` is as much as it is given.
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+struct Limit {
+    w: Option<f32>,
+    h: Option<f32>,
+}
+
+impl Limit {
+    fn along(self, axis: SplitAxis) -> Option<f32> {
+        if axis == SplitAxis::Row { self.w } else { self.h }
+    }
+
+    /// The panes of a split put together. Along the split they add up, with the gaps, only when
+    /// every one has a most (one without takes whatever is left). Across it each pane is as tall
+    /// as the split, so the strictest of them holds.
+    fn of_split(axis: SplitAxis, parts: &[Limit]) -> Limit {
+        let along: Option<f32> = parts.iter().map(|l| l.along(axis)).sum::<Option<f32>>().map(|s| s + GAP * parts.len().saturating_sub(1) as f32);
+        let across = parts.iter().filter_map(|l| if axis == SplitAxis::Row { l.h } else { l.w }).reduce(f32::min);
+        if axis == SplitAxis::Row { Limit { w: along, h: across } } else { Limit { w: across, h: along } }
+    }
+}
+
 /// Draws a dock. `panel` draws each panel on show (and names the hidden ones' tabs); `on` wraps
 /// the dock's messages in the app's.
 pub fn dock<P, M>(docking: &Docking<P>, panel: impl Fn(&P, bool) -> DockPanel<M>, on: impl Fn(DockMsg<P>) -> M + Clone + 'static) -> Div<M>
@@ -645,13 +683,13 @@ where
     if let Some(z) = docking.zoomed() {
         let path = docking.tree.path_of(z).unwrap_or_default();
         if let Node::Stack { tabs, active } = docking.tree.root.at(&path) {
-            return stack(tabs, *active, docking, &panel, &on).grow(1.0).min_width(0.0).min_height(0.0);
+            return stack(tabs, *active, docking, &panel, &on).0.grow(1.0).min_width(0.0).min_height(0.0);
         }
     }
-    node(&docking.tree.root, docking, &panel, &on, &mut path).grow(1.0).min_width(0.0).min_height(0.0)
+    node(&docking.tree.root, docking, &panel, &on, &mut path).0.grow(1.0).min_width(0.0).min_height(0.0)
 }
 
-fn node<P, M>(n: &Node<P>, d: &Docking<P>, panel: &impl Fn(&P, bool) -> DockPanel<M>, on: &(impl Fn(DockMsg<P>) -> M + Clone + 'static), path: &mut Vec<usize>) -> Div<M>
+fn node<P, M>(n: &Node<P>, d: &Docking<P>, panel: &impl Fn(&P, bool) -> DockPanel<M>, on: &(impl Fn(DockMsg<P>) -> M + Clone + 'static), path: &mut Vec<usize>) -> (Div<M>, Limit)
 where
     P: Clone + PartialEq + 'static,
     M: Clone + 'static,
@@ -659,26 +697,59 @@ where
     match n {
         Node::Stack { tabs, active } => stack(tabs, *active, d, panel, on),
         Node::Split { axis, sizes, children } => {
-            let mut parts: Vec<Element<M>> = Vec::new();
             let last = children.len().saturating_sub(1);
             let g = grower(sizes, children.len());
+            let mut drawn: Vec<(Div<M>, Limit)> = Vec::new();
             for (i, child) in children.iter().enumerate() {
                 path.push(i);
-                let drawn = node(child, d, panel, on, path).min_width(0.0).min_height(0.0);
+                drawn.push(node(child, d, panel, on, path));
                 path.pop();
+            }
+            let limits: Vec<Limit> = drawn.iter().map(|(_, l)| *l).collect();
+            // Each sized pane's size, kept to its most.
+            let size_of = |i: usize| {
                 let size = sizes.get(i).copied().filter(|s| *s > 0.0).unwrap_or(DEFAULT_PANE);
+                limits[i].along(*axis).map_or(size, |m| size.min(m).max(MIN_PANE))
+            };
+            let mut parts: Vec<Element<M>> = Vec::new();
+            for (i, (pane, limit)) in drawn.into_iter().enumerate() {
+                let pane = pane.min_width(0.0).min_height(0.0);
+                let size = size_of(i);
                 // When the window is too small for every pane's size, the sized panes give way
-                // first, in proportion, down to a floor; the growing pane keeps a usable minimum.
-                let drawn = match (i == g, axis) {
-                    (false, SplitAxis::Row) => drawn.width(size).grow(0.0).shrink(1.0).min_width(MIN_SIZED.min(size)),
-                    (false, SplitAxis::Column) => drawn.height(size).grow(0.0).shrink(1.0).min_height(MIN_SIZED.min(size)),
-                    (true, SplitAxis::Row) => drawn.grow(1.0).basis(0.0).min_width(MIN_GROWER),
-                    (true, SplitAxis::Column) => drawn.grow(1.0).basis(0.0).min_height(MIN_GROWER),
+                // first, in proportion, down to a floor; the growing pane keeps a usable minimum,
+                // and stops at its most.
+                let pane = match (i == g, axis) {
+                    (false, SplitAxis::Row) => pane.width(size).grow(0.0).shrink(1.0).min_width(MIN_SIZED.min(size)),
+                    (false, SplitAxis::Column) => pane.height(size).grow(0.0).shrink(1.0).min_height(MIN_SIZED.min(size)),
+                    (true, SplitAxis::Row) => {
+                        let pane = pane.grow(1.0).basis(0.0).min_width(MIN_GROWER);
+                        if let Some(m) = limit.w { pane.max_width(m.max(MIN_GROWER)) } else { pane }
+                    }
+                    (true, SplitAxis::Column) => {
+                        let pane = pane.grow(1.0).basis(0.0).min_height(MIN_GROWER);
+                        if let Some(m) = limit.h { pane.max_height(m.max(MIN_GROWER)) } else { pane }
+                    }
                 };
-                parts.push(drawn.into_element());
+                // Across the split, a pane with a smaller most than the split stays at its most.
+                let pane = match (axis, limit.h, limit.w) {
+                    (SplitAxis::Row, Some(m), _) => pane.max_height(m),
+                    (SplitAxis::Column, _, Some(m)) => pane.max_width(m),
+                    _ => pane,
+                };
+                parts.push(pane.into_element());
                 if i < last {
                     let (on, at) = (on.clone(), path.clone());
-                    let handle = splitter().name("Resize").on_drag(move |by| on(DockMsg::Resize { path: at.clone(), index: i, by }));
+                    // The edge moves the sized pane beside it (see `DockTree::resize`); it stops
+                    // where that pane reaches its most, and a pane saved larger snaps back to it.
+                    let (j, sign) = if i < g { (i, 1.0) } else { (i + 1, -1.0) };
+                    let (now, most) = (sizes.get(j).copied().filter(|s| *s > 0.0).unwrap_or(DEFAULT_PANE), limits.get(j).and_then(|l| l.along(*axis)));
+                    let handle = splitter().name("Resize").on_drag(move |by: f32| {
+                        let by = match most {
+                            Some(m) if j != g => sign * ((now.min(m) + sign * by).min(m) - now),
+                            _ => by,
+                        };
+                        on(DockMsg::Resize { path: at.clone(), index: i, by })
+                    });
                     // Narrower than a lone splitter: it is also the gap between two cards.
                     let handle = if *axis == SplitAxis::Column { handle.vertical().height(GAP) } else { handle.width(GAP) };
                     let handle = if d.locked { handle.hidden(true) } else { handle };
@@ -686,12 +757,12 @@ where
                 }
             }
             let base = if *axis == SplitAxis::Row { row() } else { column() };
-            base.grow(1.0).min_width(0.0).min_height(0.0).children(parts)
+            (base.grow(1.0).min_width(0.0).min_height(0.0).children(parts), Limit::of_split(*axis, &limits))
         }
     }
 }
 
-fn stack<P, M>(tabs: &[P], active: usize, d: &Docking<P>, panel: &impl Fn(&P, bool) -> DockPanel<M>, on: &(impl Fn(DockMsg<P>) -> M + Clone + 'static)) -> Div<M>
+fn stack<P, M>(tabs: &[P], active: usize, d: &Docking<P>, panel: &impl Fn(&P, bool) -> DockPanel<M>, on: &(impl Fn(DockMsg<P>) -> M + Clone + 'static)) -> (Div<M>, Limit)
 where
     P: Clone + PartialEq + 'static,
     M: Clone + 'static,
@@ -700,16 +771,29 @@ where
     let mut shown = None;
     // Every panel's title, for the menu of a card holding several.
     let mut titles = Vec::new();
+    // The card's most: the largest of its panels', so switching between them doesn't move the
+    // layout; none if any of them has none.
+    let (mut w, mut h): (Option<Vec<f32>>, Option<Vec<f32>>) = (Some(Vec::new()), Some(Vec::new()));
     for (i, p) in tabs.iter().enumerate() {
         let drawn = panel(p, i == active);
         titles.push((p.clone(), drawn.title.clone(), i == active));
+        w = w.zip(drawn.max_width).map(|(mut v, m)| {
+            v.push(m);
+            v
+        });
+        h = h.zip(drawn.max_height).map(|(mut v, m)| {
+            v.push(m);
+            v
+        });
         if i == active {
-            let DockPanel { title, body: content, tools, views, menu } = drawn;
+            let DockPanel { title, body: content, tools, views, menu, .. } = drawn;
             body = Some(content);
             shown = Some((title, tools, views, menu));
         }
     }
-    let (Some((shown_title, tools, views, own_items)), Some(current)) = (shown, tabs.get(active).cloned()) else { return column() };
+    let most = |v: Option<Vec<f32>>| v.and_then(|v| v.into_iter().reduce(f32::max));
+    let limit = Limit { w: most(w), h: most(h) };
+    let (Some((shown_title, tools, views, own_items)), Some(current)) = (shown, tabs.get(active).cloned()) else { return (column(), limit) };
     let several = tabs.len() > 1;
     let menu_open = d.menu.as_ref().is_some_and(|m| tabs.contains(m));
     let zoomed = d.zoomed().is_some_and(|z| tabs.contains(z));
@@ -775,7 +859,7 @@ where
     // Each stack is a card: the theme's continuous card corners, a hairline edge and the faintest
     // lift off the sheet, so panels read as separate pieces while the splitters between them are
     // the gaps.
-    column()
+    let card = column()
         .key(format!("card-{shown_title}"))
         .grow(1.0)
         .min_width(0.0)
@@ -787,7 +871,8 @@ where
         .border(1.0, Fill::Tone(Tone::Text, 0.08))
         .overflow(Overflow::Hidden)
         .on_press_within(on(DockMsg::Used(current.clone())))
-        .children((bar, column().grow(1.0).min_height(0.0).min_width(0.0).children(body), zones))
+        .children((bar, column().grow(1.0).min_height(0.0).min_width(0.0).children(body), zones));
+    (card, limit)
 }
 
 /// Five zones over a stack while a tab is dragged: each edge splits the stack, the centre joins it.
