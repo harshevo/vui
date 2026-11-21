@@ -36,6 +36,8 @@ pub struct ScrubWidget<M> {
     on_clear: Option<Rc<dyn Fn() -> M>>,
     /// How the value is written when not being typed: grouping, a currency sign.
     format: Option<Rc<dyn Fn(f64) -> String>>,
+    /// The value centred in what is left of the field after its name, rather than at the right.
+    centered: bool,
 }
 
 pub struct ScrubState {
@@ -195,7 +197,8 @@ impl<M: 'static> Widget<M> for ScrubWidget<M> {
         let (text, real) = self.shown(state);
         let layout = line(cx.env, &text, TextRole::Small, 500, true);
         let s = layout.size();
-        let x = content.x + content.w - s.w;
+        let right = content.x + content.w;
+        let x = if self.centered { (named + right - s.w) / 2.0 } else { right - s.w };
         cx.text(layout, pt(x, mid - s.h / 2.0), if real { Tone::Text } else { Tone::Text3 });
 
         if state.edit.is_some() && state.fresh {
@@ -205,7 +208,7 @@ impl<M: 'static> Widget<M> for ScrubWidget<M> {
         }
         if state.edit.is_some() {
             // Typing: a caret after the text and a thin accent ring.
-            let caret = Rect::new(content.x + content.w + 1.0, mid - s.h / 2.0, 1.5, s.h);
+            let caret = Rect::new(x + s.w + 1.0, mid - s.h / 2.0, 1.5, s.h);
             let accent = cx.color(Tone::Accent);
             cx.quad(Quad::new(cx.snap(caret)).fill(accent));
             let r = cx.radii;
@@ -389,6 +392,12 @@ impl<M: 'static> Scrub<M> {
         self
     }
 
+    /// The value in the middle of the field rather than at its right, as a stepper's count is.
+    pub fn centered(mut self) -> Self {
+        self.widget.centered = true;
+        self
+    }
+
     pub fn range(mut self, min: f64, max: f64) -> Self {
         self.widget.min = min;
         self.widget.max = max;
@@ -459,6 +468,7 @@ pub fn scrub<M: 'static>(value: Option<f64>) -> Scrub<M> {
         on_change: None,
         on_clear: None,
         format: None,
+        centered: false,
     };
     Scrub { base: Base::new(), widget }.rounded(Radius::Control).bg(Fill::Tone(Tone::Text, 0.04)).hover_bg(Tone::Hover).padding_x(PAD)
 }
