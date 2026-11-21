@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use vui_core::{CursorIcon, Fill, Spring, Tone};
 use vui_icons::set;
-use vui_runtime::{Align, Breakpoint, Builder, Div, Element, Focus, FocusGroup, IntoChildren, IntoElement, Justify, Parent, Role, Styled, column, div, row, small};
+use vui_runtime::{Align, Breakpoint, Builder, Div, Element, Focus, FocusGroup, IntoChildren, IntoElement, Justify, Parent, Role, Styled, Width, column, div, row, small};
 
 use crate::display::icon::icon;
 
@@ -32,11 +32,12 @@ pub struct TableColumn<M: 'static> {
     sorted: Option<SortDir>,
     on_sort: Option<Rc<dyn Fn() -> M>>,
     hide_below: Option<Breakpoint>,
+    hide_narrower: Option<f32>,
 }
 
 /// A column titled `title`, sharing the free width equally with the other flexible ones.
 pub fn table_column<M: 'static>(title: impl Into<String>) -> TableColumn<M> {
-    TableColumn { title: title.into(), width: ColWidth::Flex(1.0), align: Justify::Start, sorted: None, on_sort: None, hide_below: None }
+    TableColumn { title: title.into(), width: ColWidth::Flex(1.0), align: Justify::Start, sorted: None, on_sort: None, hide_below: None, hide_narrower: None }
 }
 
 impl<M: 'static> TableColumn<M> {
@@ -64,6 +65,13 @@ impl<M: 'static> TableColumn<M> {
         self
     }
 
+    /// Leaves the column out while the table itself is narrower than `width` points, whatever the
+    /// window's size: for a table in a card or a side pane that can be made narrow on a wide window.
+    pub fn hide_narrower(mut self, width: f32) -> Self {
+        self.hide_narrower = Some(width);
+        self
+    }
+
     /// Pressing the title sends `msg`; `sorted` shows the arrow when the table is sorted by it.
     pub fn sortable(mut self, sorted: Option<SortDir>, msg: M) -> Self
     where
@@ -76,16 +84,22 @@ impl<M: 'static> TableColumn<M> {
 }
 
 /// How a column's cells are sized, lined up and hidden.
-type Spec = (ColWidth, Justify, Option<Breakpoint>);
+type Spec = (ColWidth, Justify, Option<Breakpoint>, Option<f32>);
 
 /// Space between columns, and padding at each end of a row.
 const GAP: f32 = 16.0;
 const ROW_HEIGHT: f32 = 40.0;
 
-fn sized<M: 'static>(cell: Div<M>, (width, align, hide): Spec) -> Div<M> {
+fn sized<M: 'static>(cell: Div<M>, (width, align, hide, narrower): Spec) -> Div<M> {
     let cell = cell.justify(align).align_items(Align::Center).min_width(0.0);
     let cell = match hide {
         Some(bp) => cell.when(bp.down(), |s| s.hidden(true)),
+        None => cell,
+    };
+    // The header and every row are as wide as the table, so a cell's container is the same width in
+    // each and the column goes from all of them together.
+    let cell = match narrower {
+        Some(w) => cell.when_container(Width::below(w), |s| s.hidden(true)),
         None => cell,
     };
     match width {
@@ -97,7 +111,7 @@ fn sized<M: 'static>(cell: Div<M>, (width, align, hide): Spec) -> Div<M> {
 /// A table of `rows` under a header for `columns`. Each row is a [`table_row`] with one cell per
 /// column. Rows are a focus group: the arrow keys move between them.
 pub fn data_table<M: 'static>(columns: Vec<TableColumn<M>>, rows: impl IntoIterator<Item = TableRow<M>>) -> Div<M> {
-    let specs: Vec<Spec> = columns.iter().map(|c| (c.width, c.align, c.hide_below)).collect();
+    let specs: Vec<Spec> = columns.iter().map(|c| (c.width, c.align, c.hide_below, c.hide_narrower)).collect();
     let header = row().height(36.0).padding_x(GAP / 2.0).gap(GAP).border(0.0, Fill::NONE).children(
         columns
             .into_iter()
@@ -110,7 +124,7 @@ pub fn data_table<M: 'static>(columns: Vec<TableColumn<M>>, rows: impl IntoItera
                     (None, false) => None,
                 };
                 let title = row().gap(4.0).align_items(Align::Center).children((small(c.title).weight(500).color(Tone::Text2), arrow));
-                let cell = sized(div().row(), (c.width, c.align, c.hide_below)).child(title);
+                let cell = sized(div().row(), (c.width, c.align, c.hide_below, c.hide_narrower)).child(title);
                 match c.on_sort {
                     Some(f) => cell.cursor(CursorIcon::Pointer).focusable(true).role(Role::Button).on_click_with(move || f()),
                     None => cell,
@@ -124,7 +138,7 @@ pub fn data_table<M: 'static>(columns: Vec<TableColumn<M>>, rows: impl IntoItera
                 let cells: Vec<Element<M>> = r
                     .cells
                     .into_iter()
-                    .zip(specs.iter().copied().chain(std::iter::repeat((ColWidth::Flex(1.0), Justify::Start, None))))
+                    .zip(specs.iter().copied().chain(std::iter::repeat((ColWidth::Flex(1.0), Justify::Start, None, None))))
                     .map(|(cell, spec)| sized(div().row(), spec).child(cell).into_element())
                     .collect();
                 r.row.children(cells)
