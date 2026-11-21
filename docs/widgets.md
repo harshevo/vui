@@ -69,6 +69,7 @@ your back, and every state can be reproduced in a test.
 | `password_field(&value)` | hidden characters; copying is refused |
 | `combobox(&picker, &options, Msg::City)` | a field with suggestions, filtered by fuzzy matching; Up, Down and Return pick |
 | `tag_input(&tags, &draft, Msg::Tags)` | chips plus a field; Return or a comma adds, Backspace removes the last |
+| `.decorate(vec![Decoration::new(5..6).tone(Tone::Text2), Decoration::new(50..58).squiggle(Tone::Danger)])` on a field | draws stretches of the text (byte ranges) in their own tone or underlined, straight or wavy: syntax colour, errors; ignored for a password or while composing |
 | `.pass_keys()`, `.bare()` on a field | leave Up, Down and Return to the parent; draw no outline (for fields inside your own widgets) |
 
 ### Pickers
@@ -162,6 +163,7 @@ See [Web pages, video and PDFs](#web-pages-video-and-pdfs).
 | `pagination(page, pages, Msg::Page)` | page numbers with gaps |
 | `accordion(sections)`, `disclosure(title, open, Msg::Toggle, content)` | collapsible sections |
 | `stepper(steps, current)` | progress through a task of several steps; `.on_select` to go back |
+| `timeline([Step::new("Opens", "Mon, 24 Nov", When::Done), …])` | dated steps along a line: done, now, next; `.vertical()` and `Step::note` for a narrow place |
 | `toolbar(tools)` + `toolbar_separator()` | one Tab stop; Left and Right move between tools |
 | `carousel(index, slides, Msg::Slide)` | one slide at a time with arrows, dots and the arrow keys |
 

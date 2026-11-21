@@ -52,7 +52,10 @@ impl Mark {
                 nearest(points, |p| p.0, x).map(|i| points[i].0)
             }
             Mark::Dots(d) => nearest(d, |d| d.x, x).map(|i| d[i].x),
+            Mark::Band { rows } => nearest(rows, |r| r.0, x).map(|i| rows[i].0),
             Mark::Candles(c) => nearest(c, |c| c.x, x).map(|i| c[i].x),
+            // Labelled points say what they are on the page, and the screen that owns them handles hover.
+            Mark::Tags(_) => None,
             // Zones span time; the probe reads the data under them.
             Mark::Zones(_) => None,
         }
@@ -118,7 +121,20 @@ pub fn probe(chart: &Chart, style: &VizStyle, x: f64) -> Option<Probe> {
                     }
                 }
             }
-            Mark::Zones(_) => {}
+            Mark::Band { rows: bands } => {
+                if let Some(&(px, low, high)) = nearest(bands, |r| r.0, at).map(|j| &bands[j])
+                    && (px - at).abs() <= slot
+                {
+                    rows.push(Row {
+                        name: layer.name.clone(),
+                        value: format!("{} – {}", fmt.apply(low), fmt.apply(high)),
+                        color,
+                        panel: layer.panel,
+                        y: None,
+                    });
+                }
+            }
+            Mark::Zones(_) | Mark::Tags(_) => {}
         }
     }
     let head = if let Some(name) = chart.category(at) {

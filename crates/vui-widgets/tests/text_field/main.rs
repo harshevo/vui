@@ -190,6 +190,7 @@ mod access;
 mod caret;
 mod clipboard;
 mod composition;
+mod decorations;
 mod editing;
 mod focus;
 mod mouse;

@@ -1,4 +1,4 @@
-//! Moving around an app: the sidebar and lists, the switcher, tabs, breadcrumbs, pagination, steppers, toolbars
+//! Moving around an app: the sidebar and lists, the switcher, tabs, breadcrumbs, pagination, steppers, timelines, toolbars
 //! and carousels.
 
 mod breadcrumbs;
@@ -8,6 +8,7 @@ mod sidebar;
 mod stepper;
 mod switcher;
 mod tabs;
+mod timeline;
 mod toolbar;
 
 pub use breadcrumbs::breadcrumbs;
@@ -17,4 +18,5 @@ pub use sidebar::{ListRow, NavItem, SELECTED, SIDEBAR_WIDTH, list, list_row, nav
 pub use stepper::{Stepper, stepper};
 pub use switcher::{Switcher, switcher};
 pub use tabs::{tab_panel, tabs, tabs_keyed};
+pub use timeline::{Step, Timeline, When, timeline};
 pub use toolbar::{toolbar, toolbar_separator};

@@ -52,6 +52,31 @@ impl Chart {
         self
     }
 
+    /// Stacks the bars added so far as shares of each x's total, from 0 to 100%: a shareholding
+    /// pattern, a revenue mix. Values below zero count as nothing. Call it after adding the bars.
+    pub fn percent(mut self) -> Chart {
+        let mut totals: HashMap<u64, f64> = HashMap::new();
+        for l in self.layers.iter().filter(|l| l.panel == Panel::Main) {
+            if let Mark::Bars { points, .. } = &l.mark {
+                for (x, v) in points {
+                    *totals.entry(x.to_bits()).or_default() += v.max(0.0);
+                }
+            }
+        }
+        for l in self.layers.iter_mut().filter(|l| l.panel == Panel::Main) {
+            if let Mark::Bars { points, .. } = &mut l.mark {
+                for p in points.iter_mut() {
+                    let total = totals.get(&p.0.to_bits()).copied().unwrap_or(0.0);
+                    p.1 = if total > 0.0 { p.1.max(0.0) / total } else { 0.0 };
+                }
+            }
+        }
+        self.bar_layout = BarLayout::Stacked;
+        self.y_format = crate::format::Format::Percent(0);
+        self.y_fixed = Some((0.0, 1.0));
+        self
+    }
+
     /// Names the x values 0, 1, 2…; use with [`indexed`].
     pub fn categories<S: Into<String>>(mut self, names: impl IntoIterator<Item = S>) -> Chart {
         self.categories = names.into_iter().map(Into::into).collect();

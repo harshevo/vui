@@ -17,4 +17,4 @@ pub(crate) use combobox::steer;
 pub use number_input::number_input;
 pub use picker::{Picker, PickerEvent, fuzzy_filter, fuzzy_score};
 pub use tag_input::{TagEvent, tag_input};
-pub use text_field::{FieldState, TextField, TextFieldWidget, password_field, search_field, text_area, text_field};
+pub use text_field::{Decoration, FieldState, TextField, TextFieldWidget, Underline, password_field, search_field, text_area, text_field};

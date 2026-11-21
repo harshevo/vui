@@ -9,6 +9,14 @@ the API.
 
 ### Added
 
+- Pieces for dense, data-first screens: `data_grid` (a painted, virtualised table for thousands of
+  rows with a pinned header and columns, sorting, resizing, sparklines, 52-week ranges, bars and a
+  flash for changed cells), `treemap` (squarified tiles, grouped, coloured by a second number,
+  labels only where they fit), `histogram` (bars that line up with a `range_slider` under them),
+  `legend`, and `timeline` (dated steps). Charts gain `tags` (labelled points), `band`,
+  `percent()` stacking, pinned `x_range` and `y_range`, and axis titles. Text fields gain
+  `.decorate(…)`: tones and wavy or straight underlines over stretches of the text.
+
 - Glass on both renderers (`vui_core::glass`): a backdrop pass that blurs and tints what was drawn
   behind a rounded box, bends it at the edge, splits colour there and lights the rim. `pour` joins
   two boxes with a smooth union, so a card can pour out of a notch or pill; `pill` has round ends.

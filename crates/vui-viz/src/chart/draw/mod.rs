@@ -5,13 +5,15 @@ use vui_core::{Fonts, Point, Quad, Rect, pt, rect};
 
 use super::bars::{Segment, draw_bars, per_unit};
 use super::decimate::extremes;
-use super::{Candle, Chart, Dot, Layer, Mark, Panel, Zone, within};
+use super::{Candle, Chart, Dot, Layer, Mark, Panel, Tag, Zone, within};
 use crate::canvas::{Canvas, HAnchor, VAnchor};
 use crate::format::Format;
 use crate::scale::{Linear, nice_ticks, time_ticks};
 use crate::style::VizStyle;
 
 const TOP: f32 = 8.0;
+/// Room for an axis title: the top of the plot is lowered, or the dates' row made taller.
+const TITLE: f32 = 18.0;
 const RIGHT: f32 = 20.0;
 const X_LABELS: f32 = 24.0;
 /// A strip needs at least this much of the chart's height to be worth showing.
@@ -62,11 +64,15 @@ pub fn layout(fonts: &Fonts, chart: &Chart, rect_: Rect, view: &View, style: &Vi
         .fold(0.0, f32::max);
     // Round up to a multiple of 8 so the plot does not shift as labels gain a digit while zooming.
     let left = ((widest + 12.0) / 8.0).ceil() * 8.0;
+    let (above, below) = (
+        if chart.y_title.is_empty() { 0.0 } else { TITLE },
+        if chart.x_title.is_empty() { 0.0 } else { TITLE },
+    );
     let plot = rect(
         rect_.x + left,
-        rect_.y + TOP,
+        rect_.y + TOP + above,
         (rect_.w - left - RIGHT).max(1.0),
-        (rect_.h - TOP - X_LABELS).max(1.0),
+        (rect_.h - TOP - above - X_LABELS - below).max(1.0),
     );
     let strip_h = if chart.has_strip() && plot.h > 120.0 {
         (plot.h * STRIP_SHARE).round()
@@ -188,9 +194,13 @@ fn axes(canvas: &mut Canvas, chart: &Chart, d: &Drawn, view: &View, style: &VizS
     let want = ((d.plot.w / 96.0) as usize).clamp(2, 10);
     let ticks = if !chart.categories.is_empty() {
         let first = view.x.0.ceil().max(0.0) as usize;
-        let last = (view.x.1.floor().max(0.0) as usize).min(chart.categories.len().saturating_sub(1));
+        let last =
+            (view.x.1.floor().max(0.0) as usize).min(chart.categories.len().saturating_sub(1));
         (first..=last)
-            .map(|i| crate::scale::Tick { value: i as f64, label: chart.categories[i].clone() })
+            .map(|i| crate::scale::Tick {
+                value: i as f64,
+                label: chart.categories[i].clone(),
+            })
             .collect()
     } else if chart.time {
         time_ticks(view.x.0, view.x.1, want)
@@ -223,6 +233,26 @@ fn axes(canvas: &mut Canvas, chart: &Chart, d: &Drawn, view: &View, style: &VizS
             style.ink_3,
         );
         edge = x + w / 2.0;
+    }
+    if !chart.y_title.is_empty() {
+        canvas.text(
+            &chart.y_title,
+            &style.label,
+            pt(d.plot.x, d.plot.y - 8.0),
+            HAnchor::Left,
+            VAnchor::Bottom,
+            style.ink_2,
+        );
+    }
+    if !chart.x_title.is_empty() {
+        canvas.text(
+            &chart.x_title,
+            &style.label,
+            pt(d.plot.right(), d.plot.bottom() + X_LABELS + 2.0),
+            HAnchor::Right,
+            VAnchor::Top,
+            style.ink_2,
+        );
     }
 }
 
@@ -268,6 +298,15 @@ fn marks(
             color,
         ),
         Mark::Dots(dots) => scatter(canvas, within(dots, |d| d.x, view), dots, x, y, color),
+        Mark::Tags(tags) => tagged(canvas, tags, x, y, color, style),
+        Mark::Band { rows } => {
+            let shown = within(rows, |r| r.0, view);
+            let upper: Vec<Point> = shown.iter().map(|r| pt(x.map(r.0), y.map(r.2))).collect();
+            let lower: Vec<Point> = shown.iter().map(|r| pt(x.map(r.0), y.map(r.1))).collect();
+            canvas.vector().band(&upper, &lower, color.mul_alpha(0.16));
+            line(canvas, &upper, false, false, color.mul_alpha(0.4));
+            line(canvas, &lower, false, false, color.mul_alpha(0.4));
+        }
         Mark::Zones(zones) => boxes(canvas, zones, view, x, y, color),
         Mark::Candles(rows) => candles(
             canvas,
@@ -327,18 +366,140 @@ fn scatter(
     }
 }
 
+/// Labelled points: the dots biggest first so a small one is never covered, then each label on the
+/// first side of its dot where it fits (right, left, above, below) without covering a dot, another
+/// label or the plot's edge. A label with nowhere to go is left off; the dot stays.
+fn tagged(
+    canvas: &mut Canvas,
+    tags: &[Tag],
+    x: &Linear,
+    y: &Linear,
+    color: vui_core::Color,
+    style: &VizStyle,
+) {
+    let plot = rect(
+        x.range.0.min(x.range.1),
+        y.range.0.min(y.range.1),
+        (x.range.1 - x.range.0).abs(),
+        (y.range.1 - y.range.0).abs(),
+    );
+    let biggest = tags
+        .iter()
+        .filter(|t| t.dot)
+        .map(|t| t.size)
+        .fold(0.0, f64::max)
+        .max(f64::EPSILON);
+    let mut order: Vec<usize> = (0..tags.len()).filter(|i| tags[*i].dot).collect();
+    order.sort_by(|a, b| tags[*b].size.total_cmp(&tags[*a].size).then(a.cmp(b)));
+    let mut taken: Vec<Rect> = Vec::new();
+    let mut spots: Vec<(usize, Point, f32)> = Vec::new();
+    for &i in &order {
+        let t = &tags[i];
+        let r = 3.5 + (t.size / biggest).sqrt() as f32 * 6.0;
+        let at = pt(x.map(t.x), y.map(t.y));
+        if at.x < plot.x - r
+            || at.x > plot.right() + r
+            || at.y < plot.y - r
+            || at.y > plot.bottom() + r
+        {
+            continue;
+        }
+        canvas.ring(at, r, 1.5, color.mul_alpha(0.35), color);
+        taken.push(rect(at.x - r, at.y - r, r * 2.0, r * 2.0));
+        spots.push((i, at, r));
+    }
+    for (i, at, r) in spots {
+        let label = &tags[i].label;
+        if label.is_empty() {
+            continue;
+        }
+        let s = canvas.measure(label, &style.label);
+        let gap = 4.0;
+        let candidates = [
+            rect(at.x + r + gap, at.y - s.h / 2.0, s.w, s.h),
+            rect(at.x - r - gap - s.w, at.y - s.h / 2.0, s.w, s.h),
+            rect(at.x - s.w / 2.0, at.y - r - gap - s.h, s.w, s.h),
+            rect(at.x - s.w / 2.0, at.y + r + gap, s.w, s.h),
+        ];
+        let inside = |c: &Rect| {
+            c.x >= plot.x
+                && c.y >= plot.y
+                && c.right() <= plot.right()
+                && c.bottom() <= plot.bottom()
+        };
+        let free =
+            |c: &Rect| inside(c) && !taken.iter().any(|t| t.inflate(2.0, 1.0).intersects(*c));
+        if let Some(c) = candidates.iter().find(|c| free(c)) {
+            canvas.text(
+                label,
+                &style.label,
+                pt(c.x, c.y),
+                HAnchor::Left,
+                VAnchor::Top,
+                style.ink_2,
+            );
+            taken.push(*c);
+        }
+    }
+    // A caption leans into the corner it is nearest, kept inside the plot.
+    for t in tags.iter().filter(|t| !t.dot && !t.label.is_empty()) {
+        let s = canvas.measure(&t.label, &style.label);
+        let at = pt(x.map(t.x), y.map(t.y));
+        let mid = plot.x + plot.w / 2.0;
+        let (anchor, px) = if (at.x - mid).abs() < 4.0 {
+            (HAnchor::Center, at.x)
+        } else if at.x < mid {
+            (HAnchor::Left, at.x.max(plot.x + 8.0))
+        } else {
+            (HAnchor::Right, at.x.min(plot.right() - 8.0))
+        };
+        let py = at.y.clamp(
+            plot.y + s.h / 2.0 + 6.0,
+            (plot.bottom() - s.h / 2.0 - 6.0).max(plot.y + s.h / 2.0 + 6.0),
+        );
+        canvas.text(
+            &t.label,
+            &style.label,
+            pt(px, py),
+            anchor,
+            VAnchor::Middle,
+            color.mul_alpha(0.9),
+        );
+    }
+}
+
 /// Each zone in view as a washed box with an outline, cut to the view; a level as a dashed line.
-fn boxes(canvas: &mut Canvas, zones: &[Zone], view: (f64, f64), x: &Linear, y: &Linear, color: vui_core::Color) {
+fn boxes(
+    canvas: &mut Canvas,
+    zones: &[Zone],
+    view: (f64, f64),
+    x: &Linear,
+    y: &Linear,
+    color: vui_core::Color,
+) {
     for z in zones.iter().filter(|z| z.x0 <= view.1 && z.x1 >= view.0) {
         let (left, right) = (x.map(z.x0.max(view.0)), x.map(z.x1.min(view.1)));
         let (top, bottom) = (y.map(z.high), y.map(z.low));
         if z.low == z.high {
             let stroke = Stroke::new(1.0).cap(Cap::Butt).dashed(&[6.0, 4.0], 0.0);
-            canvas.vector().polyline(&[pt(left, top), pt(right, top)], &stroke, color.mul_alpha(0.9));
+            canvas.vector().polyline(
+                &[pt(left, top), pt(right, top)],
+                &stroke,
+                color.mul_alpha(0.9),
+            );
             continue;
         }
-        let area = rect(left.min(right), top.min(bottom), (right - left).abs().max(1.0), (bottom - top).abs().max(1.0));
-        canvas.quad(Quad::new(area).fill(color.mul_alpha(0.12)).border(1.0, color.mul_alpha(0.5)));
+        let area = rect(
+            left.min(right),
+            top.min(bottom),
+            (right - left).abs().max(1.0),
+            (bottom - top).abs().max(1.0),
+        );
+        canvas.quad(
+            Quad::new(area)
+                .fill(color.mul_alpha(0.12))
+                .border(1.0, color.mul_alpha(0.5)),
+        );
     }
 }
 
@@ -373,7 +534,11 @@ fn candles(
         let body = rect(cx - width / 2.0, a.min(b), width, (a - b).abs().max(1.0));
         let quad = Quad::new(body).radii(1.0);
         // Without colour, up candles are hollow and down candles solid, readable either way.
-        canvas.quad(if rising && !market { quad.fill(style.bg).border(1.0, ink) } else { quad.fill(ink) });
+        canvas.quad(if rising && !market {
+            quad.fill(style.bg).border(1.0, ink)
+        } else {
+            quad.fill(ink)
+        });
     }
 }
 

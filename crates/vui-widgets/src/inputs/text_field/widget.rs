@@ -35,7 +35,7 @@ impl<M: 'static> Widget<M> for TextFieldWidget<M> {
         }
         if self.spec != old.spec {
             dirty = Dirty::Layout;
-        } else if self.placeholder != old.placeholder {
+        } else if self.placeholder != old.placeholder || self.marks != old.marks {
             dirty = dirty.max(Dirty::Paint);
         }
         dirty
@@ -119,7 +119,7 @@ impl<M: 'static> Widget<M> for TextFieldWidget<M> {
                     let layout = cx.fonts().layout_cached(&self.placeholder, &style, wrap);
                     cx.text(layout, origin, Tone::Text3);
                 }
-            } else {
+            } else if !self.paint_marked(cx, &surface, &style, origin, editor) {
                 cx.text(surface.layout.clone(), origin, Tone::Text);
             }
             // The text still being composed is underlined.

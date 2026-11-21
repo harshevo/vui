@@ -13,7 +13,7 @@ impl<M: 'static> TextField<M> {
     fn new(value: impl Into<String>, spec: Spec) -> TextField<M> {
         let field = TextField {
             base: Base::new(),
-            widget: TextFieldWidget { value: value.into(), placeholder: String::new(), on_change: None, on_submit: None, on_paste_image: None, spec },
+            widget: TextFieldWidget { value: value.into(), placeholder: String::new(), on_change: None, on_submit: None, on_paste_image: None, marks: Vec::new(), spec },
         };
         // The field shows its own focus, so the runtime's ring stays off.
         field.bg(Tone::Field).rounded(Radius::Control).focus_ring(false)
@@ -43,6 +43,15 @@ impl<M: 'static> TextField<M> {
     /// picture on the clipboard pastes nothing.
     pub fn on_paste_image(mut self, f: impl Fn(Vec<u8>) -> M + 'static) -> Self {
         self.widget.on_paste_image = Some(Rc::new(f));
+        self
+    }
+
+    /// Draws stretches of the text in a tone of their own, or underlined: a formula's names, numbers and
+    /// operators in different colours with a wavy line under the part that does not parse. `range`s are
+    /// byte positions in the text the field shows. Later marks win where they overlap, and a mark that
+    /// leaves the text is cut to it. They are ignored for a password and while text is being composed.
+    pub fn decorate(mut self, marks: Vec<Decoration>) -> Self {
+        self.widget.marks = marks;
         self
     }
 

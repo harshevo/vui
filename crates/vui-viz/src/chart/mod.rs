@@ -34,6 +34,42 @@ pub struct Dot {
     pub size: f64,
 }
 
+/// A point with a name: a dot sized like [`Dot`] with its label beside it, put where it does not cover
+/// another label or leave the plot. With [`Tag::note`] it is only the words, centred on the point and
+/// kept inside the plot: a caption for a corner or a region.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Tag {
+    pub x: f64,
+    pub y: f64,
+    /// Any non-negative number; dots are sized by their share of the largest.
+    pub size: f64,
+    pub label: String,
+    pub dot: bool,
+}
+
+impl Tag {
+    pub fn new(x: f64, y: f64, label: &str) -> Tag {
+        Tag {
+            x,
+            y,
+            size: 1.0,
+            label: label.to_string(),
+            dot: true,
+        }
+    }
+
+    pub fn size(mut self, size: f64) -> Tag {
+        self.size = if size.is_finite() { size.max(0.0) } else { 0.0 };
+        self
+    }
+
+    /// Words without a dot.
+    pub fn note(mut self) -> Tag {
+        self.dot = false;
+        self
+    }
+}
+
 /// A box in data space: from `x0` to `x1` (which may be infinite, to run off the right edge) and
 /// from `low` to `high`. A zone with `low == high` is a level: a line across that stretch.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -60,6 +96,13 @@ pub enum Mark {
         base: f64,
     },
     Dots(Vec<Dot>),
+    /// Labelled points.
+    Tags(Vec<Tag>),
+    /// The stretch between a low and a high at each x: a normal range, a fan of outcomes.
+    Band {
+        /// `(x, low, high)`.
+        rows: Vec<(f64, f64, f64)>,
+    },
     Candles(Vec<Candle>),
     /// Boxes and levels over the data, such as price zones on a market chart.
     Zones(Vec<Zone>),
@@ -96,6 +139,12 @@ pub struct Chart {
     pub categories: Vec<String>,
     /// Candles rise in the theme's green and fall in its red, instead of hollow and solid ink.
     pub market: bool,
+    /// A vertical range to show whatever the data does: 0 to 1 for shares, a square for a scatter.
+    pub y_fixed: Option<(f64, f64)>,
+    pub x_fixed: Option<(f64, f64)>,
+    /// What the axes measure, written at the top left and the bottom right; empty for nothing.
+    pub x_title: String,
+    pub y_title: String,
 }
 
 impl Default for Chart {
@@ -114,6 +163,10 @@ impl Chart {
             bar_layout: BarLayout::Overlap,
             categories: Vec::new(),
             market: false,
+            y_fixed: None,
+            x_fixed: None,
+            x_title: String::new(),
+            y_title: String::new(),
         }
     }
 
@@ -216,6 +269,57 @@ impl Chart {
         self.push(name, Mark::Dots(dots), Ink::Auto, Panel::Main)
     }
 
+    /// Labelled points, such as stocks on a scatter. Points that are not numbers are left out.
+    pub fn tags(self, name: &str, tags: &[Tag]) -> Chart {
+        let mut tags: Vec<Tag> = tags
+            .iter()
+            .filter(|t| t.x.is_finite() && t.y.is_finite())
+            .cloned()
+            .collect();
+        tags.sort_by(|a, b| a.x.total_cmp(&b.x));
+        self.push(name, Mark::Tags(tags), Ink::Auto, Panel::Main)
+    }
+
+    /// The stretch from `low` to `high` at each x, as `(x, low, high)`; the ends may be given either
+    /// way round. It reads as a wash with faint edges, so lines drawn over it stay clear.
+    pub fn band(self, name: &str, rows: &[(f64, f64, f64)]) -> Chart {
+        let mut rows: Vec<(f64, f64, f64)> = rows
+            .iter()
+            .filter(|r| r.0.is_finite() && r.1.is_finite() && r.2.is_finite())
+            .map(|r| (r.0, r.1.min(r.2), r.1.max(r.2)))
+            .collect();
+        rows.sort_by(|a, b| a.0.total_cmp(&b.0));
+        self.push(name, Mark::Band { rows }, Ink::Auto, Panel::Main)
+    }
+
+    /// Shows the main panel's vertical range as `low` to `high`, whatever the data does.
+    pub fn y_range(mut self, low: f64, high: f64) -> Chart {
+        if low.is_finite() && high.is_finite() && low != high {
+            self.y_fixed = Some((low.min(high), low.max(high)));
+        }
+        self
+    }
+
+    /// Says what the horizontal axis measures, under its right end.
+    pub fn x_title(mut self, title: &str) -> Chart {
+        self.x_title = title.to_string();
+        self
+    }
+
+    /// Says what the vertical axis measures, over its top end.
+    pub fn y_title(mut self, title: &str) -> Chart {
+        self.y_title = title.to_string();
+        self
+    }
+
+    /// Shows the horizontal range as `low` to `high`, whatever the data does.
+    pub fn x_range(mut self, low: f64, high: f64) -> Chart {
+        if low.is_finite() && high.is_finite() && low != high {
+            self.x_fixed = Some((low.min(high), low.max(high)));
+        }
+        self
+    }
+
     pub fn candles(self, name: &str, rows: &[Candle]) -> Chart {
         let mut rows: Vec<Candle> = rows
             .iter()
@@ -236,8 +340,14 @@ impl Chart {
         let mut zones: Vec<Zone> = zones
             .iter()
             .copied()
-            .filter(|z| z.x0.is_finite() && !z.x1.is_nan() && z.low.is_finite() && z.high.is_finite())
-            .map(|z| Zone { low: z.low.min(z.high), high: z.low.max(z.high), ..z })
+            .filter(|z| {
+                z.x0.is_finite() && !z.x1.is_nan() && z.low.is_finite() && z.high.is_finite()
+            })
+            .map(|z| Zone {
+                low: z.low.min(z.high),
+                high: z.low.max(z.high),
+                ..z
+            })
             .collect();
         zones.sort_by(|a, b| a.x0.total_cmp(&b.x0));
         self.push(name, Mark::Zones(zones), Ink::Accent, Panel::Main)
@@ -277,17 +387,31 @@ impl Chart {
     /// The horizontal range of all the data, widened by half a bar or candle at each end (and a little for
     /// dots) so those marks are not cut in half.
     pub fn x_extent(&self) -> (f64, f64) {
+        if let Some(fixed) = self.x_fixed {
+            return fixed;
+        }
         let mut lo = f64::INFINITY;
         let mut hi = f64::NEG_INFINITY;
+        let mut dotted = Vec::new();
         for l in &self.layers {
             if let Some((a, b)) = l.mark.x_bounds() {
-                let pad = if l.mark.is_thick() {
-                    l.mark.spacing() / 2.0
-                } else if matches!(l.mark, Mark::Dots(_)) {
-                    (b - a) * 0.04
+                if l.mark.is_thick() {
+                    let pad = l.mark.spacing() / 2.0;
+                    lo = lo.min(a - pad);
+                    hi = hi.max(b + pad);
                 } else {
-                    0.0
-                };
+                    if matches!(l.mark, Mark::Dots(_) | Mark::Tags(_)) {
+                        dotted.push((a, b));
+                    }
+                    lo = lo.min(a);
+                    hi = hi.max(b);
+                }
+            }
+        }
+        // A dot at the edge of the data would be cut in half: leave a margin, a fraction of the whole.
+        if lo <= hi {
+            let pad = (hi - lo) * 0.04;
+            for (a, b) in dotted {
                 lo = lo.min(a - pad);
                 hi = hi.max(b + pad);
             }
@@ -318,10 +442,18 @@ impl Chart {
     /// The vertical range a panel needs to show every mark whose x falls inside `x`, with a little
     /// room above and below and round numbers at the ends.
     pub fn y_extent(&self, panel: Panel, x: (f64, f64), ticks: usize) -> (f64, f64) {
+        if let Some(fixed) = self.y_fixed.filter(|_| panel == Panel::Main) {
+            return fixed;
+        }
         let (mut lo, mut hi) = (f64::INFINITY, f64::NEG_INFINITY);
         let mut anchored = self.zero && panel == Panel::Main;
         let stacks = self.stacks();
-        for (i, l) in self.layers.iter().enumerate().filter(|(_, l)| l.panel == panel) {
+        for (i, l) in self
+            .layers
+            .iter()
+            .enumerate()
+            .filter(|(_, l)| l.panel == panel)
+        {
             let bounds = match stacks.get(i).filter(|s| !s.is_empty()) {
                 Some(stack) => bars::stack_bounds(&l.mark, stack, x),
                 None => l.mark.y_bounds(x),
@@ -379,6 +511,8 @@ impl Mark {
                 points.iter().map(|p| p.0).collect()
             }
             Mark::Dots(d) => d.iter().map(|d| d.x).collect(),
+            Mark::Tags(t) => t.iter().map(|t| t.x).collect(),
+            Mark::Band { rows } => rows.iter().map(|r| r.0).collect(),
             Mark::Candles(c) => c.iter().map(|c| c.x).collect(),
             Mark::Zones(z) => z.iter().map(|z| z.x0).collect(),
         }
@@ -390,9 +524,14 @@ impl Mark {
                 (points.first()?.0, points.last()?.0)
             }
             Mark::Dots(d) => (d.first()?.x, d.last()?.x),
+            Mark::Tags(t) => (t.first()?.x, t.last()?.x),
+            Mark::Band { rows } => (rows.first()?.0, rows.last()?.0),
             Mark::Candles(c) => (c.first()?.x, c.last()?.x),
             Mark::Zones(z) => {
-                let last = z.iter().map(|z| if z.x1.is_finite() { z.x1 } else { z.x0 }).fold(f64::NEG_INFINITY, f64::max);
+                let last = z
+                    .iter()
+                    .map(|z| if z.x1.is_finite() { z.x1 } else { z.x0 })
+                    .fold(f64::NEG_INFINITY, f64::max);
                 (z.first()?.x0, last)
             }
         };
@@ -427,10 +566,19 @@ impl Mark {
                 range(&mut within(points, |p| p.0, x).iter().map(|p| p.1))
             }
             Mark::Dots(d) => range(&mut within(d, |d| d.x, x).iter().map(|d| d.y)),
+            Mark::Tags(t) => range(&mut within(t, |t| t.x, x).iter().map(|t| t.y)),
+            Mark::Band { rows } => {
+                range(&mut within(rows, |r| r.0, x).iter().flat_map(|r| [r.1, r.2]))
+            }
             Mark::Candles(c) => {
                 range(&mut within(c, |c| c.x, x).iter().flat_map(|c| [c.high, c.low]))
             }
-            Mark::Zones(z) => range(&mut z.iter().filter(|z| z.x0 <= x.1 && z.x1 >= x.0).flat_map(|z| [z.low, z.high])),
+            Mark::Zones(z) => range(
+                &mut z
+                    .iter()
+                    .filter(|z| z.x0 <= x.1 && z.x1 >= x.0)
+                    .flat_map(|z| [z.low, z.high]),
+            ),
         }
     }
 }

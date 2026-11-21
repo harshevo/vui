@@ -31,6 +31,9 @@ mod pointer;
 mod widget;
 
 pub use builder::{TextField, password_field, search_field, text_area, text_field};
+pub use marks::{Decoration, Underline};
+
+mod marks;
 
 /// Space between the edge of the field and its text.
 const PAD_X: f32 = 12.0;
@@ -77,6 +80,8 @@ pub struct TextFieldWidget<M> {
     on_change: Option<Handler<M>>,
     on_submit: Option<Handler<M>>,
     on_paste_image: Option<Rc<dyn Fn(Vec<u8>) -> M>>,
+    /// Stretches of the text drawn in their own tone or underlined: syntax colour, errors.
+    marks: Vec<Decoration>,
     spec: Spec,
 }
 
