@@ -841,7 +841,7 @@ where
     let more = icon_button(icon_set::MORE, "More").key(format!("menu-{shown_title}")).ghost().small().on_click(on(DockMsg::Menu((!menu_open).then(|| current.clone()))));
     let more = crate::dropdown(more, menu_open, on(DockMsg::Menu(None)), items).side(crate::Side::BelowEnd);
 
-    let bar = row().height(30.0).gap(6.0).padding_x(2.0).align_items(Align::Center).min_width(0.0).children((
+    let bar = row().height(26.0).gap(6.0).padding_x(2.0).align_items(Align::Center).min_width(0.0).children((
         title,
         // The views take the room left, so they can ask how wide it is (`when_container`).
         match views {
@@ -864,7 +864,7 @@ where
         .grow(1.0)
         .min_width(0.0)
         .min_height(0.0)
-        .gap(4.0)
+        .gap(0.0)
         .padding(4.0)
         .rounded(Radius::Card)
         .bg(Fill::Tone(Tone::Text, 0.02))
