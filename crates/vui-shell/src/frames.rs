@@ -12,6 +12,15 @@ pub fn frame_step(last: Option<f64>, now: f64, refresh: f64) -> f32 {
     }
 }
 
+/// How far the UI clock moves on the frame a wake-up timer drives after the window sat idle for `slept`
+/// seconds. The first frame after a pause steps a single refresh (see [`frame_step`]), which would leave
+/// a 0.6 s wake-up (a tooltip, a hover card, `Cx::after`) short by almost all of that, and the window would
+/// wake again and again for the remainder. Nothing moved while it slept, so the clock can catch up at once.
+pub fn wake_step(slept: f64, refresh: f64) -> f32 {
+    let refresh = if refresh > 0.0 { refresh } else { 1.0 / 60.0 };
+    slept.clamp(refresh, 3600.0) as f32
+}
+
 /// Where window `n` writes its snapshot: the first at `path`, later ones numbered, so `frame.png`
 /// becomes `frame-1.png`, `frame-2.png` and so on.
 pub fn snapshot_path(path: &Path, n: usize) -> PathBuf {
@@ -42,6 +51,14 @@ mod tests {
         assert!((frame_step(Some(10.0), 10.0 + r, r) - r as f32).abs() < 1e-6);
         assert!((frame_step(Some(1.0), 9.0, r) - 4.0 * r as f32).abs() < 1e-6, "long gaps are capped");
         assert!((frame_step(Some(1.0), 1.0, 0.0) - 1.0 / 60.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn a_wake_up_catches_the_clock_up_to_the_time_slept() {
+        let r = 1.0 / 120.0;
+        assert!((wake_step(0.6, r) - 0.6).abs() < 1e-6);
+        assert!((wake_step(0.0, r) - r as f32).abs() < 1e-6, "never less than a frame");
+        assert!((wake_step(1.0e9, r) - 3600.0).abs() < 1e-3, "a timer's gap is capped");
     }
 
     #[test]

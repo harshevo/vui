@@ -47,7 +47,13 @@ impl VuiView {
 
     /// Advances the UI to display-link time `now` and draws, then decides when the next frame is.
     pub(super) fn frame(&self, now: f64, refresh: f64) {
-        let dt = frame_step(self.ivars().last_frame.get(), now, refresh);
+        // A wake-up after idling steps the clock by the time slept; frames that were already running
+        // step by the display.
+        let slept = self.ivars().slept.take();
+        let dt = match (self.ivars().last_frame.get(), slept) {
+            (None, Some(slept)) => wake_step(slept, refresh),
+            (last, _) => frame_step(last, now, refresh),
+        };
         self.ivars().last_frame.set(Some(now));
         let Some((result, effects)) = self.with_host(|h| h.frame(dt)) else { return };
         self.apply(effects);
@@ -89,6 +95,7 @@ impl VuiView {
         if let Some(old) = self.ivars().timer.take() {
             old.invalidate();
         }
+        self.ivars().wake_set.set(CACurrentMediaTime());
         let timer = unsafe {
             NSTimer::scheduledTimerWithTimeInterval_target_selector_userInfo_repeats(
                 seconds.max(0.001) as f64,

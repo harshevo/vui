@@ -12,6 +12,9 @@ pub struct ViewIvars {
     /// Display-link time of the last frame; `None` while paused.
     pub(super) last_frame: Cell<Option<f64>>,
     pub(super) timer: RefCell<Option<Retained<NSTimer>>>,
+    /// Media time when the wake-up timer was set, and how long it slept once it fired.
+    pub(super) wake_set: Cell<f64>,
+    pub(super) slept: Cell<Option<f64>>,
     /// The key being shown to the input method. Whatever the input method does with it decides
     /// what reaches the UI; if it does nothing, the key goes through as it is.
     pub(super) pending: RefCell<Option<KeyEvent>>,
@@ -88,6 +91,7 @@ define_class!(
         #[unsafe(method(onTimer:))]
         fn on_timer(&self, _timer: &NSTimer) {
             self.ivars().timer.replace(None);
+            self.ivars().slept.set(Some(CACurrentMediaTime() - self.ivars().wake_set.get()));
             // The display link only runs while the view is on screen. Out of sight, the timer drives
             // the frame itself: a snapshot being taken, or a widget's wake-up.
             if self.visible() {
@@ -337,6 +341,8 @@ impl VuiView {
             link: RefCell::new(None),
             last_frame: Cell::new(None),
             timer: RefCell::new(None),
+            wake_set: Cell::new(0.0),
+            slept: Cell::new(None),
             pending: RefCell::new(None),
             status: RefCell::new(None),
             embeds: RefCell::new(Vec::new()),

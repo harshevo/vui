@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 
 use vui_core::{Event, Modifiers, Point, PointerButton, pt, size};
 use vui_runtime::{Answer, Effect};
-use vui_shell::frames::frame_step;
+use vui_shell::frames::{frame_step, wake_step};
 use vui_shell::host::Host;
 use winit::application::ApplicationHandler;
 use winit::dpi::{LogicalPosition, LogicalSize};
@@ -31,6 +31,9 @@ pub(crate) struct Slot {
     ime_on: bool,
     /// When the last frame was drawn; `None` while frames are paused.
     last_frame: Option<Instant>,
+    /// When frames last stopped, and how long a wake-up then slept: the clock catches up on that frame.
+    idle_since: Option<Instant>,
+    slept: Option<f64>,
     /// When the UI wants a tick though nothing moves: a caret blink or an app timer.
     wake_at: Option<Instant>,
     /// Covered or minimised: no frames until it shows again.
@@ -52,6 +55,8 @@ impl Slot {
             composing: false,
             ime_on: false,
             last_frame: None,
+            idle_since: None,
+            slept: None,
             wake_at: None,
             hidden: false,
             hovered: Vec::new(),
@@ -127,9 +132,11 @@ impl Slot {
     fn frame(&mut self) {
         let now = Instant::now();
         let refresh = self.refresh();
-        let dt = match self.last_frame {
-            Some(last) => frame_step(Some(0.0), now.duration_since(last).as_secs_f64(), refresh),
-            None => frame_step(None, 0.0, refresh),
+        let slept = self.slept.take();
+        let dt = match (self.last_frame, slept) {
+            (Some(last), _) => frame_step(Some(0.0), now.duration_since(last).as_secs_f64(), refresh),
+            (None, Some(slept)) => wake_step(slept, refresh),
+            (None, None) => frame_step(None, 0.0, refresh),
         };
         self.window.pre_present_notify();
         let (result, effects) = self.host.frame(dt);
@@ -138,8 +145,10 @@ impl Slot {
         if result.animating && !result.hidden {
             self.last_frame = Some(now);
             self.window.request_redraw();
+            self.idle_since = None;
         } else {
             self.last_frame = None;
+            self.idle_since.get_or_insert(now);
         }
         self.apply(effects);
     }
@@ -297,6 +306,7 @@ impl ApplicationHandler<usize> for Application {
             for slot in &mut self.slots {
                 if slot.wake_at.is_some_and(|t| t <= now) {
                     slot.wake_at = None;
+                    slot.slept = slot.idle_since.map(|since| now.duration_since(since).as_secs_f64());
                     slot.window.request_redraw();
                 }
             }

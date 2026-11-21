@@ -54,7 +54,7 @@ use vui_render::{CpuRenderer, CustomPass, Gpu, Renderer};
 use vui_runtime::{App, Clipboard, Effect, Ui};
 
 use crate::convert::{scroll_delta, scroll_phase, utf16_len, utf16_range_to_bytes};
-use vui_shell::frames::{cpu_requested, frame_step, snapshot_path};
+use vui_shell::frames::{cpu_requested, frame_step, snapshot_path, wake_step};
 use crate::host::{Host, Output, Snapshot, Window};
 use crate::software::LayerPresenter;
 use crate::keys::{modifiers, named_key, shortcut_char, typed_text};
