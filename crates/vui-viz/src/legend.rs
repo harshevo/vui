@@ -14,8 +14,9 @@ const GAP_TEXT: f32 = 6.0;
 const GAP_ITEM: f32 = 16.0;
 const ROW: f32 = 20.0;
 /// How far past the width an item may end and still count as fitting: the width a legend is given
-/// is its own natural width rounded by layout, and must not wrap its last item for a hair.
-const SLACK: f32 = 0.5;
+/// is its own natural width with both of its edges rounded by layout, which can take nearly a whole
+/// pixel off it, and must not wrap its last item for a hair.
+const SLACK: f32 = 1.0;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Item {
@@ -153,7 +154,8 @@ mod tests {
         let l = Legend::new().item("a", Ink::Hue, 0).item("b", Ink::Hue, 1).item("c", Ink::Hue, 2);
         let widths = [41.3, 38.7, 40.1];
         let natural = widths.iter().map(|w| SWATCH + GAP_TEXT + w).sum::<f32>() + GAP_ITEM * 2.0;
-        for width in [natural, natural - 0.001, natural + 0.001, (natural * 100.0).round() / 100.0 - 0.004] {
+        // Both edges rounded to a pixel, the left up and the right down, lose up to a pixel between them.
+        for width in [natural, natural - 0.001, natural + 0.001, (natural * 100.0).round() / 100.0 - 0.004, natural - 0.73, natural - 0.99] {
             assert!(l.place(&widths, width).iter().all(|p| p.1 == 0), "wrapped at {width} for {natural}");
         }
         assert_eq!(l.place(&widths, natural - 3.0).last().map(|p| p.1), Some(1), "a real shortfall still wraps");

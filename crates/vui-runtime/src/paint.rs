@@ -3,7 +3,7 @@
 //! Each node paints its own box first (fill, hover and press fades, border), then its widget, then its
 //! children, then whatever the widget wants over them, and last the focus ring and scrollbars.
 
-use vui_core::{Border, Command, Corners, LayerCmd, Quad, Rect, Scene};
+use vui_core::{Border, Command, Corners, Insets, LayerCmd, Quad, Rect, Scene};
 
 use crate::key::NodeId;
 use crate::node::Node;
@@ -180,6 +180,11 @@ fn paint_box<'a, M: 'static>(
     }
     let gradient = node.decor.gradient.as_ref();
     let fill = if gradient.is_some() { base } else { tint.over(base) };
+    let border = node.decor.border.map(|(width, color)| Border { width, color: color.resolve(palette).mul_alpha(alpha) });
+    let drawn = border.is_some_and(|b| b.width > 0.0 && b.color.a > 0.0);
+    // A box that clips holds what is in it inside its edge, so its border goes over that rather than
+    // under it: a grid that fills its frame must not hide the frame's left and top.
+    let ring_over = clips && drawn;
     // Nothing of this node's own is on screen: skip its box and its widget, but its children may be.
     let on_screen = node.clip.is_none_or(|c| c.intersects(rect));
     if on_screen {
@@ -197,8 +202,15 @@ fn paint_box<'a, M: 'static>(
             cmd.opacity = alpha;
             scene.push(Command::Custom(cmd));
         }
-        let border = node.decor.border.map(|(width, color)| Border { width, color: color.resolve(palette).mul_alpha(alpha) });
-        if fill.a > 0.0 || border.is_some_and(|b| b.width > 0.0 && b.color.a > 0.0) {
+        if ring_over {
+            // The fill stops at the border, as it does under a border drawn with it, so the border
+            // can go on after the children without piling up on the fill.
+            if fill.a > 0.0 {
+                let w = border.map_or(0.0, |b| b.width);
+                let inner = Corners::new((radii.tl - w).max(0.0), (radii.tr - w).max(0.0), (radii.br - w).max(0.0), (radii.bl - w).max(0.0));
+                scene.quad(Quad { rect: rect.deflate(Insets::all(w)), radii: inner, smooth, fill, border: None, clip: node.clip });
+            }
+        } else if fill.a > 0.0 || drawn {
             scene.quad(Quad { rect, radii, smooth, fill, border, clip: node.clip });
         }
         let radius = radii.tl.max(radii.br);
@@ -229,6 +241,9 @@ fn paint_box<'a, M: 'static>(
     }
     if !on_screen {
         return;
+    }
+    if ring_over {
+        scene.quad(Quad { rect, radii, smooth, fill: vui_core::Color::TRANSPARENT, border, clip: node.clip });
     }
     node.widget.paint_over(&*node.state, &mut look.cx(scene, pe));
 

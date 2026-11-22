@@ -49,6 +49,11 @@ let tile: Div<()> = column()
 
 `card()` and `panel()` are ready-made surfaces with the theme's radius, border and padding.
 
+A border is drawn inside the box and takes no room, so padding starts at the box's edge. A box that
+clips (`Overflow::Hidden` or `Scroll`) draws its border over what it holds, so a table or a picture
+that fills the frame leaves the frame's edge showing; a box that doesn't clip draws its border with
+its fill, under its children.
+
 ## Gradients and shaded effects
 
 `.gradient(…)` fills any element with a linear, radial or conic gradient, drawn over its `bg` and

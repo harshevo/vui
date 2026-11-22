@@ -101,7 +101,10 @@ impl<M: 'static> Widget<M> for TreemapWidget<M> {
     fn paint(&self, state: &TreemapState, cx: &mut PaintCx) {
         let laid = self.laid(cx.content);
         for (gi, head) in &laid.headings {
-            let layout = cx.fonts().layout_cached(&self.map.groups[*gi].label, &heading_style(), None);
+            let label = &self.map.groups[*gi].label;
+            let whole = cx.fonts().layout_cached(label, &heading_style(), None);
+            // A name too long for its group is cut to it with an ellipsis, not through a letter.
+            let layout = if whole.size().w > head.w + 0.5 { cx.fonts().layout_cached(label, &heading_style().max_lines(1), Some(head.w)) } else { whole };
             let s = layout.size();
             cx.clipped(*head, |cx| cx.text(layout, pt(head.x, head.y + (head.h - s.h) / 2.0), Tone::Text2));
         }

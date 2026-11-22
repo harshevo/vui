@@ -141,6 +141,28 @@ fn a_label_is_drawn_only_where_it_fits() {
     assert!(!words.iter().any(|w| w == "TINY"), "a sliver gets no label: {words:?}");
 }
 
+/// How wide the scene draws the first text that starts with `start`.
+fn drawn_width(scene: &vui_core::Scene, start: &str) -> Option<f32> {
+    scene.walk().find_map(|c| match c {
+        vui_core::Command::Text(t) if t.layout.text().starts_with(start) => Some(t.layout.size().w),
+        _ => None,
+    })
+}
+
+#[test]
+fn a_heading_too_long_for_its_group_is_cut_to_it() {
+    let name = "Financial Services and Insurance";
+    let map = Treemap::new().group(name).tile("A", "", 1.0, 0.0).tile("B", "", 1.0, 0.0);
+    let mut narrow = TestUi::<usize>::with_theme(size(120.0, 300.0), Theme::light(), 1.0);
+    narrow.view(treemap::<usize>(Rc::new(map.clone())).on_pick(|i| i).key("map").fill());
+    let cut = drawn_width(&narrow.scene(), "Financial").expect("the heading is drawn");
+    assert!(cut <= 120.5, "the heading is cut to its group's width, not run through its edge: {cut}");
+    // Wide enough, it is drawn whole.
+    let mut wide = ui(map);
+    let whole = drawn_width(&wide.scene(), "Financial").expect("the heading is drawn");
+    assert!(whole > 120.5, "{whole}");
+}
+
 #[test]
 fn a_click_picks_the_tile_and_arrows_walk_between_them() {
     let map = sectors();

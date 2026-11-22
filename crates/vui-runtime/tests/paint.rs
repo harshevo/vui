@@ -99,6 +99,33 @@ fn a_border_is_drawn_inside_the_box() {
 }
 
 #[test]
+fn a_clipping_box_draws_its_border_over_what_it_holds() {
+    let mut t = ui(200.0, 100.0);
+    t.view(column().child(
+        div().height(40.0).bg(Tone::Wash).rounded(Radius::Card).border(1.0, Tone::Line).overflow(vui_runtime::Overflow::Hidden).child(div().grow(1.0).bg(Tone::Side)),
+    ));
+    let scene = t.scene();
+    let q = quads(&scene);
+    // Its fill stops at the border, what it holds comes next, and the border goes on last, so
+    // a grid that fills the frame cannot hide the frame's edge.
+    assert_eq!(q.len(), 3);
+    assert!(q[0].border.is_none() && q[0].fill == Theme::light().palette.wash);
+    assert_eq!(q[0].rect, rect(1.0, 1.0, 198.0, 38.0));
+    assert!(q[1].border.is_none() && q[1].fill == Theme::light().palette.side);
+    let b = q[2].border.expect("the border");
+    assert_eq!((b.width, b.color, q[2].fill.a, q[2].rect), (1.0, Theme::light().palette.line, 0.0, rect(0.0, 0.0, 200.0, 40.0)));
+    // Inside the border the fill's corners are rounder by the border's width less than the border's.
+    assert_eq!(q[0].radii, Corners::all(q[2].radii.tl - 1.0));
+
+    // A box that holds what it has inside it without clipping keeps its border with its fill.
+    t.view(column().child(div().height(40.0).bg(Tone::Wash).border(1.0, Tone::Line).child(div().grow(1.0).bg(Tone::Side))));
+    let scene = t.scene();
+    let q = quads(&scene);
+    assert_eq!(q.len(), 2);
+    assert!(q[0].border.is_some() && q[0].fill == Theme::light().palette.wash && q[0].rect == rect(0.0, 0.0, 200.0, 40.0));
+}
+
+#[test]
 fn text_sits_inside_the_padding() {
     let mut t = ui(200.0, 100.0);
     t.view(column().padding(10.0).child(label("Hi").padding(4.0)));
