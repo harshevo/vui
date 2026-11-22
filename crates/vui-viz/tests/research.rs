@@ -9,7 +9,7 @@ use vui_core::{Fill, Fonts, Theme, Tone, pt, size};
 use vui_render::assert_golden;
 use vui_render::testing::render_scene;
 use vui_runtime::testing::TestUi;
-use vui_runtime::{Builder, IntoElement, Justify, Parent, Styled, column, label, row};
+use vui_runtime::{Builder, IntoElement, Justify, Parent, Radius, Styled, column, label, row};
 use vui_viz::{Cell, Chart, Column, GridData, Histogram, Ink, Legend, Order, Tag, Treemap, Zone, chart, data_grid, histogram, indexed, legend, treemap};
 use vui_widgets::{Decoration, Step, When, range_slider, text_field, timeline};
 
@@ -208,6 +208,41 @@ fn the_histogram_slider_in_dark() {
     assert_golden!("histogram_dark", frame(Theme::dark(), 332.0, 380.0, filter_view(), Some((90.0, 100.0))));
 }
 
+/// The pieces on a soft card, as the research window sets them: a spread in a data tone (nothing
+/// here can be moved, so nothing is the accent), and a grid whose header and pinned column are
+/// filled with the card's own faint tint, so no white strip shows where a column slides under.
+fn card_view() -> impl IntoElement<()> {
+    let tint = Fill::Tone(Tone::Text, 0.02);
+    let h = Histogram::of(&spread(3.0, 400), 24).marker(Some(18.0));
+    let grid = data_grid::<()>(Rc::new(Screen::new()), wide_columns()).pinned(1).surface(tint).key("grid").height(36.0 + 6.0 * 32.0).shrink(0.0);
+    column().padding(16.0).child(
+        column()
+            .padding(12.0)
+            .gap(8.0)
+            .rounded(Radius::Card)
+            .bg(tint)
+            .border(1.0, Fill::Tone(Tone::Text, 0.08))
+            .child(label("P/E across 400 companies").color(Tone::Text3).weight(500))
+            .child(histogram::<()>(Rc::new(h)).tone(Tone::Blue).height(72.0))
+            .child(grid),
+    )
+}
+
+#[test]
+fn a_card_with_a_toned_histogram_and_a_grid_on_its_tint_in_light() {
+    let mut t = TestUi::<()>::with_theme(size(520.0, 380.0), Theme::light(), 2.0);
+    t.view(card_view());
+    let _ = t.scene();
+    t.wheel(pt(300.0, 280.0), -200.0, 0.0);
+    t.settle();
+    assert_golden!("card_light", render_scene(&t.scene(), &Fonts::bundled_only()));
+}
+
+#[test]
+fn a_card_with_a_toned_histogram_and_a_grid_on_its_tint_in_dark() {
+    assert_golden!("card_dark", frame(Theme::dark(), 520.0, 380.0, card_view(), None));
+}
+
 fn shareholding() -> Chart {
     let promoters = [54.2, 54.2, 54.1, 54.1, 52.0, 51.9, 51.9, 51.8];
     let fii = [18.0, 18.4, 18.9, 19.6, 20.3, 21.0, 21.2, 21.4];
@@ -389,7 +424,7 @@ fn formula_view() -> impl IntoElement<()> {
         row()
             .justify(Justify::SpaceBetween)
             .padding((8.0, 6.0))
-            .rounded(vui_runtime::Radius::Control)
+            .rounded(Radius::Control)
             .bg(if lit { Fill::Tone(Tone::Hover, 1.0) } else { Fill::NONE })
             .child(label(name).mono())
             .child(label(hint).color(Tone::Text2))
@@ -403,7 +438,7 @@ fn formula_view() -> impl IntoElement<()> {
         .child(
             column()
                 .padding(4.0)
-                .rounded(vui_runtime::Radius::Card)
+                .rounded(Radius::Card)
                 .border(1.0, Fill::from(Tone::Line))
                 .child(suggestion("net_profit", "Net profit, cr", true))
                 .child(suggestion("net_debt", "Net debt, cr", false))

@@ -14,6 +14,8 @@ type Hover<M> = Rc<dyn Fn(Option<usize>) -> M>;
 pub struct HistogramWidget<M> {
     data: Rc<Histogram>,
     label: String,
+    /// The tone of the lit bars: the accent, which suits a histogram over a slider.
+    tone: Tone,
     on_hover: Option<Hover<M>>,
 }
 
@@ -31,7 +33,7 @@ impl<M: 'static> Widget<M> for HistogramWidget<M> {
 
     fn update(&self, old: &Self, state: &mut HistogramState) -> Dirty {
         state.hover = state.hover.filter(|i| *i < self.data.counts.len());
-        if Rc::ptr_eq(&self.data, &old.data) || *self.data == *old.data { Dirty::None } else { Dirty::Paint }
+        if self.tone == old.tone && (Rc::ptr_eq(&self.data, &old.data) || *self.data == *old.data) { Dirty::None } else { Dirty::Paint }
     }
 
     fn measure(&self, _state: &mut HistogramState, _env: &Env, known: Pair<Option<f32>>, avail: Pair<Avail>) -> Size {
@@ -55,8 +57,8 @@ impl<M: 'static> Widget<M> for HistogramWidget<M> {
             let lit = h.is_lit(i);
             let hot = state.hover == Some(i);
             let fill = match (lit, hot) {
-                (true, true) => Fill::Tone(Tone::Accent, 1.0),
-                (true, false) => Fill::Tone(Tone::Accent, 0.78),
+                (true, true) => Fill::Tone(self.tone, 1.0),
+                (true, false) => Fill::Tone(self.tone, 0.78),
                 (false, true) => Fill::Tone(Tone::Text3, 0.55),
                 (false, false) => Fill::Tone(Tone::Text3, 0.28),
             };
@@ -109,6 +111,13 @@ impl<M: 'static> HistogramView<M> {
         self
     }
 
+    /// The tone of the lit bars. The accent by default, which says "this is what you can move"; a
+    /// picture that can't be acted on, such as a spread shown for reading, takes a data tone.
+    pub fn tone(mut self, tone: Tone) -> Self {
+        self.widget.tone = tone;
+        self
+    }
+
     /// Sends the number of the bar under the pointer as it changes (`None` over nothing).
     pub fn on_hover(mut self, f: impl Fn(Option<usize>) -> M + 'static) -> Self {
         self.widget.on_hover = Some(Rc::new(f));
@@ -118,5 +127,5 @@ impl<M: 'static> HistogramView<M> {
 
 /// A histogram that fills the width it is given, 56 points tall unless told otherwise.
 pub fn histogram<M: 'static>(data: Rc<Histogram>) -> HistogramView<M> {
-    HistogramView { base: Base::new(), widget: HistogramWidget { data, label: String::new(), on_hover: None } }
+    HistogramView { base: Base::new(), widget: HistogramWidget { data, label: String::new(), tone: Tone::Accent, on_hover: None } }
 }

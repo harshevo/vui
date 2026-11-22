@@ -15,7 +15,10 @@ the API.
   labels only where they fit), `histogram` (bars that line up with a `range_slider` under them),
   `legend`, and `timeline` (dated steps). Charts gain `tags` (labelled points), `band`,
   `percent()` stacking, pinned `x_range` and `y_range`, and axis titles. Text fields gain
-  `.decorate(…)`: tones and wavy or straight underlines over stretches of the text.
+  `.decorate(…)`: tones and wavy or straight underlines over stretches of the text. A histogram
+  takes `.tone(…)` for its lit bars (the accent by default, since it sits over a slider; a spread
+  shown only for reading takes a data tone), and a grid's `.surface(…)` may be translucent, so a
+  grid on a tinted card has a header and pinned columns of exactly the card's colour.
 
 - Glass on both renderers (`vui_core::glass`): a backdrop pass that blurs and tints what was drawn
   behind a rounded box, bends it at the edge, splits colour there and lights the rim. `pour` joins

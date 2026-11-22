@@ -85,6 +85,17 @@ impl<M: 'static> GridWidget<M> {
         self.columns.iter().map(|c| c.width).sum()
     }
 
+    /// Fills `area` with the surface the header and the pinned columns hide what scrolls under them
+    /// with. The sheet's own colour goes down first, so a translucent surface (a card's faint tint)
+    /// ends up exactly as the card looks, and still hides what is under it.
+    fn lay_surface(&self, cx: &mut PaintCx, area: Rect) {
+        let sheet = Fill::Tone(Tone::Bg, 1.0);
+        if self.surface != sheet {
+            cx.fill_rect(area, sheet);
+        }
+        cx.fill_rect(area, self.surface);
+    }
+
     fn pinned(&self) -> usize {
         self.pinned.min(self.columns.len())
     }
@@ -327,7 +338,7 @@ impl<M: 'static> Widget<M> for GridWidget<M> {
         }
         if pinned > 0 {
             let strip = rect(view.x, view.y + HEAD, pinned_w, view.h - HEAD);
-            cx.fill_rect(strip, self.surface);
+            self.lay_surface(cx, strip);
             for r in first..last {
                 if let Some(f) = tint(r) {
                     cx.clipped(strip, |cx| cx.fill_rounded(band(r).inflate(-4.0, 0.0), Corners::all(6.0), f));
@@ -345,7 +356,7 @@ impl<M: 'static> Widget<M> for GridWidget<M> {
 
         // The header rides the top of the view.
         let header = rect(view.x, view.y, view.w, HEAD);
-        cx.fill_rect(header, self.surface);
+        self.lay_surface(cx, header);
         let draw_head = |cx: &mut PaintCx, c: usize| {
             let cell = rect(left(c), view.y, widths[c], HEAD);
             let col = &self.columns[c];
@@ -382,7 +393,7 @@ impl<M: 'static> Widget<M> for GridWidget<M> {
         }
         if pinned > 0 {
             let strip = rect(view.x, view.y, pinned_w, HEAD);
-            cx.fill_rect(strip, self.surface);
+            self.lay_surface(cx, strip);
             cx.clipped(strip, |cx| {
                 for c in 0..pinned {
                     draw_head(cx, c);
@@ -540,7 +551,8 @@ impl<M: 'static> DataGrid<M> {
     }
 
     /// The colour the header and the pinned columns are filled with, to hide what scrolls under
-    /// them: the colour of whatever the grid sits on. The sheet's by default.
+    /// them: the colour of whatever the grid sits on. The sheet's by default. It may be translucent
+    /// (a card's tint is `Fill::Tone(Tone::Text, 0.02)`): the sheet's colour is laid under it.
     pub fn surface(mut self, fill: impl Into<Fill>) -> Self {
         self.widget.surface = fill.into();
         self
