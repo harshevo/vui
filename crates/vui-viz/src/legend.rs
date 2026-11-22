@@ -13,6 +13,9 @@ const SWATCH: f32 = 8.0;
 const GAP_TEXT: f32 = 6.0;
 const GAP_ITEM: f32 = 16.0;
 const ROW: f32 = 20.0;
+/// How far past the width an item may end and still count as fitting: the width a legend is given
+/// is its own natural width rounded by layout, and must not wrap its last item for a hair.
+const SLACK: f32 = 0.5;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Item {
@@ -48,7 +51,7 @@ impl Legend {
         let mut out = Vec::with_capacity(self.items.len());
         for w in widths {
             let item = SWATCH + GAP_TEXT + w;
-            if x > 0.0 && x + item > width {
+            if x > 0.0 && x + item > width + SLACK {
                 x = 0.0;
                 row += 1;
             }
@@ -143,6 +146,17 @@ mod tests {
         assert_eq!(tight.iter().map(|p| p.1).collect::<Vec<_>>(), vec![0, 0, 1], "{tight:?}");
         assert_eq!(tight[2].0, 0.0, "a wrapped item starts at the left");
         assert!(l.place(&[], 50.0).is_empty());
+    }
+
+    #[test]
+    fn a_row_given_exactly_its_natural_width_does_not_wrap() {
+        let l = Legend::new().item("a", Ink::Hue, 0).item("b", Ink::Hue, 1).item("c", Ink::Hue, 2);
+        let widths = [41.3, 38.7, 40.1];
+        let natural = widths.iter().map(|w| SWATCH + GAP_TEXT + w).sum::<f32>() + GAP_ITEM * 2.0;
+        for width in [natural, natural - 0.001, natural + 0.001, (natural * 100.0).round() / 100.0 - 0.004] {
+            assert!(l.place(&widths, width).iter().all(|p| p.1 == 0), "wrapped at {width} for {natural}");
+        }
+        assert_eq!(l.place(&widths, natural - 3.0).last().map(|p| p.1), Some(1), "a real shortfall still wraps");
     }
 
     #[test]
