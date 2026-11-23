@@ -202,6 +202,7 @@ See [Web pages, video and PDFs](#web-pages-video-and-pdfs).
 | `border_beam(on)` | light running round the edge; `.colors`, `.width`, `.period`, `.length`, `.still` |
 | `spotlight()` | lit from the pointer; `.color`, `.reach`, `.at(x, y)` |
 | `glow(on)`, `shimmer(on)` | a ring that glows; a sheen that sweeps across |
+| `lift(on)` | a surface that rises off the page while `on`: its fill moves from `.surface(rest, raised)`'s first colour to its second, its `.shadow(…)` and a soft `.glow(fill, width, blur)` grow in, with a spring (the pointer lifts it 40%); a card in focus bulges out and the others sink back. A glow width of `-1.0` draws the halo without the ring |
 
 ### Forms
 

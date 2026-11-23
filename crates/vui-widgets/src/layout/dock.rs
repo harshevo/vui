@@ -34,13 +34,13 @@
 
 use std::rc::Rc;
 
-use vui_core::{CursorIcon, Event, Fill, PointerButton, Size, Tone, size};
+use vui_core::{CursorIcon, Event, Fill, PointerButton, Shadow, Size, Tone, size};
 use vui_icons::set as icon_set;
 use vui_runtime::layout::{Avail, Pair};
 use vui_runtime::{Align, Base, Builder, Dirty, Div, Element, Env, EventCx, Focus, IntoElement, Overflow, PaintCx, Parent, Radius, Styled, Widget, WidgetEvent, builder, column, row, small};
 
 use super::splitter;
-use crate::icon_button;
+use crate::{icon_button, lift};
 
 /// The smallest a pane may be dragged to, in points.
 pub const MIN_PANE: f32 = 96.0;
@@ -856,23 +856,52 @@ where
         (Some(_), Some(target)) => Some(drop_zones(target, &shown_title, d, on)),
         _ => None,
     };
-    // Each stack is a card: the theme's continuous card corners, a hairline edge and the faintest
-    // lift off the sheet, so panels read as separate pieces while the splitters between them are
-    // the gaps.
+    // Each stack is a card on the canvas, with no outline. The one in focus rises on a soft shadow and
+    // a faint glow; the others sink half-way into the canvas colour, so panels read as separate
+    // pieces by depth and the gaps between them are the splitters. The focus is the stack holding
+    // the card pressed last, whichever of its tabs shows; before anything is pressed, the first on
+    // show. A card pressed outside the dock (one the app draws beside it) leaves every stack at rest.
+    let focused = zoomed
+        || match &d.used {
+            Some(u) => tabs.contains(u),
+            None => d.tree.shown().first().copied() == Some(&current),
+        };
     let card = column()
         .key(format!("card-{shown_title}"))
         .grow(1.0)
         .min_width(0.0)
         .min_height(0.0)
         .gap(0.0)
-        .padding(4.0)
+        .padding(CARD_PADDING)
         .rounded(Radius::Card)
-        .bg(Fill::Tone(Tone::Text, 0.02))
-        .border(1.0, Fill::Tone(Tone::Text, 0.08))
         .overflow(Overflow::Hidden)
         .on_press_within(on(DockMsg::Used(current.clone())))
         .children((bar, column().grow(1.0).min_height(0.0).min_width(0.0).children(body), zones));
-    (card, limit)
+    (raised(&shown_title, focused, card), limit)
+}
+
+/// Space between a card's edge and what it holds.
+const CARD_PADDING: f32 = 4.0;
+/// How much of the sheet's colour a card keeps while it is not in focus: it fades into the canvas
+/// around it rather than being outlined against it.
+const FADED: f32 = 0.55;
+
+/// A card that rises when `focused` and sinks into the canvas when not: its surface, the shadow it
+/// casts and a faint accent glow all move together, with a spring (see [`lift`]). `name` keys the
+/// lift, `card` is what sits on it. For an app's own cards that sit beside the dock's, so they all
+/// look alike.
+pub fn raised<M: 'static>(name: &str, focused: bool, card: Div<M>) -> Div<M> {
+    let surface = lift(focused)
+        .key(format!("lift-{name}"))
+        .grow(1.0)
+        .min_width(0.0)
+        .min_height(0.0)
+        .rounded(Radius::Card)
+        .surface(Fill::Tone(Tone::Bg, FADED), Tone::Bg)
+        .shadow(Shadow { blur: 30.0, y: 12.0, spread: -8.0, alpha: 0.2 })
+        .glow(Fill::Tone(Tone::Accent, 0.5), -1.0, 16.0)
+        .child(card.rounded(Radius::Card));
+    column().grow(1.0).min_width(0.0).min_height(0.0).child(surface)
 }
 
 /// Five zones over a stack while a tab is dragged: each edge splits the stack, the centre joins it.

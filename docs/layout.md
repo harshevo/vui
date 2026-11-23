@@ -221,7 +221,10 @@ You often don't need a breakpoint at all.
   the card, the app's items, fill the dock, close). No tabs: a card of several makes its title a menu
   of them. Send each `DockMsg` to `docking.update`. A title dragged past 5 px shows five zones over
   the stack under the pointer (the four edges split, the centre joins the stack); double-click it to
-  fill the dock (`DockMsg::Zoom`). Let go over no zone and `update` returns `DockEvent::TearOff(p)`:
+  fill the dock (`DockMsg::Zoom`). Cards have no borders: they sit on the canvas (`Tone::Side`), the
+  card in use (the stack holding the one pressed last) is a `lift` in the sheet's colour with a
+  shadow and a soft accent halo, and the others are faded into the canvas. A card of your own
+  outside the dock can be drawn the same way with `raised(name, focused, card)`. Let go over no zone and `update` returns `DockEvent::TearOff(p)`:
   the app decides whether that opens a window. A panel from outside the dock (a rail) can be dragged
   in with `DockMsg::Drag(p)`: it lands where dropped (`DockEvent::Inserted(p)`) and nowhere else.
 

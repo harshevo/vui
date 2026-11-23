@@ -11,7 +11,7 @@ mod tile;
 
 pub use basics::*;
 pub use chip::chip;
-pub use effects::{EffectState, Glow, GlowWidget, Shimmer, ShimmerWidget, glow, shimmer};
+pub use effects::{EffectState, Glow, GlowWidget, Lift, LiftWidget, Shimmer, ShimmerWidget, glow, lift, shimmer};
 pub use icon::{ICON_SIZE, IconEl, IconWidget, SPINNER_PERIOD, icon, paint_icon, paint_spinner};
 pub use markdown::{Markdown, RichText, markdown, rich_text};
 pub use shaded::{
