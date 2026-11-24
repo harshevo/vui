@@ -122,6 +122,25 @@ fn without_titles_a_grip_drags_the_card_and_the_last_pressed_card_is_kept() {
     assert!(t.app::<Desk>().torn.is_empty(), "dropped on a zone, not torn off");
 }
 
+#[test]
+fn without_a_grip_the_whole_free_header_drags_the_card() {
+    let mut t = desk();
+    t.update_app(|d: &mut Desk| {
+        d.docking.titles = false;
+        d.docking.grip = false;
+    });
+    t.settle();
+    let words = vui_runtime::testing::texts(&t.scene());
+    assert!(!words.iter().any(|w| w == "chart" || w == "watch"), "no card names its panel: {words:?}");
+    let handle = t.rect("tab-chart");
+    assert!(handle.w > 100.0, "the handle is the header, not a grip: {handle:?}");
+    let watch = t.rect("card-watch");
+    let before = docking(&t).tree.clone();
+    drag(&mut t, "tab-chart", Point { x: watch.x + watch.w / 2.0, y: watch.y + watch.h * 0.9 });
+    assert_ne!(docking(&t).tree, before, "the header drags like a title");
+    assert!(t.app::<Desk>().torn.is_empty(), "dropped on a zone, not torn off");
+}
+
 /// A desk whose watchlist is never drawn wider than 260 points, nor its book taller than 200.
 struct Capped {
     docking: Docking<&'static str>,

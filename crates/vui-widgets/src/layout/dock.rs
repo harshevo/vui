@@ -21,8 +21,9 @@
 //! ```
 //!
 //! There are no tabs: a card with one panel shows its name, and one holding several makes its name a
-//! menu of them. With [`Docking::titles`] off a card shows no name, only a faint grip to drag it by,
-//! and [`Docking::used`] says which card was pressed last, for the app to name elsewhere. Double-clicking a header fills the dock with that card until it is asked back.
+//! menu of them. With [`Docking::titles`] off a card shows no name, only a faint grip to drag it by
+//! (and with [`Docking::grip`] off too, nothing at all: the header is the handle), and
+//! [`Docking::used`] says which card was pressed last, for the app to name elsewhere. Double-clicking a header fills the dock with that card until it is asked back.
 //! Dragging a header shows five drop zones over every stack (the centre joins its panels; an edge
 //! splits it); letting go anywhere else tears the panel off, for the app to open in a window of its
 //! own. A panel from outside the dock (a rail, say) can be dragged in the same way: it is inserted
@@ -378,12 +379,17 @@ pub struct Docking<P> {
     /// Whether each card's header names its panel. Without, a faint grip is what is dragged, and
     /// its tooltip and accessible name say the panel.
     pub titles: bool,
+    /// With [`titles`](Self::titles) off, whether the faint grip shows. Without it the header draws
+    /// nothing of its own: all of it that holds no control is what is dragged (a double click fills
+    /// the dock), named by its tooltip and accessible name, keyed `tab-{title}`; a card holding
+    /// several panels keeps a chevron, keyed `panels-{title}`, that opens their menu. On by default.
+    pub grip: bool,
     undo: Vec<DockTree<P>>,
 }
 
 impl<P: Clone + PartialEq> Docking<P> {
     pub fn new(tree: DockTree<P>) -> Docking<P> {
-        Docking { tree, drag: None, locked: false, menu: None, zoom: None, used: None, titles: true, undo: Vec::new() }
+        Docking { tree, drag: None, locked: false, menu: None, zoom: None, used: None, titles: true, grip: true, undo: Vec::new() }
     }
 
     /// Keeps the tree as it is now as one undo step: before the app changes it itself.
@@ -800,9 +806,13 @@ where
 
     // The title: what is dragged, a double click fills the dock, and in a card of several it opens
     // the menu of them.
-    let handle = drag_source().on_double_click(on(DockMsg::Zoom((!zoomed).then(|| current.clone()))));
-    let handle = if several { handle.on_click(on(DockMsg::Menu((!menu_open).then(|| current.clone())))) } else { handle };
-    let handle = if d.locked { handle } else { handle.on_drag(on(DockMsg::Drag(current.clone()))).on_drop(on(DockMsg::Drop)) };
+    let handle = |opens_menu: bool| {
+        let handle = drag_source().on_double_click(on(DockMsg::Zoom((!zoomed).then(|| current.clone()))));
+        let handle = if several && opens_menu { handle.on_click(on(DockMsg::Menu((!menu_open).then(|| current.clone())))) } else { handle };
+        if d.locked { handle } else { handle.on_drag(on(DockMsg::Drag(current.clone()))).on_drop(on(DockMsg::Drop)) }
+    };
+    // No name and no grip: the header itself is dragged, wherever it holds no control.
+    let bare = !d.titles && !d.grip;
     let title = row()
         .key(format!("tab-{shown_title}"))
         .name(shown_title.clone())
@@ -815,12 +825,27 @@ where
         .hover_bg(Tone::Hover);
     let chevron = several.then(|| crate::icon(icon_set::CHEVRON_DOWN).square(11.0).color(Tone::Text3));
     let title = if d.titles {
-        title.children((small(shown_title.clone()).weight(600).color(Tone::Text).max_lines(1), chevron, handle))
-    } else {
+        Some(title.children((small(shown_title.clone()).weight(600).color(Tone::Text).max_lines(1), chevron, handle(true))))
+    } else if d.grip {
         // No name: a faint grip to drag the card by, which still names it to the pointer and to
         // assistive tools.
-        title.tooltip(shown_title.clone()).children((crate::icon(icon_set::GRIP_VERTICAL).square(12.0).color(Tone::Text3), chevron, handle))
+        Some(title.tooltip(shown_title.clone()).children((crate::icon(icon_set::GRIP_VERTICAL).square(12.0).color(Tone::Text3), chevron, handle(true))))
+    } else {
+        // Nothing to draw: a card of several panels keeps the chevron that opens their menu.
+        several
+            .then(|| {
+                icon_button(icon_set::CHEVRON_DOWN, format!("Panels in {shown_title}"))
+                    .key(format!("panels-{shown_title}"))
+                    .ghost()
+                    .small()
+                    .on_click(on(DockMsg::Menu((!menu_open).then(|| current.clone()))))
+                    .into_element()
+            })
+            .map(|button| row().shrink(0.0).align_items(Align::Center).child(button))
     };
+    // Laid under everything else in the header, so a control takes its own press and the rest of the
+    // header falls through to this.
+    let overlay = bare.then(|| handle(false).key(format!("tab-{shown_title}")).name(shown_title.clone()).tooltip(shown_title.clone()).cursor(CursorIcon::Grab));
 
     // The card's menu: the other panels, the app's items, then fill and close.
     let mut items: Vec<Element<M>> = Vec::new();
@@ -841,14 +866,16 @@ where
     let more = icon_button(icon_set::MORE, "More").key(format!("menu-{shown_title}")).ghost().small().on_click(on(DockMsg::Menu((!menu_open).then(|| current.clone()))));
     let more = crate::dropdown(more, menu_open, on(DockMsg::Menu(None)), items).side(crate::Side::BelowEnd);
 
-    let bar = row().height(26.0).gap(6.0).padding_x(2.0).align_items(Align::Center).min_width(0.0).children((
+    // Bare, the controls sit where the card's content does: 4 points of the card's own padding in.
+    let bar = row().height(26.0).gap(6.0).padding_x(if bare { 4.0 } else { 2.0 }).align_items(Align::Center).min_width(0.0).children((
+        overlay,
         title,
         // The views take the room left, so they can ask how wide it is (`when_container`).
         match views {
-            Some(v) => row().grow(1.0).basis(0.0).min_width(0.0).align_items(Align::Center).overflow(Overflow::Hidden).child(v),
-            None => row().grow(1.0),
+            Some(v) => row().grow(1.0).basis(0.0).min_width(0.0).align_items(Align::Center).overflow(Overflow::Hidden).pointer_events(!bare).child(v),
+            None => row().grow(1.0).pointer_events(!bare),
         },
-        tools.map(|t| row().shrink(0.0).align_items(Align::Center).child(t)),
+        tools.map(|t| row().shrink(0.0).align_items(Align::Center).pointer_events(!bare).child(t)),
         more,
     ));
     let target = tabs.get(active).cloned();
