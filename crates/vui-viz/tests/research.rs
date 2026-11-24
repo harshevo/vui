@@ -165,6 +165,23 @@ fn the_treemap_in_dark() {
     assert_golden!("treemap_dark", frame(Theme::dark(), 860.0, 520.0, treemap_view(true), Some((400.0, 120.0))));
 }
 
+/// Tiles a few points short of their label: the name steps down a size or breaks at its space, and
+/// only a tile with no room for either goes bare.
+fn narrow_tiles() -> impl IntoElement<()> {
+    let map = Treemap::new().cap(0.02).group("Stocks").tile("HDFCBANK", "+0.5%", 10.0, 0.005).tile("NIFTY BANK", "−0.3%", 10.0, -0.003).tile("ICICIBANK", "+1.1%", 10.0, 0.011).tile(
+        "INDUSINDBANK",
+        "−1.4%",
+        1.0,
+        -0.014,
+    );
+    column().padding(16.0).child(treemap::<()>(Rc::new(map)).key("map").fill())
+}
+
+#[test]
+fn the_treemap_fits_labels_to_narrow_tiles() {
+    assert_golden!("treemap_narrow", frame(Theme::light(), 262.0, 190.0, narrow_tiles(), None));
+}
+
 /// One metric of the filter list: its name and the chosen range over the spread of the whole market.
 fn metric(name: &str, values: &[f64], low: f64, high: f64, mark: f64) -> impl IntoElement<()> {
     let h = Histogram::of(values, 28).lit(low, high).marker(Some(mark));

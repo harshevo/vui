@@ -1,10 +1,10 @@
-//! The treemap as a widget: tiles coloured red to green by their value, labels that are drawn only
-//! where they fit, an outline on the tile under the pointer, and arrow keys that walk from tile to
-//! tile.
+//! The treemap as a widget: tiles coloured red to green by their value, labels that shrink a step or
+//! break at a space to fit and are left off only when nothing fits, an outline on the tile under the
+//! pointer, and arrow keys that walk from tile to tile.
 
 use std::rc::Rc;
 
-use vui_core::{Color, Corners, Event, Fill, Key, NamedKey, PointerButton, Quad, Size, TextStyle, Tone, pt, size};
+use vui_core::{Color, Corners, Event, Fill, Key, NamedKey, PointerButton, Quad, Size, TextLayout, TextStyle, TextWrap, Tone, pt, size};
 use vui_runtime::layout::{Avail, Pair};
 use vui_runtime::{AccessInfo, Base, Dirty, Env, EventCx, Focus, PaintCx, Role, Widget, WidgetEvent, builder};
 
@@ -33,8 +33,34 @@ pub struct TreemapState {
     cursor: Option<usize>,
 }
 
-fn label_style(big: bool) -> TextStyle {
-    if big { TextStyle::new(15.0, 20.0).weight(600).no_wrap() } else { TextStyle::new(12.0, 16.0).weight(600).no_wrap() }
+/// The sizes (text, line) a tile's label tries, largest first.
+const BIG_LABELS: [(f32, f32); 4] = [(15.0, 20.0), (12.0, 16.0), (11.0, 14.0), (10.0, 13.0)];
+const LABELS: [(f32, f32); 3] = [(12.0, 16.0), (11.0, 14.0), (10.0, 13.0)];
+
+fn label_style((size, line): (f32, f32)) -> TextStyle {
+    TextStyle::new(size, line).weight(600).no_wrap()
+}
+
+/// A tile's label as its room allows: at the largest size where it fits on one line, or broken at a
+/// space over two (never through a word), before it steps down a size; `None` leaves the tile bare.
+fn fit_label(cx: &PaintCx, text: &str, big: bool, room: Size) -> Option<Rc<TextLayout>> {
+    let steps: &[(f32, f32)] = if big { &BIG_LABELS } else { &LABELS };
+    let fits = |l: &TextLayout| l.size().w <= room.w && l.size().h <= room.h;
+    for step in steps {
+        let style = label_style(*step);
+        let one = cx.fonts().layout_cached(text, &style, None);
+        if fits(&one) {
+            return Some(one);
+        }
+        let words = TextStyle { wrap: TextWrap::WordsOnly, ..style };
+        if text.contains(' ') && cx.fonts().min_content_width(text, &words) <= room.w {
+            let two = cx.fonts().layout_cached(text, &words, Some(room.w));
+            if two.line_count() <= 2 && fits(&two) {
+                return Some(two);
+            }
+        }
+    }
+    None
 }
 
 fn note_style(big: bool) -> TextStyle {
@@ -117,9 +143,8 @@ impl<M: 'static> Widget<M> for TreemapWidget<M> {
                 cx.fill_rounded(r, Corners::all(RADIUS), Fill::Tone(tone, alpha));
             }
             let big = r.w.min(r.h) >= 96.0;
-            let label = cx.fonts().layout_cached(&tile.label, &label_style(big), None);
-            let (lw, lh) = (label.size().w, label.size().h);
-            if r.w >= lw + 12.0 && r.h >= lh + 12.0 {
+            if let Some(label) = fit_label(cx, &tile.label, big, size(r.w - 12.0, r.h - 12.0)) {
+                let lh = label.size().h;
                 let top = r.y + 6.0;
                 cx.text(label, pt(r.x + 6.0, top), Tone::Text);
                 if !tile.note.is_empty() {
