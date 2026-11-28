@@ -294,6 +294,7 @@ impl Look {
                     "radii" => radii(theme, v, p),
                     "control" => number(v, "base.control", 16.0..=128.0, p, |n| theme.control = n),
                     "control_large" => number(v, "base.control_large", 16.0..=128.0, p, |n| theme.control_large = n),
+                    "focus_border" => number(v, "base.focus_border", 0.0..=4.0, p, |n| theme.focus_border = n),
                     "motion_fast" => number(v, "base.motion_fast", 0.0..=5.0, p, |n| theme.motion.fast = n),
                     "text" => text(theme, v, p),
                     // Read by apps that use them; vui's theme has no slot for these.

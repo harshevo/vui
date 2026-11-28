@@ -2,7 +2,7 @@
 //! ring around something selected or listening. Both fade in and out, and use the renderer's
 //! built-in effects pass, so they need nothing from the app.
 
-use vui_core::{Fill, Mode, Shadow, Spring, SpringValue, Tone, effects};
+use vui_core::{Fill, Mode, Quad, Shadow, Spring, SpringValue, Tone, effects};
 use vui_runtime::{Base, Dirty, Element, PaintCx, TickCx, Widget, builder};
 
 /// Seconds for a shimmer to cross and rest.
@@ -171,6 +171,7 @@ pub struct LiftWidget {
     raised: Fill,
     shadow: Shadow,
     glow: Option<(Fill, f32, f32)>,
+    ring: Option<Fill>,
 }
 
 impl<M: 'static> Widget<M> for LiftWidget {
@@ -182,7 +183,7 @@ impl<M: 'static> Widget<M> for LiftWidget {
 
     fn update(&self, old: &LiftWidget, state: &mut EffectState) -> Dirty {
         state.shown.set_target(if self.on { 1.0 } else { 0.0 });
-        let same = self.rest == old.rest && self.raised == old.raised && self.shadow == old.shadow && self.glow == old.glow;
+        let same = self.rest == old.rest && self.raised == old.raised && self.shadow == old.shadow && self.glow == old.glow && self.ring == old.ring;
         if same { Dirty::None } else { Dirty::Paint }
     }
 
@@ -206,6 +207,19 @@ impl<M: 'static> Widget<M> for LiftWidget {
         {
             let color = fill.resolve(cx.palette()).mul_alpha(shown);
             cx.custom(effects::glow(cx.rect, radius, color, width, blur, 0.0, cx.effect_time()));
+        }
+    }
+
+    // The ring goes over what sits on the surface, so a full-bleed child never hides it.
+    fn paint_over(&self, state: &EffectState, cx: &mut PaintCx) {
+        let width = cx.env.theme.focus_border;
+        let shown = state.shown.value().clamp(0.0, 1.0);
+        if let Some(fill) = self.ring
+            && width > 0.0
+            && shown > 0.01
+        {
+            let color = fill.resolve(cx.palette()).mul_alpha(shown * cx.alpha);
+            cx.quad(Quad::new(cx.rect).radii(cx.radii).border(width, color));
         }
     }
 
@@ -262,8 +276,15 @@ impl<M: 'static> Lift<M> {
         self.widget.glow = Some((fill.into(), width.max(0.0), blur.max(0.0)));
         self
     }
+
+    /// A crisp line of `fill` just inside the box while raised, as wide as the theme's
+    /// `focus_border` (none at 0). It comes in with the lift and has no soft edge.
+    pub fn ring(mut self, fill: impl Into<Fill>) -> Self {
+        self.widget.ring = Some(fill.into());
+        self
+    }
 }
 
 pub fn lift<M: 'static>(on: bool) -> Lift<M> {
-    Lift { base: Base::new(), widget: LiftWidget { on, rest: Fill::NONE, raised: Fill::NONE, shadow: Shadow::RAISED, glow: None }, children: Vec::new() }
+    Lift { base: Base::new(), widget: LiftWidget { on, rest: Fill::NONE, raised: Fill::NONE, shadow: Shadow::RAISED, glow: None, ring: None }, children: Vec::new() }
 }

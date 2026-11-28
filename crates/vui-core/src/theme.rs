@@ -243,6 +243,8 @@ pub struct Theme {
     /// Height of a standard control; primary actions use `control_large`.
     pub control: f32,
     pub control_large: f32,
+    /// Width of the solid accent line round the card in focus, in points; 0 draws none.
+    pub focus_border: f32,
     /// The glass material for floating surfaces: menus, palettes, the notch's cards.
     pub glass: Glass,
     /// Named colours apps add (a market's up and down, an AI colour), kept without knowing what
@@ -402,6 +404,7 @@ impl Theme {
             font_mono: "JetBrains Mono",
             control: 32.0,
             control_large: 40.0,
+            focus_border: 1.0,
             glass: Glass::for_mode(mode),
             ext: Ext::default(),
         }

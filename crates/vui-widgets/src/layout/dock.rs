@@ -883,8 +883,8 @@ where
         (Some(_), Some(target)) => Some(drop_zones(target, &shown_title, d, on)),
         _ => None,
     };
-    // Each stack is a card on the canvas, with no outline. The one in focus rises on a soft shadow and
-    // a faint glow; the others sink half-way into the canvas colour, so panels read as separate
+    // Each stack is a card on the canvas. The one in focus rises on a soft shadow inside a solid
+    // accent line (the theme's `focus_border` wide); the others sink half-way into the canvas colour, so panels read as separate
     // pieces by depth and the gaps between them are the splitters. The focus is the stack holding
     // the card pressed last, whichever of its tabs shows; before anything is pressed, the first on
     // show. A card pressed outside the dock (one the app draws beside it) leaves every stack at rest.
@@ -914,7 +914,7 @@ const CARD_PADDING: f32 = 4.0;
 const FADED: f32 = 0.55;
 
 /// A card that rises when `focused` and sinks into the canvas when not: its surface, the shadow it
-/// casts and a faint accent glow all move together, with a spring (see [`lift`]). `name` keys the
+/// casts and a solid accent line round it all move together, with a spring (see [`lift`]). `name` keys the
 /// lift, `card` is what sits on it. For an app's own cards that sit beside the dock's, so they all
 /// look alike.
 pub fn raised<M: 'static>(name: &str, focused: bool, card: Div<M>) -> Div<M> {
@@ -926,7 +926,7 @@ pub fn raised<M: 'static>(name: &str, focused: bool, card: Div<M>) -> Div<M> {
         .rounded(Radius::Card)
         .surface(Fill::Tone(Tone::Bg, FADED), Tone::Bg)
         .shadow(Shadow { blur: 30.0, y: 12.0, spread: -8.0, alpha: 0.2 })
-        .glow(Fill::Tone(Tone::Accent, 0.5), -1.0, 16.0)
+        .ring(Tone::Accent)
         .child(card.rounded(Radius::Card));
     column().grow(1.0).min_width(0.0).min_height(0.0).child(surface)
 }

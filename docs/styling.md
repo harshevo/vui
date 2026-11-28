@@ -243,6 +243,7 @@ fn brand(mode: Mode) -> Theme {
 | `types` | the `small`, `body`, `title` and `mono` text styles: size, line height, weight |
 | `motion` | the `snappy`, `smooth` and `morph` springs, and the `fast` duration |
 | `control`, `control_large` | the heights of buttons, fields and segmented controls |
+| `focus_border` | width of the solid accent line round the card in focus, 0–4 points (0 draws none) |
 
 `Theme::island()` is a third built-in theme for dark, floating HUDs.
 
