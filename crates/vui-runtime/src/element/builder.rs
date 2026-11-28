@@ -179,6 +179,26 @@ pub trait Builder<M: 'static>: Styled {
         self
     }
 
+    /// Hangs the element on one side of its box, as a panel on a side of the window: when it first
+    /// shows up it slides in across `edge` on [`Spring::ELASTIC`], a little past its place and back,
+    /// and when it leaves it slides out across it on [`Spring::ELASTIC_AWAY`] before it is removed.
+    /// It bends with its own motion ([`vui_core::elastic`]): its far side flexes as it moves, it
+    /// stretches from `edge` rather than come loose past its place, and it is cut at `edge`, going as
+    /// if under it. Only keyed elements can leave this way, as with [`disappear`](Builder::disappear);
+    /// while leaving it takes no input or focus. Something growing beside it on `Spring::ELASTIC`, the
+    /// room it is given, keeps pace with it, its edge on the panel's far side.
+    ///
+    /// ```
+    /// use vui_runtime::{Builder, Styled, div};
+    /// use vui_core::Edge;
+    ///
+    /// let drawer = div::<()>().key("ai").width(360.0).fill_height().elastic(Edge::Right);
+    /// ```
+    fn elastic(mut self, edge: vui_core::Edge) -> Self {
+        self.base_mut().elastic = Some(edge);
+        self
+    }
+
     /// Sent when the element is clicked: pressed and released while over it.
     fn on_click(self, message: M) -> Self
     where

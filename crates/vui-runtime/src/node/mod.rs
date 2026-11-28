@@ -73,6 +73,8 @@ pub(crate) struct Anim {
     inset: [Option<SpringValue>; 4],
     /// How far below its place an appearing element still is.
     pub rise: Option<SpringValue>,
+    /// How far an elastic element has slid out across its side: 0 in place, 1 gone.
+    pub slide: Option<SpringValue>,
     fill: Option<FillAnim>,
     /// The transform's scale, rotation and translation while they spring to new values.
     pub transform: Option<[SpringValue; 5]>,
@@ -92,6 +94,7 @@ impl Anim {
             height: None,
             inset: [None, None, None, None],
             rise: None,
+            slide: None,
             fill: None,
             transform: None,
             motion: 0.0,
@@ -111,6 +114,16 @@ impl Anim {
 
 /// Points an appearing element starts below its place.
 pub(crate) const RISE: f32 = 8.0;
+
+/// A spring for how far an elastic element has slid out, from `from` toward `to`. It settles finer
+/// than a length does, since a share of a wide panel is many points.
+pub(crate) fn slide(from: f32, to: f32, spring: Spring) -> SpringValue {
+    let mut s = SpringValue::new(from, spring);
+    s.rest_delta = 0.0005;
+    s.rest_velocity = 0.005;
+    s.set_target(to);
+    s
+}
 
 /// A scroll container's position and scrollbars.
 pub(crate) struct Scroll {
@@ -252,6 +265,8 @@ pub(crate) struct Node<M: 'static> {
     pub lazy: Option<(Lazy<M>, std::ops::Range<usize>)>,
     /// It fades out when the view drops it (`disappear`).
     pub disappear: bool,
+    /// It slides in across this side when built and out across it when the view drops it.
+    pub elastic: Option<vui_core::Edge>,
     /// The view has dropped it and it is fading out; it is removed once it has.
     pub leaving: bool,
 }

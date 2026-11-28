@@ -233,6 +233,9 @@ pub struct LayerCmd {
     pub opacity: f32,
     /// Anything outside this rect (logical pixels, after the transform) is cut away.
     pub clip: Option<Rect>,
+    /// Bent by its own motion as it springs in or out across one side, before the transform: see
+    /// [`crate::elastic`].
+    pub elastic: Option<crate::Elastic>,
     pub commands: Vec<Command>,
 }
 
@@ -319,7 +322,7 @@ mod tests {
         let mut s = Scene::new(size(10.0, 10.0), 1.0);
         let q = |x| Command::Quad(Quad::new(rect(x, 0.0, 1.0, 1.0)));
         s.push(q(0.0));
-        let inner = LayerCmd { bounds: rect(0.0, 0.0, 10.0, 10.0), transform: crate::Affine::IDENTITY, opacity: 1.0, clip: None, commands: vec![q(1.0), q(2.0)] };
+        let inner = LayerCmd { bounds: rect(0.0, 0.0, 10.0, 10.0), transform: crate::Affine::IDENTITY, opacity: 1.0, clip: None, elastic: None, commands: vec![q(1.0), q(2.0)] };
         s.push(Command::Layer(Box::new(inner)));
         s.push(q(3.0));
         let xs: Vec<f32> = s.walk().filter_map(|c| if let Command::Quad(q) = c { Some(q.rect.x) } else { None }).collect();

@@ -102,6 +102,9 @@ vui animates with springs, so motion is interruptible and never ends abruptly.
 - **`.disappear()`** is its pair. When the view drops a keyed element, it fades out and sinks a
   little in place, then goes. While it fades it takes no clicks, focus or screen-reader attention.
   If the view brings it back in time, it fades back in.
+- **`.elastic(edge)`** hangs a keyed element on one side, as a panel on a side of the window: it
+  slides in across that side on `Spring::ELASTIC`, a little past its place and back, and when the
+  view drops it slides out on `Spring::ELASTIC_AWAY` and goes. It bends with its motion (below).
 - **`.animate(keyframes)`** runs keyframes over opacity, scale, rotation and translation: a
   pulsing dot, a swaying bell. Use `Repeat::Forever` for as long as it shows, and `.alternate()`
   to sway back and forth.
@@ -156,6 +159,30 @@ fn live_dot() -> impl IntoElement<()> {
 fn toast(id: u32, text: &str) -> impl IntoElement<()> {
     // Keyed, so when it is dropped from the view it fades out instead of vanishing.
     row().key(id).padding(12.0).rounded(10.0).bg(Tone::Side).appear().disappear().child(label(text))
+}
+```
+
+### Elastic panels
+
+An element marked `.elastic(edge)` is drawn bent while it moves, by the layer shader on the GPU and
+the same sums on the CPU. Sliding out it moves across its side and is cut there, as if going under
+it. Past its place, where the spring overshoots, it does not come loose: its far side reaches
+further and what it holds stretches from the side it hangs on. And its far side bows with its
+speed, the middle lagging the corners, so it flexes like jelly as it comes in and settles. Give the
+room beside it the same spring and the room's edge keeps pace with the panel's far side:
+
+```rust
+use vui::prelude::*;
+
+fn desk(ai_open: bool) -> impl IntoElement<()> {
+    let panel = column().key("ai").absolute().top(0.0).bottom(0.0).right(0.0).width(360.0).bg(Tone::Side).elastic(Edge::Right);
+    row().fill().children((
+        div().grow(1.0).fill_height(),
+        // The room for the panel opens on the panel's spring and closes on its going-away one.
+        div().fill_height().width(if ai_open { 360.0 } else { 0.0 })
+            .transition(if ai_open { Spring::ELASTIC } else { Spring::ELASTIC_AWAY })
+            .child(ai_open.then_some(panel)),
+    ))
 }
 ```
 

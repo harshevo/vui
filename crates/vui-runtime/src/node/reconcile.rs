@@ -11,13 +11,16 @@ impl<M: 'static> Node<M> {
             children = lazy.children(range.clone());
             (lazy, range)
         });
-        let Base { style: asked, rules, decor, input, a11y, key, transition, appear, disappear } = base;
+        let Base { style: asked, rules, decor, input, a11y, key, transition, appear, disappear, elastic } = base;
         let style = responsive::resolve(asked, &rules, env.window);
         let opacity = decor.opacity;
         let state = widget.create_state();
         let mut anim = Anim::new(opacity);
         if appear {
             anim.appear(opacity, transition.unwrap_or(Spring::SMOOTH));
+        }
+        if elastic.is_some() {
+            anim.slide = Some(slide(1.0, 0.0, Spring::ELASTIC));
         }
         Node {
             id: ids.next(),
@@ -43,6 +46,7 @@ impl<M: 'static> Node<M> {
             room: None,
             lazy,
             disappear,
+            elastic,
             leaving: false,
         }
     }
@@ -57,8 +61,9 @@ impl<M: 'static> Node<M> {
             children = lazy.children(shown.clone());
             (lazy, shown)
         });
-        let Base { style: asked, rules, decor, input, a11y, key: _, transition, appear: _, disappear } = base;
+        let Base { style: asked, rules, decor, input, a11y, key: _, transition, appear: _, disappear, elastic } = base;
         self.disappear = disappear;
+        self.elastic = elastic;
 
         let mut dirty = widget.update(&*self.widget, &mut *self.state);
         self.widget = widget;
@@ -170,11 +175,12 @@ impl<M: 'static> Node<M> {
 
     pub(crate) fn refresh_eff(&mut self) {
         self.eff = self.target;
+        // A size springing past nothing, as a closing panel's room may, stays at nothing.
         if let Some(a) = &self.anim.width {
-            self.eff.width = Len::Px(a.value());
+            self.eff.width = Len::Px(a.value().max(0.0));
         }
         if let Some(a) = &self.anim.height {
-            self.eff.height = Len::Px(a.value());
+            self.eff.height = Len::Px(a.value().max(0.0));
         }
         let inset = &mut self.eff.inset;
         for (slot, a) in [&mut inset.top, &mut inset.right, &mut inset.bottom, &mut inset.left].into_iter().zip(&self.anim.inset) {
@@ -259,7 +265,7 @@ pub(crate) fn reconcile<M: 'static>(old: &mut Vec<Node<M>>, new: Vec<Element<M>>
     let mut ghosts = Vec::new();
     for (place, slot) in places.into_iter().zip(pool) {
         let Some(mut node) = slot else { continue };
-        if node.leaving || (node.disappear && node.key.is_some()) {
+        if node.leaving || ((node.disappear || node.elastic.is_some()) && node.key.is_some()) {
             if !node.leaving {
                 node.leave();
                 dirty = dirty.max(Dirty::Paint);

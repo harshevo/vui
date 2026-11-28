@@ -4,16 +4,8 @@
 use vui_core::{Shadow, Spring, Tone};
 use vui_runtime::{Align, Breakpoint, Builder, Div, IntoChildren, Justify, Parent, Radius, Role, Styled, column, div, pct};
 
-/// The edge of the window a [`drawer`] comes from.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
-pub enum Edge {
-    Left,
-    /// The default: details and settings beside the page.
-    #[default]
-    Right,
-    Top,
-    Bottom,
-}
+/// The edge of the window a [`drawer`] comes from: the side of a box an elastic layer hangs on too.
+pub use vui_core::Edge;
 
 /// How wide a side drawer is, and how tall a top or bottom one may grow.
 const SIDE_WIDTH: f32 = 380.0;

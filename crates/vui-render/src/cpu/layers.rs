@@ -1,6 +1,7 @@
 //! Layers on the CPU: the layer's commands are drawn into a canvas of their own, then each pixel
-//! the transformed layer covers maps back through the inverse transform and filters the four
-//! nearest pixels, with the same numbers and sums as `shaders/layer.wgsl`.
+//! the transformed layer covers maps back through the inverse transform, is bent if the layer is
+//! elastic, and filters the four nearest pixels, with the same numbers and sums as
+//! `shaders/layer.wgsl`.
 
 use vui_core::LayerCmd;
 
@@ -22,11 +23,17 @@ pub(crate) fn composite(dst: &mut Canvas, src: &Canvas, layer: &LayerCmd, scale:
     let [e, f, opacity, _] = l.inv_t;
     let [k0, k1, k2, k3] = l.keep;
     let clip = l.clip;
+    let [edge, out, bow, bent] = l.bend;
     for y in span.y0..span.y1 {
         let py = y as f32 + 0.5;
         for x in span.x0..span.x1 {
             let px = x as f32 + 0.5;
-            let (qx, qy) = (a * px + c * py + e, b * px + d * py + f);
+            let (mut qx, mut qy) = (a * px + c * py + e, b * px + d * py + f);
+            let mut cover = 1.0;
+            if bent > 0.5 {
+                let Some([sx, sy, k]) = vui_core::elastic::source(qx, qy, l.bend_from, edge as u32, out, bow) else { continue };
+                (qx, qy, cover) = (sx, sy, k);
+            }
             if qx < k0 || qy < k1 || qx >= k2 || qy >= k3 {
                 continue;
             }
@@ -39,7 +46,7 @@ pub(crate) fn composite(dst: &mut Canvas, src: &Canvas, layer: &LayerCmd, scale:
             let col = mix(top, bottom, fy);
             let cx = ((px - clip[0]).min(clip[0] + clip[2] - px) + 0.5).clamp(0.0, 1.0);
             let cy = ((py - clip[1]).min(clip[1] + clip[3] - py) + 0.5).clamp(0.0, 1.0);
-            let k = opacity * cx * cy;
+            let k = opacity * cx * cy * cover;
             dst.blend(x, y, col.map(|v| v * k));
         }
     }

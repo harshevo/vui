@@ -58,6 +58,11 @@ impl Spring {
     pub const SMOOTH: Spring = Spring::new(220.0, 28.0, 1.0);
     /// The notch growing into the ask panel: slower and softer.
     pub const MORPH: Spring = Spring::new(160.0, 22.0, 1.0);
+    /// A panel coming out with some give: there in about a third of a second, a tenth past the mark,
+    /// then back.
+    pub const ELASTIC: Spring = Spring::new(140.0, 14.0, 1.0);
+    /// The same panel going away: gone in about a third of a second, with no bounce to come back with.
+    pub const ELASTIC_AWAY: Spring = Spring::new(260.0, 28.0, 1.0);
 
     pub const fn new(stiffness: f32, damping: f32, mass: f32) -> Spring {
         Spring { stiffness, damping, mass }

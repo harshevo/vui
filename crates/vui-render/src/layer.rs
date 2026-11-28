@@ -5,6 +5,10 @@
 //! Drawing into a window-sized target keeps every command in window coordinates, which matters for
 //! effects and custom passes whose data holds absolute positions. Nested layers use one scratch
 //! target per depth; the textures they are copied into are pooled by size from frame to frame.
+//!
+//! A layer that springs in or out across one side ([`LayerCmd::elastic`]) is bent before the
+//! transform: each pixel asks [`vui_core::elastic::source`] which point of the layer shows there, in
+//! the shader as on the CPU.
 
 use bytemuck::{Pod, Zeroable};
 use vui_core::{Affine, LayerCmd, Rect};
@@ -41,13 +45,21 @@ pub(crate) struct LayerInstance {
     pub inv_t: [f32; 4],
     pub keep: [f32; 4],
     pub clip: [f32; 4],
+    /// The elastic box at rest, x0, y0, x1, y1 in texels.
+    pub bend_from: [f32; 4],
+    /// The side it hangs on (an [`vui_core::Edge::code`]), how far out, its bow, and 1 when bent.
+    pub bend: [f32; 4],
 }
 
 impl LayerInstance {
     /// `region` is what [`region`] gave: where the layer's texture sits in the window.
     pub(crate) fn new(layer: &LayerCmd, scale: f32, region: [u32; 4]) -> Option<LayerInstance> {
         let inv = device_inverse(&layer.transform, scale)?;
-        let drawn = layer.transform.bounds(layer.bounds);
+        let elastic = layer.elastic.filter(|e| !e.at_rest());
+        if elastic.is_some_and(|e| e.out >= 1.0) {
+            return None;
+        }
+        let drawn = layer.transform.bounds(elastic.map_or(layer.bounds, |e| e.extent(layer.bounds)));
         let drawn = match layer.clip {
             Some(c) => drawn.intersection(c)?,
             None => drawn,
@@ -61,6 +73,8 @@ impl LayerInstance {
             inv_t: [inv.e - ox, inv.f - oy, layer.opacity.clamp(0.0, 1.0), 0.0],
             keep: [s(b.x) - ox, s(b.y) - oy, s(b.x + b.w) - ox, s(b.y + b.h) - oy],
             clip: layer.clip.map_or(NO_CLIP, |c| [s(c.x), s(c.y), s(c.w), s(c.h)]),
+            bend_from: elastic.map_or([0.0; 4], |e| [s(e.from.x) - ox, s(e.from.y) - oy, s(e.from.right()) - ox, s(e.from.bottom()) - oy]),
+            bend: elastic.map_or([0.0; 4], |e| [e.edge.code() as f32, e.out, e.bow, 1.0]),
         })
     }
 }

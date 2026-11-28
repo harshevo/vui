@@ -14,6 +14,7 @@ impl<M: 'static> Node<M> {
             || a.height.is_some()
             || a.inset.iter().any(Option::is_some)
             || a.rise.is_some()
+            || a.slide.is_some()
             || a.fill.is_some()
             || a.transform.is_some()
             || self.decor.motion.as_ref().is_some_and(|k| !k.finished(a.motion))
@@ -66,6 +67,15 @@ impl<M: 'static> Node<M> {
             if rise.is_settled() && !self.leaving {
                 self.anim.rise = None;
                 ts.arrange = true;
+            }
+        }
+
+        if let Some(slide) = self.anim.slide.as_mut() {
+            advance(slide, dt, ts);
+            // A leaving element stays out until it is removed.
+            if slide.is_settled() && !self.leaving {
+                self.anim.slide = None;
+                ts.paint = true;
             }
         }
 

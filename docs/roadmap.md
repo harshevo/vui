@@ -22,7 +22,7 @@ importance. Each item says what exists today.
 | Text | shaping, wrapping, ellipsis, fallback for every script, custom fonts, a full editor with IME, undo and the clipboard |
 | Icons | 157 line icons, four weights, `icon!` for your own |
 | Data | charts (line, step, area, grouped and stacked bars, volume, scatter, candles), pies and donuts, bar lists, sparklines, force-directed graphs |
-| Motion and effects | springs, transitions, appear animations, transforms (scale, rotate, translate) drawn as layers, built-in control motion, glow, shimmer; a shading pass for gradients (linear, radial, conic, borders), aurora, border beam, spotlight and grain |
+| Motion and effects | springs, transitions, appear animations, transforms (scale, rotate, translate) drawn as layers, elastic panels bent by their motion as they spring in and out, built-in control motion, glow, shimmer; a shading pass for gradients (linear, radial, conic, borders), aurora, border beam, spotlight and grain |
 | Theming | light, dark and island themes; every colour, radius, type size and spring is data |
 | Platform | Windows and Linux (winit): windows, overlays, input method, clipboard, cursors, vsync frames, the CPU fallback. macOS: windows, overlays, input method, clipboard, cursors, file drops, display-link frames, a thread-safe `Proxy`, app menus and shortcuts, open and save sheets, notifications with action buttons (`UNUserNotificationCenter`), a menu-bar item, full screen, Reduce Motion and Increase Contrast |
 | Testing | `TestUi` for input and time; golden images on the GPU or CPU; accessibility-tree assertions |
@@ -90,7 +90,8 @@ drawer and sheet, hover card, stepper, toolbar and carousel; see [Widgets](widge
 ### 6. Motion and preferences
 
 **Today.** Transforms: `.scale`, `.rotate` and `.translate`, sprung with `.animated()`, drawn as
-layers on both renderers. Exit animations with `.disappear()`, and keyframes with `.animate()`.
+layers on both renderers. Exit animations with `.disappear()`, keyframes with `.animate()`, and
+panels that spring in and out across a side, bent as they move, with `.elastic(edge)`.
 See [Styling](styling.md#transforms). Reduce Motion and Increase Contrast are followed, and text
 scales with `text_scale`; see [Accessibility](accessibility.md#system-settings). **Next:**
 

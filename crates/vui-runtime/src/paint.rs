@@ -3,7 +3,7 @@
 //! Each node paints its own box first (fill, hover and press fades, border), then its widget, then its
 //! children, then whatever the widget wants over them, and last the focus ring and scrollbars.
 
-use vui_core::{Border, Command, Corners, Insets, LayerCmd, Quad, Rect, Scene};
+use vui_core::{Border, Command, Corners, Elastic, Insets, LayerCmd, Quad, Rect, Scene};
 
 use crate::key::NodeId;
 use crate::node::Node;
@@ -91,7 +91,12 @@ fn paint_node<'a, M: 'static>(
         return;
     }
     let transform = node.transform();
-    if transform.is_identity() {
+    // Sliding in or out across its side: bent by its motion, and nothing at all when all the way out.
+    let sliding = node.elastic.zip(node.anim.slide.as_ref());
+    if sliding.is_some_and(|(_, s)| s.value() >= 1.0) {
+        return;
+    }
+    if transform.is_identity() && sliding.is_none() {
         return paint_box(node, scene, pe, inherited, floats);
     }
     // Drawn into a layer of its own and laid over the frame transformed. What floats inside it is
@@ -106,6 +111,7 @@ fn paint_node<'a, M: 'static>(
             transform: transform.affine(rect),
             opacity: 1.0,
             clip: node.clip,
+            elastic: sliding.map(|(edge, s)| Elastic::new(rect, edge, s.value(), s.velocity())),
             commands,
         })));
     }

@@ -8,6 +8,7 @@
 pub mod anim;
 pub mod color;
 pub mod effects;
+pub mod elastic;
 pub mod embed;
 pub mod geom;
 pub mod glass;
@@ -28,6 +29,7 @@ pub use anim::{Easing, Lerp, Spring, SpringValue, Tween};
 pub use color::Color;
 pub use effects::Shadow;
 pub use embed::{Embed, EmbedKind};
+pub use elastic::{Edge, Elastic};
 pub use geom::{Corners, Insets, Point, Rect, Size, Vec2, pt, rect, size, vec2};
 pub use image::{Fit, ImageData, ImageError, ImageId, Images, fit_image};
 pub use keyframes::{Keyframes, Repeat};
