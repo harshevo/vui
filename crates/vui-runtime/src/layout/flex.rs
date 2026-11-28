@@ -31,6 +31,8 @@ pub(crate) struct Item {
     pub(crate) hyp: f32,
     /// The size after growing and shrinking.
     pub(crate) target: f32,
+    /// The gap before it, when it is not the first of its line.
+    pub(crate) lead: f32,
     pub(crate) frozen: bool,
     pub(crate) violation: f32,
     /// Cross size before stretching, and the final one.
@@ -182,6 +184,7 @@ pub(crate) fn gather<C, N: LayoutNode<C>>(node: &mut N, cx: &mut C, style: &Styl
             max_main,
             hyp,
             target: hyp,
+            lead: 0.0,
             frozen: false,
             violation: 0.0,
             cross: asked_cross,
@@ -219,10 +222,18 @@ pub(crate) fn flex<C, N: LayoutNode<C>>(node: &mut N, cx: &mut C, input: &Layout
     };
 
     let (mut items, absolute) = gather(node, cx, &style, &frame);
-    let n = items.len();
+
+    // A gap goes before every item but the first; with `collapse_empty`, only between items that take
+    // room.
+    let mut shown = false;
+    for it in items.iter_mut() {
+        let empty = style.collapse_empty && it.hyp + it.m_main <= 0.0;
+        it.lead = if shown && !empty { gap_main } else { 0.0 };
+        shown |= !empty;
+    }
 
     // The container's size along the main axis: decided, or its content fitted into what is offered.
-    let sum_outer = items.iter().map(|i| i.hyp + i.m_main).sum::<f32>() + gap_main * n.saturating_sub(1) as f32;
+    let sum_outer = items.iter().map(|i| i.lead + i.hyp + i.m_main).sum::<f32>();
     let widest = items.iter().map(|i| i.hyp + i.m_main).fold(0.0, f32::max);
     let natural_main = if wrap && frame.min_content { widest } else { sum_outer };
     let fitted_main = match offered.get(main) {
@@ -233,9 +244,9 @@ pub(crate) fn flex<C, N: LayoutNode<C>>(node: &mut N, cx: &mut C, input: &Layout
     // Room the items share out. A scroll container shares none: its content keeps its natural size.
     let flex_main = if scrolls { natural_main } else { (own_main - pad_main).max(0.0) };
 
-    let mut lines = break_lines(&items, wrap, flex_main, gap_main);
+    let mut lines = break_lines(&items, wrap, flex_main);
     for range in &lines {
-        resolve_line(&mut items[range.clone()], flex_main, gap_main);
+        resolve_line(&mut items[range.clone()], flex_main);
     }
 
     // The cross size each item wants now its main size is final.
@@ -295,7 +306,7 @@ pub(crate) fn flex<C, N: LayoutNode<C>>(node: &mut N, cx: &mut C, input: &Layout
 
     for line in &laid {
         let slice = &mut items[line.range.clone()];
-        position_line(slice, flex_main, gap_main, style.justify, main);
+        position_line(slice, flex_main, style.justify, main);
         for it in slice.iter_mut() {
             it.final_cross = if it.stretch { clamp_size((line.cross - it.m_cross).max(0.0), it.min_cross, it.max_cross) } else { it.cross };
             let free = (line.cross - it.m_cross - it.final_cross).max(0.0);
@@ -322,7 +333,7 @@ pub(crate) fn flex<C, N: LayoutNode<C>>(node: &mut N, cx: &mut C, input: &Layout
 
     // Origins inside the border box, and how far the content reaches.
     let mut reach = (pad.left, pad.top);
-    let mut origins = Vec::with_capacity(n);
+    let mut origins = Vec::with_capacity(items.len());
     for it in &items {
         let (mx, my) = if main == Axis::X { (it.main_pos, it.cross_pos) } else { (it.cross_pos, it.main_pos) };
         let origin = pt(pad.left + mx, pad.top + my);

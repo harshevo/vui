@@ -435,6 +435,13 @@ impl<M: 'static> Ui<M> {
                     break;
                 }
             }
+            // Heights that follow their content start or steer their springs from what it measures
+            // now, and the tree is laid out again so this frame draws them where they start.
+            if root.ease_heights(&mut core.env) {
+                layout_root(root, &mut core.env, core.size);
+                lay_out_fixed(root, &mut core.env, core.size);
+                core.animating = true;
+            }
             core.layout_dirty = false;
             core.arrange_dirty = true;
         }

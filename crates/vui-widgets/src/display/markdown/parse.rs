@@ -76,40 +76,102 @@ pub(crate) fn table_divider(line: &str) -> bool {
 
 /// Splits `text` into blocks.
 pub fn parse(text: &str) -> Vec<Block> {
-    let lines: Vec<&str> = text.lines().collect();
+    blocks(text, false)
+}
+
+/// Splits text that is still streaming in into blocks, showing what its end has started the way it
+/// will look once finished, never as markup: bold, emphasis or code still open runs to the end, a
+/// link shows its words before its address has come, and a last line that so far only starts a
+/// list item, heading, quote, table, rule or code block waits until it has words of its own.
+pub fn parse_streaming(text: &str) -> Vec<Block> {
+    blocks(text, true)
+}
+
+/// Whether the last line of streaming text only starts a block so far. `before` is the lines ahead
+/// of it.
+fn unfinished(line: &str, before: &[&str]) -> bool {
+    let t = line.trim();
+    if t.is_empty() {
+        return false;
+    }
+    let lone = |c: char| t.chars().all(|x| x == c);
+    let digits = t.trim_end_matches(['.', ')']);
+    let fenced = |l: &str| ["```", "~~~"].iter().any(|f| l.trim_start().starts_with(f));
+    // A fence opens a block when the fences before it are paired; one after an odd count closes it.
+    let opens = fenced(t) && before.iter().filter(|l| fenced(l)).count() % 2 == 0;
+    let row = |l: &str| l.trim().starts_with('|');
+    // A table's head waits for the line under it, and any of its lines for words or dashes.
+    let head = row(t) && !before.last().is_some_and(|l| row(l));
+    let bare = row(t) && t.chars().all(|c| matches!(c, '|' | ':' | ' '));
+    matches!(t, "-" | "*" | "+" | "•" | ">")
+        || (t.len() <= 6 && lone('#'))
+        || (!digits.is_empty() && digits.len() <= 9 && digits.bytes().all(|b| b.is_ascii_digit()) && digits.len() + 1 >= t.len())
+        || (t.len() <= 2 && lone('-'))
+        || (t.len() <= 3 && (lone('*') || lone('_')))
+        || opens
+        || head
+        || bare
+}
+
+/// Whether runs have any text to show.
+fn shows(runs: &[Inline]) -> bool {
+    !join(runs).trim().is_empty()
+}
+
+fn blocks(text: &str, streaming: bool) -> Vec<Block> {
+    let mut lines: Vec<&str> = text.lines().collect();
+    while streaming && lines.split_last().is_some_and(|(last, before)| unfinished(last, before)) {
+        lines.pop();
+    }
+    let end = lines.len();
+    // The block that holds the last line of streaming text keeps what that line opened open, and
+    // shows only once it has words.
+    let runs = |text: &str, tail: bool| inline_runs(text, streaming && tail);
+    let keep = |runs: &[Inline], tail: bool| !(streaming && tail) || shows(runs);
     let mut blocks = Vec::new();
     let mut i = 0;
     let mut para: Vec<&str> = Vec::new();
-    let flush = |para: &mut Vec<&str>, blocks: &mut Vec<Block>| {
+    let flush = |para: &mut Vec<&str>, blocks: &mut Vec<Block>, tail: bool| {
         if !para.is_empty() {
-            blocks.push(Block::Paragraph(inlines(&para.join(" "))));
+            let text = runs(&para.join(" "), tail);
+            if keep(&text, tail) {
+                blocks.push(Block::Paragraph(text));
+            }
             para.clear();
         }
     };
-    while i < lines.len() {
+    while i < end {
         let line = lines[i];
         let t = line.trim();
         if t.is_empty() {
-            flush(&mut para, &mut blocks);
+            flush(&mut para, &mut blocks, false);
             i += 1;
             continue;
         }
         if let Some(fence) = ["```", "~~~"].into_iter().find(|f| t.starts_with(f)) {
-            flush(&mut para, &mut blocks);
+            flush(&mut para, &mut blocks, false);
             let lang = t[3..].trim().to_string();
             let mut body = Vec::new();
             i += 1;
-            while i < lines.len() && !lines[i].trim_start().starts_with(fence) {
+            while i < end && !lines[i].trim_start().starts_with(fence) {
                 body.push(lines[i]);
                 i += 1;
+            }
+            // Still open, its closing fence half typed is not code.
+            if streaming && i >= end && body.last().is_some_and(|l| !l.trim().is_empty() && fence.starts_with(l.trim())) {
+                body.pop();
             }
             blocks.push(Block::Code { lang, text: body.join("\n") });
             i += 1;
             continue;
         }
         if let Some((level, text)) = heading(t) {
-            flush(&mut para, &mut blocks);
-            blocks.push(Block::Heading(level, inlines(text)));
+            flush(&mut para, &mut blocks, false);
+            let tail = i + 1 == end;
+            let text = runs(text, tail);
+            if keep(&text, tail) {
+                blocks.push(Block::Heading(level, text));
+            }
             i += 1;
             continue;
         }
@@ -119,45 +181,54 @@ pub fn parse(text: &str) -> Vec<Block> {
             continue;
         }
         if let Some((alt, src)) = image(t) {
-            flush(&mut para, &mut blocks);
+            flush(&mut para, &mut blocks, false);
             blocks.push(Block::Image { alt, src });
             i += 1;
             continue;
         }
-        if t.starts_with('|') && i + 1 < lines.len() && table_divider(lines[i + 1]) {
-            flush(&mut para, &mut blocks);
+        if t.starts_with('|') && i + 1 < end && table_divider(lines[i + 1]) {
+            flush(&mut para, &mut blocks, false);
             let head = cells(t).iter().map(|c| inlines(c)).collect();
-            let mut rows = Vec::new();
+            let mut rows: Vec<Vec<Vec<Inline>>> = Vec::new();
             i += 2;
-            while i < lines.len() && lines[i].trim().starts_with('|') {
-                rows.push(cells(lines[i]).iter().map(|c| inlines(c)).collect());
+            while i < end && lines[i].trim().starts_with('|') {
+                let tail = i + 1 == end;
+                let row = cells(lines[i]);
+                let last = row.len().saturating_sub(1);
+                rows.push(row.iter().enumerate().map(|(n, c)| runs(c, tail && n == last)).collect());
                 i += 1;
+            }
+            if streaming && i == end && rows.last().is_some_and(|r| !r.iter().any(|c| shows(c))) {
+                rows.pop();
             }
             blocks.push(Block::Table { head, rows });
             continue;
         }
         if t.starts_with('>') {
-            flush(&mut para, &mut blocks);
+            flush(&mut para, &mut blocks, false);
             let mut quote = Vec::new();
-            while i < lines.len() && lines[i].trim().starts_with('>') {
+            while i < end && lines[i].trim().starts_with('>') {
                 quote.push(lines[i].trim().trim_start_matches('>').trim());
                 i += 1;
             }
-            blocks.push(Block::Quote(inlines(&quote.join(" "))));
+            let text = runs(&quote.join(" "), i == end);
+            if keep(&text, i == end) {
+                blocks.push(Block::Quote(text));
+            }
             continue;
         }
         if bullet(line).is_some() || numbered(line).is_some() {
-            flush(&mut para, &mut blocks);
+            flush(&mut para, &mut blocks, false);
             let start = numbered(line).map(|(n, _)| n);
-            let mut items: Vec<String> = Vec::new();
-            while i < lines.len() {
+            let mut texts: Vec<String> = Vec::new();
+            while i < end {
                 let l = lines[i];
                 let item = if start.is_some() { numbered(l).map(|(_, r)| r) } else { bullet(l) };
                 if let Some(item) = item {
-                    items.push(item.trim().to_string());
-                } else if !l.trim().is_empty() && l.starts_with([' ', '\t']) && !items.is_empty() {
+                    texts.push(item.trim().to_string());
+                } else if !l.trim().is_empty() && l.starts_with([' ', '\t']) && !texts.is_empty() {
                     // A wrapped or nested line joins the item above it.
-                    let last = items.last_mut().expect("checked");
+                    let last = texts.last_mut().expect("checked");
                     let more = bullet(l).or(numbered(l).map(|(_, r)| r)).unwrap_or(l.trim());
                     last.push_str(if bullet(l).is_some() || numbered(l).is_some() { " · " } else { " " });
                     last.push_str(more.trim());
@@ -166,18 +237,33 @@ pub fn parse(text: &str) -> Vec<Block> {
                 }
                 i += 1;
             }
-            blocks.push(Block::List { start, items: items.iter().map(|s| inlines(s)).collect() });
+            let tail = i == end;
+            let last = texts.len().saturating_sub(1);
+            let mut items: Vec<Vec<Inline>> = texts.iter().enumerate().map(|(n, s)| runs(s, tail && n == last)).collect();
+            if items.last().is_some_and(|item| !keep(item, tail)) {
+                items.pop();
+            }
+            if !items.is_empty() {
+                blocks.push(Block::List { start, items });
+            }
             continue;
         }
         para.push(t);
         i += 1;
     }
-    flush(&mut para, &mut blocks);
+    flush(&mut para, &mut blocks, true);
     blocks
 }
 
 /// Splits a line into styled runs.
 pub fn inlines(text: &str) -> Vec<Inline> {
+    inline_runs(text, false)
+}
+
+/// Splits a line into styled runs. With `tail` the line is the end of text still streaming in: what
+/// it has opened and not closed yet shows the way it will once closed, and markup with nothing
+/// after it yet shows nothing.
+fn inline_runs(text: &str, tail: bool) -> Vec<Inline> {
     let mut out: Vec<Inline> = Vec::new();
     let mut plain = String::new();
     let chars: Vec<(usize, char)> = text.char_indices().collect();
@@ -202,6 +288,15 @@ pub fn inlines(text: &str) -> Vec<Inline> {
                 k = chars.iter().position(|(i, _)| *i >= next).unwrap_or(chars.len());
                 continue;
             }
+            // Still open: code to the end, without a closing fence half typed.
+            if tail {
+                push_plain(&mut plain, &mut out);
+                let code = rest[ticks..].trim_end_matches('`').trim();
+                if !code.is_empty() {
+                    out.push(Inline::Code(code.to_string()));
+                }
+                break;
+            }
         }
         // [text](url), and ![alt](src) inline, which shows as its alt text linked to the picture.
         if c == '[' || (c == '!' && rest[1..].starts_with('[')) {
@@ -220,6 +315,21 @@ pub fn inlines(text: &str) -> Vec<Inline> {
                     continue;
                 }
             }
+            if tail {
+                match rest[open..].find(']') {
+                    // The words of a link still coming show as they come, its bracket not.
+                    None => {
+                        k += open;
+                        continue;
+                    }
+                    // Its address still coming, or perhaps about to: the words alone.
+                    Some(close) if { rest[open + close + 1..].is_empty() || (rest[open + close + 1..].starts_with('(') && !rest[open + close + 1..].contains(')')) } => {
+                        plain.push_str(&strip(&rest[open..open + close]));
+                        break;
+                    }
+                    _ => {}
+                }
+            }
         }
         // ***both***, **strong** / __strong__, *emphasis* / _emphasis_
         if c == '*' || c == '_' {
@@ -229,7 +339,8 @@ pub fn inlines(text: &str) -> Vec<Inline> {
             let after = rest[run..].chars().next();
             // `_` inside a word (snake_case) is not markup.
             let opens = after.is_some_and(|a| !a.is_whitespace()) && !(c == '_' && before.is_some_and(word));
-            if opens && let Some(end) = rest[run..].find(marker) {
+            let found = rest[run..].find(marker);
+            if opens && let Some(end) = found {
                 let inner = &rest[run..run + end];
                 let closes = !inner.is_empty() && !inner.ends_with(char::is_whitespace) && !(c == '_' && rest[run + end + run..].chars().next().is_some_and(word));
                 if closes {
@@ -244,13 +355,37 @@ pub fn inlines(text: &str) -> Vec<Inline> {
                     continue;
                 }
             }
+            if tail {
+                // Opened at the start of a word and not closed yet: styled to the end, without a
+                // closing marker half typed.
+                if opens && found.is_none() && before.is_none_or(|b| !word(b)) {
+                    push_plain(&mut plain, &mut out);
+                    let inner = rest[run..].trim_end_matches(c).to_string();
+                    out.push(match run {
+                        3 => Inline::StrongEmphasis(inner),
+                        2 => Inline::Strong(inner),
+                        _ => Inline::Emphasis(inner),
+                    });
+                    break;
+                }
+                // A marker with nothing after it yet.
+                if after.is_none() && !(c == '_' && before.is_some_and(word)) {
+                    break;
+                }
+            }
         }
         // ~~struck~~ shows as plain text.
-        if c == '~' && rest.starts_with("~~") && let Some(end) = rest[2..].find("~~") {
-            plain.push_str(&rest[2..2 + end]);
-            let next = at + 2 + end + 2;
-            k = chars.iter().position(|(i, _)| *i >= next).unwrap_or(chars.len());
-            continue;
+        if c == '~' && rest.starts_with("~~") {
+            if let Some(end) = rest[2..].find("~~") {
+                plain.push_str(&rest[2..2 + end]);
+                let next = at + 2 + end + 2;
+                k = chars.iter().position(|(i, _)| *i >= next).unwrap_or(chars.len());
+                continue;
+            }
+            if tail {
+                k += 2;
+                continue;
+            }
         }
         // A backslash keeps the next character literal.
         if c == '\\' && k + 1 < chars.len() && chars[k + 1].1.is_ascii_punctuation() {
@@ -258,10 +393,15 @@ pub fn inlines(text: &str) -> Vec<Inline> {
             k += 2;
             continue;
         }
+        // The first of a pair of tildes, or a backslash, with nothing after it yet.
+        if tail && k + 1 == chars.len() && matches!(c, '~' | '\\') {
+            break;
+        }
         plain.push(c);
         k += 1;
     }
     push_plain(&mut plain, &mut out);
+    out.retain(|i| !matches!(i, Inline::Strong(t) | Inline::Emphasis(t) | Inline::StrongEmphasis(t) if t.is_empty()));
     out
 }
 
@@ -278,7 +418,16 @@ pub fn strip(text: &str) -> String {
 
 /// The whole document as plain text: what a notch line or a spoken reply should use.
 pub fn plain(text: &str) -> String {
-    parse(text)
+    flatten(parse(text))
+}
+
+/// [`plain`] of text still streaming in: what its end has opened shows the way it will once closed.
+pub fn plain_streaming(text: &str) -> String {
+    flatten(parse_streaming(text))
+}
+
+fn flatten(blocks: Vec<Block>) -> String {
+    blocks
         .into_iter()
         .map(|b| match b {
             Block::Heading(_, i) | Block::Paragraph(i) | Block::Quote(i) => join(&i),

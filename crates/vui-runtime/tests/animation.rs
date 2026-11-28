@@ -121,6 +121,83 @@ fn a_size_change_is_instant_without_a_transition() {
 }
 
 #[test]
+fn an_eased_height_springs_to_its_content_and_clips_on_the_way() {
+    let mut t = ui(400.0, 300.0);
+    // A fold: one row while closed, three while open, and a neighbour under it.
+    let view = |open: bool| {
+        let rows = if open { 3 } else { 1 };
+        column().children((
+            column().key("fold").ease_height().children((0..rows).map(|i| div().key(format!("r{i}")).height(20.0)).collect::<Vec<_>>()),
+            div().key("under").height(10.0),
+        ))
+    };
+    t.view(view(false));
+    assert_eq!(t.rect("fold").h, 20.0);
+
+    t.view(view(true));
+    assert_eq!(t.rect("fold").h, 20.0, "no jump: it starts where it was");
+    t.advance(0.05);
+    let (h, under) = (t.rect("fold").h, t.rect("under").y);
+    assert!(h > 20.0 && h < 60.0, "on its way open: {h}");
+    assert_eq!(under, h, "what is under it moves with it");
+    t.settle();
+    assert_eq!((t.rect("fold").h, t.rect("under").y), (60.0, 60.0));
+    assert!(!t.ui.needs_frame());
+
+    t.view(view(false));
+    t.advance(0.05);
+    let h = t.rect("fold").h;
+    assert!(h > 20.0 && h < 60.0, "on its way closed: {h}");
+    t.settle();
+    assert_eq!(t.rect("fold").h, 20.0);
+}
+
+#[test]
+fn a_fold_shuts_while_its_body_fades_out() {
+    let mut t = ui(400.0, 300.0);
+    let view = |open: bool| {
+        column().children((
+            column().key("fold").ease_height().children(open.then(|| column().key("body").appear().disappear().children((0..3).map(|_| div().height(20.0)).collect::<Vec<_>>()))),
+            div().key("under").height(10.0),
+        ))
+    };
+    t.view(view(true));
+    t.settle();
+    assert_eq!(t.rect("fold").h, 60.0);
+    t.view(view(false));
+    t.advance(0.05);
+    let h = t.rect("fold").h;
+    assert!(h > 0.0 && h < 60.0, "it shuts while the body is still fading: {h}");
+    assert_eq!(t.rect("under").y, h);
+    t.settle();
+    assert_eq!((t.rect("fold").h, t.rect("under").y), (0.0, 0.0));
+}
+
+#[test]
+fn an_eased_height_follows_content_that_changes_again_on_the_way() {
+    let mut t = ui(400.0, 300.0);
+    let view = |rows: usize| column().child(column().key("fold").ease_height().children((0..rows).map(|i| div().key(format!("r{i}")).height(20.0)).collect::<Vec<_>>()));
+    t.view(view(1));
+    t.view(view(5));
+    t.advance(0.04);
+    let mid = t.rect("fold").h;
+    t.view(view(3));
+    let mut last = mid;
+    for _ in 0..120 {
+        t.advance(1.0 / 60.0);
+        last = t.rect("fold").h;
+    }
+    assert!((last - 60.0).abs() < 0.5, "it settles on the content it has now: {last}");
+    let mut t = ui(400.0, 300.0);
+    let narrow = |w: f32| column().child(column().key("fold").width(w).ease_height().child(vui_runtime::label("a few words that wrap when the box is narrow")));
+    t.view(narrow(400.0));
+    let wide = t.rect("fold").h;
+    t.view(narrow(60.0));
+    assert!(t.rect("fold").h > wide, "reflowed to a new width it is that tall at once");
+    assert!(!t.ui.needs_frame());
+}
+
+#[test]
 fn a_retargeted_transition_keeps_its_momentum() {
     let mut t = ui(400.0, 100.0);
     let view = |w: f32| column().child(row().align_items(Align::Start).child(div().key("a").width(w).height(20.0).animated()));

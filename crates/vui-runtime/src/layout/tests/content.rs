@@ -11,6 +11,24 @@ fn hidden_children_take_no_space() {
 }
 
 #[test]
+fn collapsed_empty_children_take_no_gap() {
+    // Text still waiting to type in measures nothing: with `collapse_empty` it opens no gap, and a
+    // gap opens before each child once it has a size.
+    let kids = || vec![natural(50.0, 0.0), boxed(20.0, 20.0), natural(50.0, 0.0), boxed(20.0, 20.0), natural(50.0, 0.0)];
+    let mut root = col().align_items(Align::Start).gap(10.0).collapse_empty().kids(kids());
+    let out = layout_root(&mut root, &mut Cx::default(), size(200.0, 200.0));
+    assert!(close(root.kids[1].layout.origin.y, 0.0) && close(root.kids[3].layout.origin.y, 30.0));
+    assert!(close(root.kids[4].layout.origin.y, 50.0));
+    let content = intrinsic(&mut col().gap(10.0).collapse_empty().kids(kids()), Avail::MaxContent);
+    assert!(close(content.h, 50.0), "two boxes and one gap, got {}", content.h);
+    assert!(close(out.size.h, 200.0));
+
+    // Without it every child but the first has its gap, empty or not.
+    let plain = intrinsic(&mut col().gap(10.0).kids(kids()), Avail::MaxContent);
+    assert!(close(plain.h, 80.0), "two boxes and four gaps, got {}", plain.h);
+}
+
+#[test]
 fn text_is_fitted_to_the_room_it_is_offered() {
     let mut start = col().align_items(Align::Start).kids(vec![txt("hello world")]);
     run(&mut start, 100.0, 100.0);

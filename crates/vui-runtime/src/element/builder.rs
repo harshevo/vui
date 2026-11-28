@@ -161,6 +161,19 @@ pub trait Builder<M: 'static>: Styled {
         self.transition(Spring::SNAPPY)
     }
 
+    /// Springs the element's height to its content's whenever that changes, on the `transition` spring
+    /// or a smooth one, clipping what does not fit on the way: a fold that opens or closes, a group
+    /// that shrinks to its summary. A child on its way out ([`disappear`](Builder::disappear))
+    /// no longer counts, so a fold whose body is keyed and marked `.appear().disappear()` fades it
+    /// out while it shuts. A height its content reaches by reflowing to a new width is taken at
+    /// once. Use it on the box that changes, not on boxes around it as well.
+    fn ease_height(mut self) -> Self {
+        let base = self.base_mut();
+        base.ease_height = true;
+        base.style.overflow = crate::style::Overflow::Hidden;
+        self
+    }
+
     /// Fades the element in and lifts it into place when it first shows up, with the `transition`
     /// spring or a smooth one. Key it by what it shows, a page or a row, so that new content appears
     /// afresh instead of updating the old element in place.

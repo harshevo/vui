@@ -3,7 +3,7 @@
 use vui_core::pt;
 use vui_runtime::testing::TestUi;
 use vui_runtime::{Builder, Parent, Styled};
-use vui_widgets::markdown::{Block, Inline, inlines, parse, plain, strip};
+use vui_widgets::markdown::{Block, Inline, inlines, parse, parse_streaming, plain, plain_streaming, strip};
 use vui_widgets::{markdown, rich_text};
 
 #[test]
@@ -115,4 +115,63 @@ fn text_added_to_a_revealed_paragraph_types_on_from_where_it_was() {
     assert!(texts_drawn(&mut t) > 1);
     t.settle();
     assert_eq!(texts_drawn(&mut t), 1);
+}
+
+#[test]
+fn streaming_text_never_shows_half_written_markup() {
+    let text = |t: &str| Inline::Text(t.into());
+    let para = |runs: Vec<Inline>| Block::Paragraph(runs);
+    // Bold, emphasis and code still open run to the end, without a closing marker half typed; a
+    // marker with nothing after it yet shows nothing.
+    assert_eq!(parse_streaming("INFY is **up 1.0"), [para(vec![text("INFY is "), Inline::Strong("up 1.0".into())])]);
+    assert_eq!(parse_streaming("It is *very* **clo*"), [para(vec![text("It is "), Inline::Emphasis("very".into()), text(" "), Inline::Strong("clo".into())])]);
+    assert_eq!(parse_streaming("Run `cargo te"), [para(vec![text("Run "), Inline::Code("cargo te".into())])]);
+    assert_eq!(parse_streaming("It is **"), [para(vec![text("It is ")])]);
+    assert_eq!(parse_streaming("2 * 3"), [para(vec![text("2 * 3")])], "spaced stars stay arithmetic");
+    // A link shows its words before its address.
+    assert_eq!(parse_streaming("See [the fil"), [para(vec![text("See the fil")])]);
+    assert_eq!(parse_streaming("See [the filing](https://ex"), [para(vec![text("See the filing")])]);
+    // A line that only starts a block waits for words of its own.
+    assert_eq!(parse_streaming("Levels:\n\n-"), [para(vec![text("Levels:")])]);
+    assert_eq!(parse_streaming("Levels:\n\n- **1,8"), [para(vec![text("Levels:")]), Block::List { start: None, items: vec![vec![Inline::Strong("1,8".into())]] }]);
+    assert_eq!(parse_streaming("1. first\n2."), [Block::List { start: Some(1), items: vec![vec![text("first")]] }]);
+    assert_eq!(parse_streaming("Intro\n\n## "), [para(vec![text("Intro")])]);
+    assert_eq!(parse_streaming("Intro\n\n```rust"), [para(vec![text("Intro")])]);
+    // A table's head waits for the line under it; an open code block shows its lines so far.
+    assert_eq!(parse_streaming("| Stock | Price |"), []);
+    assert_eq!(parse_streaming("| Stock | Price |\n|"), []);
+    assert!(matches!(&parse_streaming("| Stock | Price |\n|---|")[..], [Block::Table { head, rows }] if head.len() == 2 && rows.is_empty()));
+    assert_eq!(parse_streaming("```\nlet a = 1;\n``"), [Block::Code { lang: String::new(), text: "let a = 1;".into() }]);
+    assert_eq!(plain_streaming("**Checking** the `look"), "Checking the look");
+    // Finished text keeps what it never closed as it is.
+    assert_eq!(parse("It is **"), [para(vec![text("It is **")])]);
+    assert_eq!(parse_streaming("Done.\n\n- one\n- two"), parse("Done.\n\n- one\n- two"), "finished markup parses the same streaming or not");
+}
+
+#[test]
+fn a_burst_of_paragraphs_types_in_one_at_a_time_in_reading_order() {
+    let first = "The first paragraph of an answer that came in a single burst, long enough to wrap.";
+    let doc = format!("{first}\n\nThen a second one.\n\n- an item\n- another item");
+    let height = |text: &str| {
+        let mut t = TestUi::new(240.0, 600.0);
+        t.view(vui_runtime::column().child(markdown::<Msg>(text).with(|d| d.key("doc"))));
+        t.rect("doc").h
+    };
+    let (alone, whole) = (height(first), height(&doc));
+    let mut t = TestUi::new(240.0, 600.0);
+    t.view(vui_runtime::column().child(markdown::<Msg>(&doc).reveal(true).with(|d| d.key("doc"))));
+    t.advance(1.0 / 60.0);
+    let mut last = t.rect("doc").h;
+    assert!(last > 0.0 && last <= 22.0, "one line has begun and what waits takes no room, gaps included: {last}");
+    for _ in 0..300 {
+        t.advance(1.0 / 60.0);
+        let h = t.rect("doc").h;
+        assert!(h + 0.01 >= last, "the document only grows as it types ({last} then {h})");
+        if h > alone + 0.5 {
+            let drawn = vui_runtime::testing::texts(&t.scene());
+            assert_eq!(drawn.iter().filter(|s| *s == first).count(), 1, "the second paragraph starts once the first is typed whole");
+        }
+        last = h;
+    }
+    assert!((last - whole).abs() < 0.01, "it ends as tall as the finished document ({last}, {whole})");
 }

@@ -12,7 +12,7 @@ use vui_core::{Color, Insets, Palette, Point, Rect, Spring, SpringValue, Vec2, p
 use crate::access::{A11y, Role};
 use crate::element::{Base, Decor, Element, Input, Lazy};
 use crate::key::{Key, NodeId};
-use crate::layout::{Avail, LayoutCache, LayoutNode, NodeLayout, Pair};
+use crate::layout::{Avail, LayoutCache, LayoutInput, LayoutNode, Mode, NodeLayout, Pair, compute};
 use crate::responsive::{self, Rule};
 use crate::style::{Axis, Len, Overflow, Position, Style, Thumb};
 use crate::widget::{Dirty, Env, Erased, Focus, TickCx};
@@ -269,6 +269,10 @@ pub(crate) struct Node<M: 'static> {
     pub elastic: Option<vui_core::Edge>,
     /// The view has dropped it and it is fading out; it is removed once it has.
     pub leaving: bool,
+    /// Its height springs to its content's (`ease_height`), and the width and height its content
+    /// last had.
+    pub ease: bool,
+    pub eased: Option<(f32, f32)>,
 }
 
 impl<M: 'static> LayoutNode<Env> for Node<M> {

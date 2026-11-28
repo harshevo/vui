@@ -11,7 +11,7 @@ impl<M: 'static> Node<M> {
             children = lazy.children(range.clone());
             (lazy, range)
         });
-        let Base { style: asked, rules, decor, input, a11y, key, transition, appear, disappear, elastic } = base;
+        let Base { style: asked, rules, decor, input, a11y, key, transition, appear, disappear, elastic, ease_height } = base;
         let style = responsive::resolve(asked, &rules, env.window);
         let opacity = decor.opacity;
         let state = widget.create_state();
@@ -48,6 +48,8 @@ impl<M: 'static> Node<M> {
             disappear,
             elastic,
             leaving: false,
+            ease: ease_height,
+            eased: None,
         }
     }
 
@@ -61,9 +63,13 @@ impl<M: 'static> Node<M> {
             children = lazy.children(shown.clone());
             (lazy, shown)
         });
-        let Base { style: asked, rules, decor, input, a11y, key: _, transition, appear: _, disappear, elastic } = base;
+        let Base { style: asked, rules, decor, input, a11y, key: _, transition, appear: _, disappear, elastic, ease_height } = base;
         self.disappear = disappear;
         self.elastic = elastic;
+        if !ease_height {
+            self.eased = None;
+        }
+        self.ease = ease_height;
 
         let mut dirty = widget.update(&*self.widget, &mut *self.state);
         self.widget = widget;
@@ -87,6 +93,10 @@ impl<M: 'static> Node<M> {
         self.a11y = a11y;
 
         dirty = dirty.max(reconcile(&mut self.children, children, ids, env));
+        // A child on its way out no longer counts towards a height that follows its content.
+        if self.ease && self.children.iter().any(|c| c.leaving) {
+            dirty = Dirty::Layout;
+        }
         if dirty == Dirty::Layout {
             self.cache.clear();
         }
@@ -100,7 +110,10 @@ impl<M: 'static> Node<M> {
         let transition = self.transition;
         if style != self.target {
             self.anim.width = retarget(self.anim.width.take(), self.target.width, style.width, transition);
-            self.anim.height = retarget(self.anim.height.take(), self.target.height, style.height, transition);
+            // A height springing to its content goes on springing while it is still the content's.
+            if !(self.ease && self.target.height == Len::Auto && style.height == Len::Auto) {
+                self.anim.height = retarget(self.anim.height.take(), self.target.height, style.height, transition);
+            }
             let (old, new) = (sides(&self.target.inset), sides(&style.inset));
             for (i, slot) in self.anim.inset.iter_mut().enumerate() {
                 *slot = retarget(slot.take(), old[i], new[i], transition);

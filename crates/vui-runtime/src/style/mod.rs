@@ -270,6 +270,9 @@ pub struct Style {
     /// items are `x` apart and its wrapped lines `y` apart; a column's items are `y` apart.
     pub gap: Vec2,
     pub wrap: bool,
+    /// Children that take no room along the main axis take no gap either, so a column whose items
+    /// grow in from nothing (text that types itself in) opens each gap as its item starts.
+    pub collapse_empty: bool,
     pub align_items: Align,
     pub align_self: Option<Align>,
     pub justify: Justify,
@@ -309,6 +312,7 @@ impl Default for Style {
             inset: Sides::all(Len::Auto),
             gap: Vec2::ZERO,
             wrap: false,
+            collapse_empty: false,
             align_items: Align::Stretch,
             align_self: None,
             justify: Justify::Start,

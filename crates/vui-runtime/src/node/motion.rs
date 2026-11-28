@@ -157,6 +157,78 @@ impl<M: 'static> Node<M> {
     }
 }
 
+impl<M: 'static> Node<M> {
+    /// Starts or steers the springs of heights that follow their content (`ease_height`) from what the
+    /// content measures now that the tree has been laid out. Says whether any changed, in which case
+    /// the tree needs laying out again before it is drawn.
+    pub(crate) fn ease_heights(&mut self, env: &mut Env) -> bool {
+        let mut changed = false;
+        for child in &mut self.children {
+            changed |= child.ease_heights(env);
+        }
+        if self.ease && !self.eff.hidden && !self.leaving {
+            changed |= self.ease_height(env);
+        }
+        if changed {
+            self.cache.clear();
+        }
+        changed
+    }
+
+    fn ease_height(&mut self, env: &mut Env) -> bool {
+        if self.target.height != Len::Auto {
+            self.eased = None;
+            return false;
+        }
+        let w = self.layout.size.w;
+        let leaving: Vec<usize> = self.children.iter().enumerate().filter(|(_, c)| c.leaving && !c.eff.hidden).map(|(i, _)| i).collect();
+        let h = if self.anim.height.is_none() && leaving.is_empty() {
+            self.layout.size.h
+        } else {
+            // Mid-spring it is drawn at the spring's height, and content on its way out (a fold's
+            // body fading as it shuts) keeps its place until it has gone: what the content wants is
+            // measured as if it had neither, so the box shrinks while the body fades.
+            let shown = self.eff;
+            self.eff = self.target;
+            for &i in &leaving {
+                self.children[i].eff.hidden = true;
+            }
+            self.cache.clear();
+            let input = LayoutInput { known: Pair::new(Some(w), None), parent: Pair::new(Some(w), None), avail: Pair::new(Avail::Definite(w), Avail::MaxContent), mode: Mode::Measure };
+            let natural = compute(self, env, input).size.h;
+            for &i in &leaving {
+                self.children[i].eff.hidden = false;
+            }
+            self.eff = shown;
+            self.cache.clear();
+            natural
+        };
+        let Some((was_w, was_h)) = self.eased.replace((w, h)) else { return false };
+        if (h - was_h).abs() <= 0.5 {
+            return false;
+        }
+        // Reflowed to a new width, or motion held still: it is simply that tall now.
+        if (w - was_w).abs() > 0.5 || env.prefs.reduce_motion {
+            if self.anim.height.take().is_some() {
+                self.refresh_eff();
+                return true;
+            }
+            return false;
+        }
+        let spring = self.transition.unwrap_or(Spring::SMOOTH);
+        match self.anim.height.as_mut() {
+            Some(a) => a.set_target(h),
+            None => {
+                let mut a = SpringValue::new(was_h, spring);
+                a.set_target(h);
+                self.anim.height = Some(a);
+            }
+        }
+        self.refresh_eff();
+        true
+    }
+}
+
 /// Steps a spring. Returns true if its value changed.
 pub(crate) fn advance(spring: &mut SpringValue, dt: f32, ts: &mut TickState) -> bool {
     let before = spring.value();

@@ -183,6 +183,13 @@ pub trait Styled: Sized {
         self
     }
 
+    /// Children that take no room along the main axis take no gap either: a column whose items grow
+    /// in from nothing opens each gap as its item starts rather than all at once.
+    fn collapse_empty(mut self) -> Self {
+        self.style_mut().collapse_empty = true;
+        self
+    }
+
     /// Lays children out left to right.
     fn row(mut self) -> Self {
         self.style_mut().direction = Direction::Row;

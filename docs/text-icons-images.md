@@ -42,9 +42,13 @@ For formatted text, `markdown(text)` renders headings, lists, emphasis, code and
 `rich_text(text)` renders the inline parts on their own.
 
 Text that streams in, like a model's reply, can type itself in instead of jumping a chunk at a
-time. With `.reveal(true)` each paragraph keeps a steady pace a little behind what has arrived,
-its newest words fade in, and it grows a line at a time. Turn it off once the stream ends: the
-words still typing finish, and text built without it shows whole.
+time. With `.reveal(true)` the text keeps a steady pace a little behind what has arrived, one
+paragraph, heading or list item at a time in reading order (a burst never types in several places
+at once), its newest words fade in, and it grows a line at a time; what is still waiting takes no
+room. Markup the stream has opened shows the way it will look, never as asterisks or backticks: a
+bold run still open is bold to its end, a link shows its words before its address, a line that
+so far only starts a list item or a table waits for its words (`parse_streaming`). Turn it off once
+the stream ends: the words still typing finish, and text built without it shows whole.
 
 ```rust
 use vui::prelude::*;

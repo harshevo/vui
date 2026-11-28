@@ -210,6 +210,8 @@ pub struct Base<M> {
     pub(crate) disappear: bool,
     /// Slides in across this side when it shows up and out across it when it leaves, bent by its motion.
     pub(crate) elastic: Option<vui_core::Edge>,
+    /// Its height springs to its content's when that changes.
+    pub(crate) ease_height: bool,
 }
 
 impl<M> Default for Base<M> {
@@ -225,6 +227,7 @@ impl<M> Default for Base<M> {
             appear: false,
             disappear: false,
             elastic: None,
+            ease_height: false,
         }
     }
 }
@@ -294,8 +297,8 @@ impl<M: 'static> Element<M> {
 
     fn map_rc<N: 'static>(self, f: &Rc<dyn Fn(M) -> N>) -> Element<N> {
         let Element { base, widget, children, lazy } = self;
-        let Base { style, rules, decor, input, a11y, key, transition, appear, disappear, elastic } = base;
-        let base = Base { style, rules, decor, input: input.map(f), a11y, key, transition, appear, disappear, elastic };
+        let Base { style, rules, decor, input, a11y, key, transition, appear, disappear, elastic, ease_height } = base;
+        let base = Base { style, rules, decor, input: input.map(f), a11y, key, transition, appear, disappear, elastic, ease_height };
         let widget: Box<dyn Erased<N>> = Box::new(Mapped { inner: widget, f: f.clone() });
         let lazy = lazy.map(|l| l.map(f));
         Element { base, widget, children: children.into_iter().map(|c| c.map_rc(f)).collect(), lazy }

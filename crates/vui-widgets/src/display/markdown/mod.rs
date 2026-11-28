@@ -2,6 +2,7 @@
 //! quotes, code blocks, rules, tables and pictures. Written for what models write; the parser is
 //! small and forgiving, and anything it does not understand shows as plain text, never as markup.
 
+use std::cell::Cell;
 use std::rc::Rc;
 
 use vui_core::{CursorIcon, Event, Fill, FontFamily, ImageId, PointerButton, Size, Span, TextRole, TextStyle, Theme, Tone, size};
@@ -15,7 +16,7 @@ mod parse;
 mod render;
 mod rich_text;
 
-pub use parse::{Block, Inline, inlines, parse, plain, strip};
+pub use parse::{Block, Inline, inlines, parse, parse_streaming, plain, plain_streaming, strip};
 pub use render::{Markdown, markdown};
 pub use rich_text::{RichText, RichTextState, RichTextWidget, rich_text};
 use parse::*;

@@ -14,6 +14,28 @@ pub struct RichTextWidget<M> {
     pub(crate) on_link: Option<LinkHandler<M>>,
     /// The text types itself in when it first shows up, and keeps pace as more is added.
     pub(crate) reveal: bool,
+    /// The document it is part of, if any (see [`next_document`]), and how many bytes of text that
+    /// types in come after it there.
+    pub(crate) doc: u64,
+    pub(crate) after: usize,
+}
+
+thread_local! {
+    /// Documents handed out so far.
+    static DOCUMENTS: Cell<u64> = const { Cell::new(0) };
+    /// The document with a paragraph typing this frame, the frame (its time), and that paragraph.
+    static TYPING: Cell<(u64, u32, usize)> = const { Cell::new((0, 0, 0)) };
+}
+
+/// A new document for paragraphs that type in one at a time: of all its paragraphs still typing,
+/// only the first does, so text that arrives in a burst types in reading order rather than in
+/// several places at once. Each build of a document takes a new one; all that matters is that its
+/// paragraphs share it.
+pub(crate) fn next_document() -> u64 {
+    DOCUMENTS.with(|d| {
+        d.set(d.get() + 1);
+        d.get()
+    })
 }
 
 /// Bytes a second the text types in at, however little is left.
@@ -152,6 +174,12 @@ impl<M: 'static> Widget<M> for RichTextWidget<M> {
         let layout = fonts.layout_rich_cached(&spans, &style, width);
         state.baseline = Some(layout.baseline());
         let mut h = layout.size().h;
+        if state.revealing(self.len()) && state.shown <= 0.0 {
+            // Waiting its turn to type in, it takes no room until it starts.
+            state.width = width.or(state.width);
+            state.line = 0;
+            return size(known.x.unwrap_or(layout.size().w), 0.0);
+        }
         if let (Some(w), true) = (width, state.revealing(self.len())) {
             // While it types in, the text is only as tall as the lines typed so far, so it grows a
             // line at a time as the reveal reaches each one.
@@ -194,11 +222,29 @@ impl<M: 'static> Widget<M> for RichTextWidget<M> {
             cx.request_layout();
             return false;
         }
-        // The pace follows what is waiting, eased so a burst speeds it up smoothly rather than at once.
-        let want = ((len - state.shown) / REVEAL_LAG).max(REVEAL_MIN_RATE);
+        // One paragraph of a document types at a time: the first still typing that ticks this frame.
+        if self.doc != 0 {
+            let me = state as *const RichTextState as usize;
+            let frame = cx.time.to_bits();
+            let (doc, time, who) = TYPING.with(Cell::get);
+            if doc == self.doc && time == frame && who != me {
+                return true;
+            }
+            TYPING.with(|t| t.set((self.doc, frame, me)));
+        }
+        // The pace follows what is waiting, here and in the document after it, eased so a burst
+        // speeds it up smoothly rather than at once; a paragraph taking over starts at that pace.
+        let want = ((len - state.shown + self.after as f32) / REVEAL_LAG).max(REVEAL_MIN_RATE);
+        let starting = state.shown <= 0.0;
+        if state.rate <= 0.0 {
+            state.rate = want;
+        }
         state.rate += (want - state.rate) * (dt * 10.0).min(1.0);
         state.shown = (state.shown + state.rate.max(REVEAL_MIN_RATE) * dt).min(len);
         cx.request_paint();
+        if starting {
+            cx.request_layout();
+        }
         // Reaching a new line makes the text a line taller.
         let line = match state.width {
             Some(w) => {
@@ -359,7 +405,7 @@ pub fn rich_text<M: 'static>(text: &str) -> RichText<M> {
 }
 
 pub(crate) fn rich_inlines<M: 'static>(inlines: Vec<Inline>) -> RichText<M> {
-    RichText { base: Base::new(), widget: RichTextWidget { inlines, role: TextRole::Body, weight: None, mono: false, color: Tone::Text.into(), on_link: None, reveal: false } }
+    RichText { base: Base::new(), widget: RichTextWidget { inlines, role: TextRole::Body, weight: None, mono: false, color: Tone::Text.into(), on_link: None, reveal: false, doc: 0, after: 0 } }
 }
 
 builder!(RichText<M> => RichTextWidget<M>);

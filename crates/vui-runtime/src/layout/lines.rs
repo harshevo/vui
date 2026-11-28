@@ -4,7 +4,7 @@
 use super::*;
 
 /// Splits items into lines. Without wrapping, or with room for everything, that is one line.
-pub(crate) fn break_lines(items: &[Item], wrap: bool, room: f32, gap: f32) -> Vec<Range<usize>> {
+pub(crate) fn break_lines(items: &[Item], wrap: bool, room: f32) -> Vec<Range<usize>> {
     if items.is_empty() {
         return Vec::new();
     }
@@ -18,12 +18,12 @@ pub(crate) fn break_lines(items: &[Item], wrap: bool, room: f32, gap: f32) -> Ve
         let outer = it.hyp + it.m_main;
         if i == start {
             used = outer;
-        } else if used + gap + outer > room + 0.01 {
+        } else if used + it.lead + outer > room + 0.01 {
             lines.push(start..i);
             start = i;
             used = outer;
         } else {
-            used += gap + outer;
+            used += it.lead + outer;
         }
     }
     lines.push(start..items.len());
@@ -32,8 +32,8 @@ pub(crate) fn break_lines(items: &[Item], wrap: bool, room: f32, gap: f32) -> Ve
 
 /// Shares the free space of one line out by the items' grow or shrink factors, following the
 /// flexbox algorithm: items that hit a limit are frozen at it and the rest share what remains.
-pub(crate) fn resolve_line(line: &mut [Item], available: f32, gap: f32) {
-    let gaps = gap * line.len().saturating_sub(1) as f32;
+pub(crate) fn resolve_line(line: &mut [Item], available: f32) {
+    let gaps = gaps(line);
     let hypothetical: f32 = line.iter().map(|i| i.hyp + i.m_main).sum::<f32>() + gaps;
     let growing = available - hypothetical > 0.0;
     let factor = |i: &Item| if growing { i.grow } else { i.shrink };
@@ -83,9 +83,9 @@ pub(crate) fn resolve_line(line: &mut [Item], available: f32, gap: f32) {
 
 /// Positions a line's items along the main axis: auto margins soak up the free space first, then
 /// `justify` spreads what is left.
-pub(crate) fn position_line(line: &mut [Item], room: f32, gap: f32, justify: Justify, main: Axis) {
+pub(crate) fn position_line(line: &mut [Item], room: f32, justify: Justify, main: Axis) {
     let n = line.len();
-    let used: f32 = line.iter().map(|i| i.target + i.m_main).sum::<f32>() + gap * n.saturating_sub(1) as f32;
+    let used: f32 = line.iter().map(|i| i.target + i.m_main).sum::<f32>() + gaps(line);
     let free = (room - used).max(0.0);
     let autos: usize = line.iter().map(|i| usize::from(i.auto.start(main)) + usize::from(i.auto.end(main))).sum();
     let per_auto = if autos > 0 { free / autos as f32 } else { 0.0 };
@@ -102,11 +102,18 @@ pub(crate) fn position_line(line: &mut [Item], room: f32, gap: f32, justify: Jus
             Justify::SpaceEvenly => (free / (n + 1) as f32, free / (n + 1) as f32),
         }
     };
-    for it in line.iter_mut() {
+    for (k, it) in line.iter_mut().enumerate() {
+        if k > 0 {
+            cursor += it.lead + between;
+        }
         cursor += if it.auto.start(main) { per_auto } else { it.margin.start(main) };
         it.main_pos = cursor;
         cursor += it.target;
         cursor += if it.auto.end(main) { per_auto } else { it.margin.end(main) };
-        cursor += gap + between;
     }
+}
+
+/// The gaps inside a line: before each of its items but the first.
+fn gaps(line: &[Item]) -> f32 {
+    line.iter().skip(1).map(|i| i.lead).sum()
 }

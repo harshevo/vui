@@ -105,6 +105,10 @@ vui animates with springs, so motion is interruptible and never ends abruptly.
 - **`.elastic(edge)`** hangs a keyed element on one side, as a panel on a side of the window: it
   slides in across that side on `Spring::ELASTIC`, a little past its place and back, and when the
   view drops it slides out on `Spring::ELASTIC_AWAY` and goes. It bends with its motion (below).
+- **`.ease_height()`** springs an element's height to its content's whenever that changes, clipping
+  what doesn't fit on the way: a fold that opens and closes, a group that shrinks to its summary.
+  A height reached by reflowing to a new width is taken at once. Put it on the box that changes,
+  not on the boxes around it too.
 - **`.animate(keyframes)`** runs keyframes over opacity, scale, rotation and translation: a
   pulsing dot, a swaying bell. Use `Repeat::Forever` for as long as it shows, and `.alternate()`
   to sway back and forth.

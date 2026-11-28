@@ -50,7 +50,8 @@ A text label that should shrink and wrap (or truncate with `.max_lines(1)`) insi
 
 - **Spacing.** `.padding(16.0)`, `.padding_x`, `.padding_y` and each side on its own; the same
   for `.margin…`. `.gap(8.0)` spaces children evenly. Use the 4/8-point scale: 4, 8, 12, 16, 20,
-  24, 32.
+  24, 32. With `.collapse_empty()`, children that take no room take no gap either, so a column
+  whose items grow in from nothing opens each gap as its item starts.
 - **Cross-axis alignment.** `.align_items(Align::Center)` places children on the cross axis: `Start`,
   `Center`, `End`, `Stretch` (the default) or `Baseline` (rows of text).
 - **Main-axis alignment.** `.justify(Justify::SpaceBetween)` distributes them on the main axis.
